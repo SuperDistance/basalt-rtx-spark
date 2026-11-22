@@ -1,5 +1,6 @@
 // src/core/expert_source.cpp - the adapter.  See the header for the three clauses of the contract.
 #include "basalt/core/expert_source.hpp"
+#include "basalt/core/diag.hpp"
 #include "basalt/core/load_progress.hpp"
 #include "basalt/core/peer_experts.hpp"
 #include "basalt/kernels/cpu/expert_layout.hpp"
@@ -596,6 +597,22 @@ bool FileExpertSource::plan_cache_complement(
                      (double) budget_bytes / 1073741824.0, (double) bytes / 1073741824.0);
         lend_cap = lend_room;
     } else if (budget_bytes > 0) {
+        // A partial copy can use its whole budget on resident experts and leave no place
+        // for an eviction. Reserve reusable swap slots before ranking the experts.
+        uint64_t rank_budget = budget_bytes;
+        if (spare_bytes > 0 && exp_flag("n1x_partial_spares") > 0.0) {
+            const uint64_t spare_room = budget_bytes / 4;
+            if (spare_bytes > spare_room) {
+                const double share = (double) spare_room / (double) spare_bytes;
+                spare_bytes = 0;
+                for (auto& [blob, count] : spare_sizes) {
+                    count = std::min((int64_t) (count * share), (int64_t) ((spare_room - spare_bytes) / blob));
+                    spare_bytes += (uint64_t) count * blob;
+                }
+                std::erase_if(spare_sizes, [](const auto& group) { return group.second == 0; });
+            }
+            rank_budget -= spare_bytes;
+        }
         std::vector<uint64_t> ranked(offsets.size(), kNoComplement);
         uint64_t at = 0;
         int64_t held = 0;
@@ -605,7 +622,7 @@ bool FileExpertSource::plan_cache_complement(
                 const size_t i = (size_t) pr.first * (size_t) n_expert_ + (size_t) pr.second;
                 if (offsets[i] == kNoComplement || ranked[i] != kNoComplement) continue;   // on a GPU, or twice
                 const uint64_t b = layer_blob_bytes_[(size_t) pr.first];
-                if (b > budget_bytes - at) continue;
+                if (b > rank_budget - at) continue;
                 ranked[i] = at;
                 at += b;
                 ++held;
