@@ -1,5 +1,6 @@
 #include "basalt/models/qwen4exp/shared_names.hpp"
 #include "context.hpp"
+#include "basalt/core/device_memory.hpp"
 #include "basalt/program/expert_spill.hpp"
 
 namespace basalt::models::qwen4exp::generate {
@@ -104,6 +105,9 @@ int dispatch(Context& context) {
         tier_spill = {n_file, g.n_layers * g.n_expert, b_file};
         const double total = (double) (b_vram + b_peer + b_ram + b_top + b_file);
         if (total <= 0.0) return;
+        if (o.serve && !multi_gpu && !peer.valid() && xpeers.empty() && basalt::core::device_memory_model().integrated)
+            std::printf("INFO uma_experts_gpu_bytes=%llu uma_experts_ram_bytes=%llu uma_experts_file_bytes=%llu\n",
+                        (unsigned long long) b_vram, (unsigned long long) (b_ram + b_top), (unsigned long long) b_file);
         basalt::core::draft_cum_cpu_mb() = (float) ((double) (b_ram + b_top) / (double) (g.n_layers * g.n_expert) / 1e6);
         constexpr double kGiB = 1073741824.0;
         auto pct = [&](uint64_t b) { return 100.0 * (double) b / total; };

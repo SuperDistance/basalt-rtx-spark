@@ -118,6 +118,16 @@ class Http(unittest.TestCase):
         self.assertIn("eng.expert_slots >= eng.expert_total", js)
         self.assertIn("All in VRAM", js)
 
+    def test_the_experts_card_receives_unified_memory_placement_at_load(self):
+        placement = {"uma_experts_gpu_bytes": 23 << 30, "uma_experts_ram_bytes": 22 << 30,
+                     "uma_experts_file_bytes": 0}
+        self.engine.info = placement
+        engine = self.call("/metrics")[1]["engine"]
+        js = (TEMPLATE.parent / "web/app.js").read_text(encoding="utf-8")
+        for key, value in placement.items():
+            self.assertEqual(engine[key], value)
+            self.assertIn(f"eng.{key}", js)
+
     def test_the_context_stays_through_a_restart(self):
         self.engine.max_context, self.engine.known_ctx = 0, 16384    # a start under way: no READY yet
         self.assertEqual(self.call("/metrics")[1]["engine"]["max_context"], 16384)

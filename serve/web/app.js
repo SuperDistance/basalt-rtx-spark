@@ -182,8 +182,11 @@ function drawSide(hw, st, hist, eng, r) {
   $(".sb-exp").classList.toggle("spill", !!spill);
   text($("#exp-note"), spill ? "SSD in use" : resident ? "All in VRAM" : "Last request");
   const gb = spill ? `${(spill.bytes / 1024 ** 3).toFixed(1)} GiB` : "";
+  const placement = [eng.uma_experts_gpu_bytes, eng.uma_experts_ram_bytes, eng.uma_experts_file_bytes];
+  const backing = ["GPU cache", "RAM", "file-backed"];
   html($("#experts"), `<div class="sb-stack" aria-hidden="true">${tiers.map(t => `<i style="width:${((t[2] || 0) * 100).toFixed(1)}%;background:${t[1]}"></i>`).join("")}</div>`
     + `<div class="sb-leg${spill ? " q" : ""}">${tiers.map(t => `<div style="--c:${t[1]}"><span>${t[0]}</span><b>${t[2] == null ? "-" : `${(t[2] * 100).toFixed(1)}%`}</b></div>`).join("")}</div>`
+    + (placement.every(num) ? `<div class="sb-note">At load ${placement.map((bytes, i) => `<span>${gib(bytes)} GiB ${backing[i]}</span>`).join(" · ")}</div>` : "")
     + (spill ? `<div class="sb-note"><span><b>${spill.experts} experts on SSD (${gb})</b> ·</span> <span>free ${gb} RAM</span></div>` : ""));
 }
 
