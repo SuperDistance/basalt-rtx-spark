@@ -548,13 +548,18 @@ bool FileExpertSource::plan_cache_complement(
             return false;
         }
         budget_physical = physical;
-        const uint64_t room = ram_tier_room(physical, headroom_bytes, pin);
+        const uint64_t ram_room = ram_tier_room(physical, headroom_bytes, pin);
+        // The soft fallback ranks experts before trying to allocate them. Apply the commit bound at
+        // this step so the later safety check can still accept the portion that fits.
+        const uint64_t room = what_fits ? std::min(ram_room, commit_room(plan_reserve(platform::ram_reserve()))) : ram_room;
+        if (what_fits && room == 0) {
+            err = "FileExpertSource: the RAM and commit budgets leave no room for the resident complement";
+            return false;
+        }
         if (budget_bytes > room) {
             if (what_fits)
-                basalt::log::info("basalt", "FileExpertSource: RAM room for the complement: %.2f GiB (%.2f GiB available "
-                                     "minus %.0f GiB reserve and the page tracking)",
-                             (double) room / 1073741824.0, (double) physical / 1073741824.0,
-                             (double) headroom_bytes / 1073741824.0);
+                basalt::log::info("basalt", "FileExpertSource: %.2f GiB for the complement within RAM and commit budgets",
+                                  (double) room / 1073741824.0);
             else
                 basalt::log::warn("basalt", "FileExpertSource: --resident-budget-gib %.2f is more than the RAM has room for "
                                      "(%.2f GiB available minus %.0f GiB reserve and the page tracking): %.2f GiB",
