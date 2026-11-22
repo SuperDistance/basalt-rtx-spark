@@ -75,7 +75,8 @@ bool QfnRuntime::move_routed_below(int64_t first, const char* why, std::string& 
     for (int64_t l = 0; l < g.n_layers; ++l) {
         const float* u = drive.d.usage.data() + (size_t) (l * g.n_expert);
         int32_t* r = host_res.data() + (size_t) (l * g.n_expert);
-        for (int64_t ex = 0; ex < g.n_expert; ++ex) in_ram[(size_t) ex] = src.has_resident(l, ex) ? 1 : 0;
+        for (int64_t ex = 0; ex < g.n_expert; ++ex)
+            in_ram[(size_t) ex] = src.has_resident(l, ex) || src.file_resident(l, ex);
         trades.clear();
         routed += serve_loans::plan_routed_trades(u, r, in_ram.data(),
                                                   out_of.empty() ? nullptr : out_of.data() + (size_t) (l * g.n_expert),
@@ -140,7 +141,8 @@ bool QfnRuntime::cache_regrow(std::string& e) {
     const int64_t live = xcache.slots();
     auto usable = [&](int64_t j) {
         const int64_t l = j / g.n_expert, ex = j % g.n_expert;
-        return host_res[(size_t) j] < 0 && (!src.complement_ready() || src.has_resident(l, ex)) &&
+        return host_res[(size_t) j] < 0 &&
+               (!src.complement_ready() || src.has_resident(l, ex) || src.file_resident(l, ex)) &&
                !(peer.valid() && peer.has(l, ex));
     };
     std::vector<std::pair<int32_t, int32_t>> keep_out;

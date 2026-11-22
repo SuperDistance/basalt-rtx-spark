@@ -1629,6 +1629,21 @@ uint64_t FileExpertSource::pin_file_experts(const std::vector<std::pair<int32_t,
     }
     if (registered > 0) {
         std::sort(file_pins_.begin(), file_pins_.end(), [](const FilePin& a, const FilePin& b) { return a.begin < b.begin; });
+        file_aliases_.resize((size_t) n_layers_ * (size_t) n_expert_);
+        for (int64_t layer = 0; layer < n_layers_; ++layer) {
+            const uint64_t bytes = layer_blob_bytes_[(size_t) layer];
+            for (int64_t expert = 0; expert < n_expert_; ++expert) {
+                const uint8_t* blob = mapped_blob(layer, expert);
+                if (blob == nullptr) continue;
+                const uint64_t off = (uint64_t) (blob - base_);
+                const auto at = std::upper_bound(file_pins_.begin(), file_pins_.end(), off,
+                    [](uint64_t value, const FilePin& pin) { return value < pin.begin; });
+                if (at == file_pins_.begin()) continue;
+                const FilePin& pin = *(at - 1);
+                if (off + bytes <= pin.end)
+                    file_aliases_[(size_t) layer * (size_t) n_expert_ + (size_t) expert] = pin.device + (off - pin.begin);
+            }
+        }
         file_pin_view_ = std::move(*gpu_view);
         ++places_gen_;
         basalt::log::info("basalt", "read-only expert pages registered in %zu ranges", file_pins_.size());
@@ -1642,20 +1657,14 @@ void FileExpertSource::drop_file_pins() {
         (void) cudaHostUnregister(const_cast<uint8_t*>(file_pin_view_.data() + pin.begin));
     (void) cudaGetLastError();
     file_pins_.clear();
+    file_aliases_.clear();
     file_pin_view_ = {};
     ++places_gen_;
 }
 
 const uint8_t* FileExpertSource::file_device_alias(int64_t layer, int64_t expert) const {
-    if (file_pins_.empty()) return nullptr;
-    const uint8_t* blob = mapped_blob(layer, expert);
-    if (blob == nullptr) return nullptr;
-    const uint64_t off = (uint64_t) (blob - base_);
-    const auto at = std::upper_bound(file_pins_.begin(), file_pins_.end(), off,
-                                      [](uint64_t value, const FilePin& pin) { return value < pin.begin; });
-    if (at == file_pins_.begin()) return nullptr;
-    const FilePin& pin = *(at - 1);
-    return off + layer_blob_bytes_[(size_t) layer] <= pin.end ? pin.device + (off - pin.begin) : nullptr;
+    if (file_aliases_.empty() || layer < 0 || expert < 0 || layer >= n_layers_ || expert >= n_expert_) return nullptr;
+    return file_aliases_[(size_t) layer * (size_t) n_expert_ + (size_t) expert];
 }
 
 const uint8_t* FileExpertSource::device_alias(int64_t layer, int64_t expert) const {
