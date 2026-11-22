@@ -800,7 +800,9 @@ __global__ void mtp_draft_cond_kernel(CondHandles hs, int n, const float* __rest
     float c = 1.0f;
     for (int i = 0; i < j; ++i) c = c * basalt::core::draft_cum_acc(((const volatile float*) hist)[i]);
     c = c * basalt::core::draft_cum_acc(p);
-    const bool keep = c >= __int_as_float(*th_bits);
+    // the word before the threshold caps the drafts (0: no cap), as draft_rows's host loop does
+    const int cap = th_bits[-1];
+    const bool keep = c >= __int_as_float(*th_bits) && (cap <= 0 || j + 1 < cap);
     cudaGraphSetConditional((cudaGraphConditionalHandle) hs.h[0], keep ? 1u : 0u);
     for (int k = 1; k < n; ++k) cudaGraphSetConditional((cudaGraphConditionalHandle) hs.h[k], 0u);
 }
@@ -878,7 +880,8 @@ __global__ void mtp_step_end_kernel(const int32_t* __restrict__ ids, const int32
     float c = 1.0f;
     for (int i = 0; i < j; ++i) c = c * basalt::core::draft_cum_acc(((const volatile float*) hist)[i]);
     c = c * basalt::core::draft_cum_acc(p);
-    const bool keep = c >= __int_as_float(*th_bits);
+    const int cap = th_bits[-1];   // the draft cap beside the threshold (0: none)
+    const bool keep = c >= __int_as_float(*th_bits) && (cap <= 0 || j + 1 < cap);
     cudaGraphSetConditional((cudaGraphConditionalHandle) hs.h[0], keep ? 1u : 0u);
     for (int k = 1; k < n; ++k) cudaGraphSetConditional((cudaGraphConditionalHandle) hs.h[k], 0u);
 #endif

@@ -64,7 +64,7 @@ bool MtpDrafter::draft_rows(int T, const int32_t* tokens, int64_t p, int a, int3
     for (int j = 0; j < max_steps; ++j) ((volatile int32_t*) h_out_)[j] = -1;
     h_row_[0] = a;
     h_row_[1] = 0;
-    // slot 2 is reserved: the row layout is fixed by the graphs that copy it
+    h_row_[2] = step_cap_;   // the conditional graph's draft cap (0: none), read beside the threshold
     const float cum_th = cum_th_ >= 0.0f ? cum_th_ : draft_cum_base();
     std::memcpy(&h_row_[3], &cum_th, sizeof(float));   // the window's threshold, read by the conditional graph
     std::atomic_thread_fence(std::memory_order_seq_cst);
@@ -116,7 +116,8 @@ bool MtpDrafter::draft_rows(int T, const int32_t* tokens, int64_t p, int a, int3
         n = 1;
         const float host_th = host_th_ >= 0.0f ? host_th_ : cum_th;
         chain_steps_ = max_steps;
-        for (int j = 1; j < max_steps && draft_keep(pr, j - 1, host_th); ++j) {
+        const int cap = step_cap_ > 0 ? std::min(max_steps, step_cap_) : max_steps;
+        for (int j = 1; j < cap && draft_keep(pr, j - 1, host_th); ++j) {
             if (!cond) {   // the conditional graph runs step j on the device by the same comparison
                 if (cudaGraphLaunch(step_exec_[tier_][j], cs_) != cudaSuccess) {
                     err = std::string("mtp draft step: ") + cudaGetErrorString(cudaGetLastError());

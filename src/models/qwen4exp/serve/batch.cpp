@@ -383,6 +383,9 @@ bool QfnRuntime::batch_step() {
         const float* Rw = mtp.keep_rows(ver.final_R_all(), R, err);
         if (Rw == nullptr) { std::printf("ERR %s\n", err.c_str()); return false; }
         const int64_t HCN = (int64_t) g.hc * g.n_embd;
+        // a slot gets about its share of the next window's rows: drafts past it cost the drafter's GPU time and
+        // are cut (at four slots of an 8-row budget, two drafts a slot); the verdicts stay exact
+        mtp.set_step_cap(nc > 1 ? (MB + nc - 1) / nc : 0);
         for (int ci = 0; ci < nc; ++ci) {
             const int sg = cont[ci];
             const int b = rows[sg];
@@ -409,6 +412,7 @@ bool QfnRuntime::batch_step() {
                 }
             }
         }
+        mtp.set_step_cap(0);
         mtp.set_ple_session(rsp);
         if (!mtp.idle(err)) { std::printf("ERR %s\n", err.c_str()); return false; }   // (the kept rows are copied)
         bt_draft += msd(w3, Clock::now());
