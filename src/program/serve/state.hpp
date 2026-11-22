@@ -109,6 +109,9 @@ public:
     virtual void probe_command(const std::string& line, std::string& e) = 0;
     virtual bool vram_command(const std::string& cmd, std::string& e, bool for_sleep, std::string* reply = nullptr) = 0;
     virtual void sleep_command(bool down, std::string& e) = 0;
+    virtual uint64_t parkable_weight_bytes() const { return 0; }
+    virtual basalt::model::Result park_weights(bool) { return {basalt::model::Status::NotImplemented, "weights cannot be parked"}; }
+    bool weights_parked = false;
     virtual void between_requests(const std::string& line) = 0;
     virtual Flow run_request() = 0;
     virtual void solo_draft_back(bool) {}

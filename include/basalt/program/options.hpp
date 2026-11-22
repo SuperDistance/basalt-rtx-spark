@@ -18,6 +18,7 @@ inline constexpr int64_t kDefaultContext = 8192;
 /// The flags every model takes.
 struct CommonOptions {
     virtual ~CommonOptions() = default;
+    bool park_weights = false;
     std::string model;                ///< --model: the .basalt file every loader reads from
     std::vector<int64_t> tokens;      // the prompt, PRE-TOKENIZED
     int64_t max_new = 16;

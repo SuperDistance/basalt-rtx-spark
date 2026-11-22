@@ -82,6 +82,7 @@ struct LoadRequest {
     int64_t max_context = 0;          ///< --max-context, or the default every model shares
     int sessions = 1;                 ///< sessions the model will be asked for (--batch)
     bool vision = false;              ///< --vision: requests may carry images (each slot keeps buffers for one)
+    bool park_weights = false;        ///< allow an idle model to move its device weights to system memory
     std::string expert_profile;       ///< the routing order of the experts (empty: the file's own order)
     int expert_cache = 0;             ///< VRAM expert slots over all layers (0 or -1: from the free memory)
     uint64_t resident_budget = 0;     ///< bytes the RAM tier may take (0: from the free memory)
@@ -254,6 +255,8 @@ public:
     virtual const ModelDesc& desc() const = 0;
     /// The context the loaded model runs with, when it sizes that itself (0: the caller's --max-context stands).
     virtual int64_t context() const { return 0; }
+    virtual uint64_t parkable_weight_bytes() const { return 0; }
+    virtual Result park_weights(bool) { return {Status::NotImplemented, "this model cannot park its weights"}; }
     /// Everything the model will hold is decided and allocated, in the order its sizing depends on (its weights, then what
     /// is sized from the memory left: caches, tiers, prompt stages), and every byte it reads is queued in `reads`; no byte
     /// is placed.  The model makes its req.sessions sessions here, into `sessions`, when what it sizes from the memory left

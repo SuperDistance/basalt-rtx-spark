@@ -8,11 +8,14 @@
 #include "basalt/core/loader.hpp"
 #include "basalt/core/prompt_stage.hpp"
 #include "basalt/core/model_file.hpp"
+#include "basalt/core/ram_load.hpp"
+#include "basalt/core/vmm.hpp"
 #include "basalt/model/flags.hpp"
 #include "basalt/model/rope_flags.hpp"
 #include "basalt/program/options.hpp"
 #include "basalt/log.hpp"
 #include "basalt/platform/file.hpp"
+#include "basalt/platform/memory.hpp"
 #include "basalt/program/qwen_forms.hpp"
 #include "models/qwen35/meta.hpp"
 
@@ -21,6 +24,7 @@
 #include <algorithm>
 #include <cstdlib>
 #include <map>
+#include <new>
 #include <optional>
 
 namespace basalt::models::qwen35 {
@@ -124,14 +128,100 @@ dense::SplitPlan plan_pack(const GgufFile& gg, const dense::Geometry& g, const d
 }
 
 class Loaded final : public model::LoadedModel {
+    struct Piece {
+        uint64_t size = 0;
+        unsigned long long handle = 0;
+        std::unique_ptr<uint8_t[]> snapshot;
+    };
+
+    struct Block {
+        uint8_t* base = nullptr;
+        uint64_t size = 0, used = 0, reserved = 0;
+        std::vector<Piece> pieces;
+
+        bool allocate_movable(uint64_t bytes) {
+            constexpr uint64_t chunk = 1ull << 30;
+            const uint64_t alignment = core::vmm::granularity();
+            if (alignment == 0 || chunk % alignment != 0) return false;
+            const uint64_t padded = (bytes + alignment - 1) / alignment * alignment;
+            pieces.reserve((size_t) ((padded + chunk - 1) / chunk));
+            base = core::vmm::reserve(padded);
+            if (base == nullptr) return false;
+            reserved = padded;
+            for (uint64_t off = 0; off < padded;) {
+                const uint64_t size = std::min(chunk, padded - off);
+                const auto handle = core::vmm::map(base + off, size);
+                if (handle == 0) { release(); return false; }
+                pieces.push_back({size, handle, nullptr});
+                off += size;
+            }
+            return true;
+        }
+
+        void release() {
+            if (reserved > 0) {
+                uint64_t off = 0;
+                for (const Piece& piece : pieces) {
+                    if (piece.handle != 0) (void) core::vmm::unmap(base + off, piece.size, piece.handle);
+                    off += piece.size;
+                }
+                core::vmm::release_range(base, reserved);
+                pieces.clear();
+                reserved = 0;
+            } else if (base != nullptr) {
+                (void) cudaFree(base);
+            }
+            base = nullptr;
+        }
+    };
+
 public:
     ~Loaded() override {
         model_.reset();
-        for (auto& [dev, b] : blocks_) cudaFree(b.base);
+        for (auto& [dev, b] : blocks_) {
+            const core::OnDevice on(dev);
+            b.release();
+        }
         if (embd_) cudaFreeHost(embd_);
     }
 
     const model::ModelDesc& desc() const override { return desc_; }
+
+    uint64_t parkable_weight_bytes() const override {
+        return blocks_.size() == 1 ? blocks_.begin()->second.reserved : 0;
+    }
+
+    model::Result park_weights(bool down) override {
+        using model::Status;
+        if (parkable_weight_bytes() == 0) return {Status::NotImplemented, "the weights cannot be moved"};
+        auto& [dev, block] = *blocks_.begin();
+        const core::OnDevice on(dev);
+        if (const auto e = cudaDeviceSynchronize(); e != cudaSuccess) return {Status::Error, cudaGetErrorString(e)};
+        constexpr uint64_t margin = 8ull << 30;
+        uint64_t off = 0;
+        for (Piece& piece : block.pieces) {
+            auto* address = block.base + off;
+            off += piece.size;
+            if (down) {
+                if (basalt::platform::available_memory() < margin + piece.size || core::commit_room(margin) < piece.size)
+                    return {Status::Error, "RAM or commit budget is too low to move the next weight block"};
+                piece.snapshot.reset(new (std::nothrow) uint8_t[(size_t) piece.size]);
+                if (!piece.snapshot) return {Status::Error, "could not reserve system RAM for the weights"};
+                const auto e = cudaMemcpy(piece.snapshot.get(), address, (size_t) piece.size, cudaMemcpyDeviceToHost);
+                if (e != cudaSuccess) return {Status::Error, cudaGetErrorString(e)};
+                const bool detached = core::vmm::unmap(address, piece.size, piece.handle);
+                piece.handle = 0;
+                if (!detached) return {Status::Error, "could not release the device backing for the weights"};
+            } else {
+                piece.handle = core::vmm::map(address, piece.size);
+                if (piece.handle == 0) return {Status::Error, "could not restore device backing for the weights"};
+                const auto e = cudaMemcpy(address, piece.snapshot.get(), (size_t) piece.size, cudaMemcpyHostToDevice);
+                if (e != cudaSuccess) return {Status::Error, cudaGetErrorString(e)};
+                piece.snapshot.reset();
+            }
+        }
+        return {};
+    }
 
     // The weights and the model are planned, the sessions made in attach(): the prompt split times its cards on the landed
     // weights before them, as it is measured.
@@ -191,7 +281,8 @@ private:
         stage_file_ = stage_plan_.file(path);
         {   // each card's weights in one block: the main card's, and a split's later layers on the second card
             const int end = split_at_ > 0 ? split_at_ : g.n_layers;
-            if (!reserve_block(gg, o, 0, end, err)) return false;
+            const bool movable = req.park_weights && req.peer_devices.empty() && core::vmm::supported();
+            if (!reserve_block(gg, o, 0, end, err, movable)) return false;
             if (split_at_ > 0) {
                 const core::OnDevice on(req.peer_devices.front());
                 if (!reserve_block(gg, o, split_at_, g.n_layers, err)) return false;
@@ -489,14 +580,16 @@ private:
     }
 
     // One allocation on the current device for the tensors the load places there (on_card's), carved by take().
-    bool reserve_block(const GgufFile& gg, const dense::Options& o, int lo, int hi, std::string& err) {
+    bool reserve_block(const GgufFile& gg, const dense::Options& o, int lo, int hi, std::string& err, bool movable = false) {
         uint64_t bytes = 0;
         for (const TensorInfo& t : gg.tensors())
             if (on_card(t.name, o, lo, hi)) bytes += weight_bytes(t);
         int dev = 0;
         cudaGetDevice(&dev);
         Block& b = blocks_[dev];
-        if (cudaMalloc((void**) &b.base, bytes) != cudaSuccess) {
+        const bool mapped = movable && b.allocate_movable(bytes);
+        if (movable && !mapped) basalt::log::warn("basalt qwen35", "could not allocate movable weights; using ordinary device memory");
+        if (!mapped && cudaMalloc((void**) &b.base, bytes) != cudaSuccess) {
             (void) cudaGetLastError();
             blocks_.erase(dev);
             err = "qwen35: out of device memory for " + std::to_string((unsigned long long) (bytes >> 20)) + " MiB of weights on CUDA" +
@@ -597,10 +690,6 @@ private:
     model::ModelDesc desc_;
     dense::ModelPtr model_;
     std::map<std::string, TensorInfo> tensors_;
-    struct Block {
-        uint8_t* base = nullptr;
-        uint64_t size = 0, used = 0;
-    };
     std::map<int, Block> blocks_;        // per CUDA device: its weights, one allocation
     size_t n_tensors_ = 0;
     uint64_t dev_bytes_ = 0;

@@ -130,7 +130,11 @@ public:
                                               : std::string();
         std::printf("INFO logit_bias=%lld context=%lld spec=%d mtp_max=0 lookup=0%s engine=" BASALT_VERSION "\n",
                     (long long) n_vocab, (long long) o.max_context, o.spec, slots.c_str());
+        std::printf("INFO parkable_weight_bytes=%llu\n", (unsigned long long) parkable_weight_bytes());
     }
+
+    uint64_t parkable_weight_bytes() const override { return model_.parkable_weight_bytes(); }
+    basalt::model::Result park_weights(bool down) override { return model_.park_weights(down); }
     bool windows_in_flight() override { return false; }
     bool next_batch_window() override;
     void slot_window_begin(int b, SlotWin& w, int limit);

@@ -37,7 +37,9 @@ std::vector<ImgKey> Runtime::imgs_below(const std::vector<ImgKey>& all, int64_t 
 bool Runtime::batch_on() { for (const BSlot& b : bs) if (b.active) return true; return false; }
 
 Flow Runtime::dispatch() {
-    if (batch_on() || windows_in_flight()) {
+    if (weights_parked) {
+        if (!next_line(line) || line == "QUIT") return Flow::quit;
+    } else if (batch_on() || windows_in_flight()) {
         if (!try_next_line(line)) {
             const BusyClock busy(busy_s, busy_on, busy_from);
             if (!next_batch_window()) return Flow::error;
@@ -62,6 +64,34 @@ Flow Runtime::dispatch() {
             if (!parking) break;
         }
         if (!got && !next_line(line)) { basalt::log::info("basalt serve", "input pipe closed"); return Flow::quit; }
+    }
+    if (line == "PARK" || line == "UNPARK") {
+        const bool down = line == "PARK";
+        const uint64_t bytes = parkable_weight_bytes();
+        if (bytes == 0 || batch_on()) {
+            std::printf("ERR %s requires movable weights and an idle engine\n", line.c_str());
+            std::fflush(stdout);
+            return Flow::next;
+        }
+        if (down != weights_parked) {
+            const auto r = park_weights(down);
+            if (!r.ok()) {
+                std::printf("ERR %s\n", r.message.c_str());
+                std::fflush(stdout);
+                return Flow::error;  // part of the device range may already be unmapped
+            }
+            weights_parked = down;
+            basalt::platform::ram_guard_pause(down);
+            (void) basalt::platform::keep_awake(!down);
+        }
+        std::printf("VRAM parked_weights_bytes=%llu\n", down ? (unsigned long long) bytes : 0ull);
+        std::fflush(stdout);
+        return Flow::next;
+    }
+    if (weights_parked) {
+        std::printf("ERR the model is parked, send UNPARK first\n");
+        std::fflush(stdout);
+        return Flow::next;
     }
     // --batch: BSTOP <slot> ends that slot at its next batch window; BGEN <slot> <max_new> ... reads the
     // request's prompt and first token as a GEN 1, then continues it in that slot
