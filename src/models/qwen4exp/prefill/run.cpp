@@ -21,8 +21,10 @@ bool Prefill::run_impl(const int64_t* tokens, int64_t n, int64_t pos0, std::stri
 
 bool Prefill::Run::execute() {
     count_expert_groups = core::exp_flag("n1x_prefill_group_stats") != 0;
-    direct_ram_experts = core::exp_flag("n1x_prefill_direct") > 0 && core::device_memory_model().integrated &&
-                         owner.stage_lb_ == 0 && owner.next_ == nullptr && !m.ring_peer && !m.remote_res && !m.pp;
+    // an integrated GPU reads the experts pinned in RAM where they lie instead of staging copies of them (the same
+    // bytes through the same kernels; the N1X reads every prompt size faster this way)
+    direct_ram_experts = core::device_memory_model().integrated && owner.stage_lb_ == 0 && owner.next_ == nullptr &&
+                         !m.ring_peer && !m.remote_res && !m.pp;
     // The direct successor's future lives on the Prefill object. Intermediate
     // stages therefore do not drain the complete remaining GPU chain here.
     s.n_head = g.n_head; s.n_head_kv = g.n_head_kv; s.head_dim = g.head_dim; s.idx_n_head = g.idx_q_heads;
