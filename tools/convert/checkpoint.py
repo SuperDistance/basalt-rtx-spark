@@ -363,6 +363,8 @@ class CheckpointDense:
             qsrc, how = self._source(k, dt, shape)
             name = f"blk.{m.group(1)}.{rule[0]}" if m else rule[0]
             ty, transform = rule[1], rule[2]
+            if dt == "F32" and ty == "MAT":   # projections are quantized from BF16 or decoded codes only
+                raise S.ConvertError(f"{k} is F32; a projection is read from BF16, MXFP8, FP8 or NVFP4")
             if transform in ("conv", "gconv"):
                 if len(shape) != 3 or shape[1] != 1:
                     raise S.ConvertError(f"{k}: a conv weight of shape {shape}")
@@ -387,6 +389,8 @@ class CheckpointDense:
         """How a checkpoint tensor stores its values, and that in words: (qsrc or None, description)."""
         if dt == "BF16":
             return None, "bf16"
+        if dt == "F32":   # norms kept in FP32 (FP4-Local's hyper-connection and PLE norms), read as they are
+            return None, "f32"
         base = name[:-len(".weight")] if name.endswith(".weight") else name
         scale = base + ".weight_scale"
         if dt == "F8_E4M3":
@@ -731,9 +735,18 @@ def ple_table(ck: Checkpoint) -> list[pathlib.Path]:
     """The checkpoint files that hold the FP8 n-gram table: the one scale tensor, and the shards it scales (a release
     that consolidated its files may spread them over several)."""
     hits = sorted({ck.t[k][0] for k in ck.t
-                   if "ngram_embedding.shard_" in k or k.endswith("ngram_embedding.weight_scale")})
-    if not any(k.endswith("ngram_embedding.weight_scale") for k in ck.t):
+                   if "ngram_embedding.shard_" in k or k.endswith(("ngram_embedding.weight_scale",
+                                                                   "ngram_embedding.weight_scale_2"))})
+    if not any(k.endswith(("ngram_embedding.weight_scale", "ngram_embedding.weight_scale_2")) for k in ck.t):
         raise S.ConvertError(f"{ck.dir}: no ngram_embedding.weight_scale")
     if not hits:
         raise S.ConvertError(f"{ck.dir}: no ngram_embedding shards")
     return hits
+
+
+def ple_reader(ck: Checkpoint):
+    """The n-gram table's reader: NVFP4 shards (one FP32 weight_scale_2) or FP8 shards (one BF16 weight_scale)."""
+    paths = [str(p) for p in ple_table(ck)]
+    if any(k.endswith("ngram_embedding.weight_scale_2") for k in ck.t):
+        return S.PleNvfp4(paths)
+    return S.PleFp8(paths)

@@ -626,6 +626,88 @@ class PleFp8:
         yield from bounded_imap(pool, _ple_job, self.jobs(), depth)
 
 
+E2M1_VALUES = np.array([0, .5, 1, 1.5, 2, 3, 4, 6, -0., -.5, -1, -1.5, -2, -3, -4, -6], np.float32)
+
+
+def nvfp4_rows_to_q8_0(codes: np.ndarray, scales: np.ndarray, gscale: float) -> bytes:
+    """Rows of PLE_DIM NVFP4 values (codes [n, PLE_DIM/2]: value 2i in the low nibble of byte i; scales [n, PLE_DIM/16]
+    UE4M3; one FP32 table scale) -> Q8_0 rows."""
+    n = codes.shape[0]
+    v = np.empty((n, PLE_DIM), np.float32)
+    v[:, 0::2] = E2M1_VALUES[codes & 15]
+    v[:, 1::2] = E2M1_VALUES[codes >> 4]
+    s = fp8_e4m3_table()[scales] * np.float32(gscale)
+    x = v * np.repeat(s, 16, axis=1)
+    if not np.isfinite(x).all():
+        raise ConvertError("the NVFP4 table holds a non-finite value")
+    return q8_0(x.reshape(-1))
+
+
+def _ple_nvfp4_job(args):
+    cpath, coff, spath, soff, rows, gscale = args
+    codes = np.fromfile(cpath, dtype=np.uint8, count=rows * PLE_DIM // 2, offset=coff).reshape(rows, PLE_DIM // 2)
+    scales = np.fromfile(spath, dtype=np.uint8, count=rows * PLE_DIM // 16, offset=soff).reshape(rows, PLE_DIM // 16)
+    if (scales & 0x80).any() or (scales == 0x7F).any():
+        return "a PLE scale with the sign bit set or NaN"
+    return nvfp4_rows_to_q8_0(codes, scales, gscale)
+
+
+class PleNvfp4:
+    """The PLE n-gram table of a checkpoint that stores it as NVFP4 shards (nvidia/Qwen3.8-Flash-Next-FP4-Local:
+    `...ngram_embedding.shard_K.weight` U8 codes, `shard_K.weight_scale` E4M3 per 16 values, one FP32
+    `...ngram_embedding.weight_scale_2`), as Q8_0 rows like PleFp8: the values, re-blocked per 32."""
+
+    def __init__(self, paths, chunk_rows: int = 65536):
+        self.paths, self.chunk_rows = [pathlib.Path(p) for p in paths], chunk_rows
+        codes, scales, gscale = {}, {}, None
+        for path in self.paths:
+            head, base = read_safetensors_header(path)
+            for k, t in head.items():
+                if k == "__metadata__":
+                    continue
+                if k.endswith("ngram_embedding.weight_scale_2"):
+                    if gscale is not None or t["dtype"] != "F32" or t["shape"] not in ([], [1]):
+                        raise ConvertError(f"{path}: a second or malformed ngram_embedding.weight_scale_2")
+                    gscale = float(np.fromfile(path, dtype="<f4", count=1, offset=base + t["data_offsets"][0])[0])
+                    continue
+                m = re.search(r"ngram_embedding\.shard_(\d+)\.(weight|weight_scale)$", k)
+                if not m:
+                    continue
+                i, at = int(m.group(1)), (path, base + t["data_offsets"][0], t["shape"])
+                if m.group(2) == "weight":
+                    if t["dtype"] != "U8" or len(t["shape"]) != 2 or t["shape"][1] != PLE_DIM // 2:
+                        raise ConvertError(f"{path}: shard {i} is not NVFP4 rows of {PLE_DIM}")
+                    codes[i] = at
+                else:
+                    if t["dtype"] != "F8_E4M3" or len(t["shape"]) != 2 or t["shape"][1] != PLE_DIM // 16:
+                        raise ConvertError(f"{path}: shard {i}'s scales are not E4M3 per 16 values")
+                    scales[i] = at
+        if gscale is None or not (np.isfinite(gscale) and gscale > 0):
+            raise ConvertError("no finite positive ngram_embedding.weight_scale_2")
+        if not codes or set(codes) != set(scales) or set(codes) != set(range(max(codes) + 1)):
+            raise ConvertError("the NVFP4 PLE shards or their scales are incomplete")
+        for i in codes:
+            if codes[i][2][0] != scales[i][2][0]:
+                raise ConvertError(f"PLE shard {i}: codes and scales disagree on rows")
+        self.gscale = gscale
+        self.shards = [(codes[i], scales[i]) for i in range(max(codes) + 1)]
+        self.rows = sum(c[2][0] for c, _ in self.shards)
+        self.row_bytes = PLE_DIM // 32 * 34
+        self.nbytes = self.rows * self.row_bytes
+
+    def jobs(self):
+        for (cp, co, cshape), (sp, so, _) in self.shards:
+            for r in range(0, cshape[0], self.chunk_rows):
+                n = min(self.chunk_rows, cshape[0] - r)
+                yield (str(cp), co + r * PLE_DIM // 2, str(sp), so + r * PLE_DIM // 16, n, self.gscale)
+
+    def chunks(self, pool, depth: int = 16):
+        for b in bounded_imap(pool, _ple_nvfp4_job, self.jobs(), depth):
+            if isinstance(b, str):
+                raise ConvertError(b)
+            yield b
+
+
 # ------------------------------------------------------------------ Q6_K requantization of the dense projections
 Q6K_BLOCK, Q6K_BYTES = 256, 210
 

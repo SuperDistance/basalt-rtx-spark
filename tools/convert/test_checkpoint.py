@@ -171,6 +171,38 @@ class CsfScaleTest(unittest.TestCase):
             self.assertEqual(blob, b"".join(plain) + np.array([0.5, 1.5, 2.5, 0], "<f4").tobytes())
 
 
+class PleNvfp4Test(unittest.TestCase):
+    def test_rows_are_the_values_as_q8_0(self):
+        rng = np.random.default_rng(3)
+        D = S.PLE_DIM
+        with tempfile.TemporaryDirectory() as tmp:
+            p = Path(tmp) / "model-00001-of-00001.safetensors"
+            stem = "model.language_model.layers.1.ple.ple_embedding.ngram_embedding."
+            tens, want = {}, []
+            for i, rows in enumerate((5, 3)):
+                c = rng.integers(0, 256, size=(rows, D // 2), dtype=np.uint8)
+                s = rng.integers(0x20, 0x50, size=(rows, D // 16), dtype=np.uint8)
+                tens[f"{stem}shard_{i}.weight"] = ("U8", c.shape, c.tobytes())
+                tens[f"{stem}shard_{i}.weight_scale"] = ("F8_E4M3", s.shape, s.tobytes())
+                v = np.empty((rows, D), np.float32)
+                v[:, 0::2], v[:, 1::2] = S.E2M1_VALUES[c & 15], S.E2M1_VALUES[c >> 4]
+                want.append(S.q8_0((v * np.repeat(S.fp8_e4m3_table()[s] * np.float32(0.25), 16, axis=1)).reshape(-1)))
+            tens[stem + "weight_scale_2"] = ("F32", (1,), np.float32(0.25).tobytes())
+            write_safetensors(p, tens)
+            ple = S.PleNvfp4([p], chunk_rows=2)
+            self.assertEqual(ple.rows, 8)
+            self.assertEqual(ple.nbytes, 8 * D // 32 * 34)
+            import multiprocessing.dummy as md
+            with md.Pool(2) as pool:
+                got = b"".join(ple.chunks(pool))
+            self.assertEqual(got, b"".join(want))
+            # a shard without its scales is refused
+            del tens[f"{stem}shard_1.weight_scale"]
+            write_safetensors(p, tens)
+            with self.assertRaises(S.ConvertError):
+                S.PleNvfp4([p])
+
+
 GDN = 2 * S.GDN_K_HEADS * S.GDN_HEAD + S.GDN_V_HEADS * S.GDN_HEAD      # q, k, then the value channels
 
 

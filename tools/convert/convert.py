@@ -567,8 +567,7 @@ def from_checkpoint(a) -> None:
         ck = C.Checkpoint(a.checkpoint)
         experts = C.CheckpointExperts(ck)
         dense_src = C.CheckpointDense(ck, q6k)
-        ple_paths = C.ple_table(ck)
-        ple = S.PleFp8([str(p) for p in ple_paths])
+        ple = C.ple_reader(ck)
         kv = C.model_kv(ck, S.PLE_DIM, 18 if q6k else 7, a.name)
         dense = S.Dense(dense_src, False)
     except S.ConvertError as e:
@@ -635,7 +634,7 @@ def from_checkpoint(a) -> None:
                         "bytes": t.expected_bytes(), "offset": tensor_offsets[n]} for n, t in dense_src.tensors.items()}
             tens["per_layer_token_embd.weight"] = {"type": "Q8_0", "type_id": 8, "shape": [S.PLE_DIM, ple.rows],
                                                   "bytes": ple.nbytes, "offset": tensor_offsets["per_layer_token_embd.weight"]}
-            ck_files = sorted(set(ck.shards) | set(ple_paths))
+            ck_files = sorted(set(ck.shards) | set(Path(x) for x in ple.paths))
             meta = {
                 "format": "basalt", "version": 2, "name": a.name or base_meta.get("name"),
                 "converter": {"tool": "tools/convert/convert.py"},
@@ -644,9 +643,12 @@ def from_checkpoint(a) -> None:
                 "gguf_kv": kv,
                 "tensors": tens,
                 "conversions": {"compat_bf16": False, "tensors": [{
-                    "name": "per_layer_token_embd.weight", "src_type": "F8_E4M3", "dst_type": "Q8_0",
-                    "method": "fp8 code x per-tensor BF16 scale, Q8_0 blocks of 32 (ggml reference rounding)",
-                    "scale": ple.scale}]},
+                    "name": "per_layer_token_embd.weight", "dst_type": "Q8_0",
+                    **({"src_type": "NVFP4", "scale": ple.gscale,
+                        "method": "E2M1 code x E4M3 scale per 16 x per-table FP32 scale, Q8_0 blocks of 32 "
+                                  "(ggml reference rounding)"} if isinstance(ple, S.PleNvfp4) else
+                       {"src_type": "F8_E4M3", "scale": ple.scale,
+                        "method": "fp8 code x per-tensor BF16 scale, Q8_0 blocks of 32 (ggml reference rounding)"})}]},
                 "license": model_license(kv),
             }
             for k in ("mtp", "vision"):
