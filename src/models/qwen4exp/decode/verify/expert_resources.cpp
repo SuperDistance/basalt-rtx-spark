@@ -34,7 +34,6 @@ bool Verifier::dm_init(std::string& err) {
     const auto& lay = basalt::kernels::cpu::expert_layout();
     const char* why = nullptr;
     if (!lay.native) why = "the experts are not a native pack";
-    else if (all_resident_) why = "every expert is resident";
     else if (hits_.h_res == nullptr) why = "no host residency table";
     else if ((int64_t) max_t_ * ss_->k > kDmCap) why = "the window is too large";
     for (int64_t l = 0; why == nullptr && l < g.n_layers; ++l) {
@@ -74,7 +73,10 @@ bool Verifier::dm_init(std::string& err) {
               cudaMalloc((void**) &d->cseen, 4) == cudaSuccess && cudaMemset(d->cseen, 0, 4) == cudaSuccess &&
               cudaMalloc((void**) &d->landed, (size_t) (d->rings + 1) * 4) == cudaSuccess &&
               cudaMemset(d->landed, 0, (size_t) (d->rings + 1) * 4) == cudaSuccess;
-    if (ok && cudaHostAlloc((void**) &d->landed_pin, DecMoe::kPinSlots * 4, cudaHostAllocPortable) != cudaSuccess) {
+    // An engine that starts with every expert resident runs the zero-doorbell graph until experts leave the card and
+    // this tail after: its windows change graphs, so its swaps keep the host-waited path (no landed words).
+    if (ok && !all_resident_ &&
+        cudaHostAlloc((void**) &d->landed_pin, DecMoe::kPinSlots * 4, cudaHostAllocPortable) != cudaSuccess) {
         cudaGetLastError();
         d->landed_pin = nullptr;
     }

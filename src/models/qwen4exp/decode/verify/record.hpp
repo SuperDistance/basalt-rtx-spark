@@ -49,7 +49,8 @@ struct Verifier::WindowRecorder {
     const int64_t HS = (int64_t) kernels::NG_HIST * kernels::NG_HC_DIM;
     const int64_t TS = (s.idx_block - 1) * ID;
     const bool ple_on = ss.ple.ready() && v_.ple_stage();
-    const bool dm = v_.dm_ != nullptr && (!v_.batch_rec_ || v_.batch_dm_);   // the device-planned tail (one group)
+    // the device-planned tail (one group); the zero-doorbell graph plans every layer itself
+    const bool dm = v_.dm_ != nullptr && !v_.ar_on() && (!v_.batch_rec_ || v_.batch_dm_);
     // each hyper-connection read (and the FFN read's router) as one kernel; the next read's w_norm is prefetched into
     // L2 at its end
     const bool dec_hc = kernels::hc_fused_supported();

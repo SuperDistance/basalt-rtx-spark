@@ -161,7 +161,7 @@ bool Verifier::run_slot_segs(const int* rows, const int* lens, int S, const int3
     gs_split_ = false;
     if (!stage_batch(rows, lens, S, 0, tokens, pos, err)) return false;
     const int R = last_t_;   // the window's rows
-    const bool dm = dm_ != nullptr && batch_dm_;
+    const bool dm = dm_ != nullptr && batch_dm_ && !ar_on();
     if (dm && !dm_begin(err, nullptr)) return false;
     if (dm && !dm_stage_places(err)) return false;
     order_after_commit();

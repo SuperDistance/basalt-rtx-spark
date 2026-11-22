@@ -55,7 +55,10 @@ bool Verifier::finisher_on() const {
            fin_blocks_ > 0;
 }
 
-bool Verifier::lazy_on() const { return finisher_on() && dm_ != nullptr && gs_nk0_ == 0 && lz_s_ != nullptr; }
+// not for an engine that started fully resident: its next window may be the zero-doorbell graph, which applies none
+bool Verifier::lazy_on() const {
+    return finisher_on() && dm_ != nullptr && !all_resident_ && gs_nk0_ == 0 && lz_s_ != nullptr;
+}
 
 // the stage's GDN layers after its first, the lazy ones
 basalt::kernels::GdnCommitLayers Verifier::commit_gdn_lazy_args() const {

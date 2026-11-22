@@ -111,7 +111,7 @@ bool Verifier::run_begin(int T, const int32_t* tokens, int64_t pos0, std::string
     gm.mark(12);
     gs_split_ = dm_ != nullptr && gs_mixl_ != nullptr;
     if (gs_split_ && !gs_live_ && !gs_move(true, err)) return false;
-    if (dm_ != nullptr) {   // this window's residency, then the peer window ahead of CUDA0's
+    if (dm_ != nullptr && !ar_on()) {   // this window's residency, then the peer window ahead of CUDA0's
         if (!dm_begin(err, &gm)) return false;
         if (dm_stage_direct() && !dm_stage_places(err)) return false;
     }
