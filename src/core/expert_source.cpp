@@ -1561,9 +1561,8 @@ uint64_t FileExpertSource::pin_file_experts(const std::vector<std::pair<int32_t,
     const uint64_t reserve = plan_reserve(platform::ram_reserve());
     budget = std::min({budget, allowance, ram_tier_room(memory.available, reserve, true)});
     // File pages need commit for driver bookkeeping, even when the weights already have file backing.
-    constexpr uint64_t kBytesPerCommitByte = 14;
-    if (const uint64_t commit = commit_room(reserve); budget / kBytesPerCommitByte > commit)
-        budget = commit * kBytesPerCommitByte;
+    if (const uint64_t commit = commit_room(reserve); mapped_expert_commit_bytes(budget) > commit)
+        budget = commit * kMappedExpertBytesPerCommitByte;
     const uint64_t page = platform::system_page_size();
     if (page == 0 || budget < page) return 0;
 
@@ -1605,7 +1604,7 @@ uint64_t FileExpertSource::pin_file_experts(const std::vector<std::pair<int32_t,
     for (const auto& [begin, end] : plan) {
         const uint64_t span = end - begin;
         const uint64_t free_ram = platform::available_memory();
-        if (span / kBytesPerCommitByte > commit_room(reserve) ||
+        if (mapped_expert_commit_bytes(span) > commit_room(reserve) ||
             (free_ram > 0 && span > ram_tier_room(free_ram, ram_reserve, true))) {
             basalt::log::info("basalt", "read-only expert registration reached the memory budget at %.1f MiB",
                               (double) registered / 1048576.0);

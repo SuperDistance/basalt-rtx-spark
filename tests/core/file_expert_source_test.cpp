@@ -50,6 +50,20 @@ void test_file_pin_ranges() {
             "a range that does not fit must leave capacity for a smaller expert");
 }
 
+void test_gpu_budget_with_mapped_experts() {
+    using basalt::core::gpu_budget_with_mapped_experts;
+    require(gpu_budget_with_mapped_experts(1000, 800, 700, 500, 100, 120) == 555,
+            "GPU cache must leave commit for all remaining mapped experts");
+    require(gpu_budget_with_mapped_experts(1000, 800, 700, 140, 100, 120) == 570,
+            "commit for mapped experts must respect the physical host limit");
+    require(gpu_budget_with_mapped_experts(1000, 500, 700, 500, 100, 120) == 500,
+            "an independent device budget can bind before commit");
+    require(gpu_budget_with_mapped_experts(1000, 1200, 1200, 500, 100, 120) == 1000,
+            "a model that fits on the GPU needs no host reserve");
+    require(gpu_budget_with_mapped_experts(1000, 500, 100, 500, 100, 120) == 0,
+            "an infeasible combined placement must let the caller use its fallback");
+}
+
 struct TempDirectory {
     fs::path path;
 
@@ -577,6 +591,7 @@ void test_host_memory_namespaced() {
 int main() {
     try {
         test_file_pin_ranges();
+        test_gpu_budget_with_mapped_experts();
         test_home_regions();
         test_complement_plan();
         test_resident_lend_region();

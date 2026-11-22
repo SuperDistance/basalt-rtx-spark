@@ -1,5 +1,8 @@
 #include "basalt/models/qwen4exp/shared_names.hpp"
 #include "basalt/core/device_memory.hpp"
+#include "basalt/core/diag.hpp"
+#include "basalt/core/ram_load.hpp"
+#include "basalt/platform/memory.hpp"
 #include "context.hpp"
 
 namespace basalt::models::qwen4exp::generate {
@@ -70,6 +73,8 @@ int cache_size(Context& context) {
     const uint64_t cache_slot_bytes = profile.empty() ? max_cache_blob : (max_cache_blob + 255) / 256 * 256;
     const bool auto_cache = o.expert_cache < 0;
     if (o.expert_cache < 0) {
+        const uint64_t minimum_cache_slots = (o.prefill_chunk > 0 && pf_borrow)
+            ? (basalt::prefill::Prefill::bytes_needed(g, ss, 256) + cache_slot_bytes - 1) / cache_slot_bytes + 128 : 1;
         // the prompt path's cuBLAS handle is made now, so the free figure below already has its device memory out
         if (o.serve && o.prefill_chunk > 0 && !basalt::prefill::Gemm::prepare_handle(err)) return fatal_start_error(err);
         basalt::core::DeviceMemoryReading memory;
@@ -122,6 +127,39 @@ int cache_size(Context& context) {
                                o.shared_expert_arena.empty() && !multi_gpu && memory.commit_room < memory.device_free;
         if (gpu_first)
             basalt::log::info("basalt generate", "commit-limited UMA: sizing the GPU cache before resident experts");
+        if (gpu_first && o.peer_device < 1 && o.peer_devices.empty() &&
+            basalt::core::exp_flag("n1x_file_gpu_mib") == -1.0) {
+            int device = -1, read_only = 0;
+            basalt::platform::HostMemory host;
+            uint64_t pin_room = 0;
+            std::string pin_note;
+            if (cudaGetDevice(&device) == cudaSuccess &&
+                cudaDeviceGetAttribute(&read_only, cudaDevAttrHostRegisterReadOnlySupported, device) == cudaSuccess &&
+                read_only && basalt::platform::host_available_memory(host) &&
+                basalt::core::host_pin_budget(pin_room, pin_note)) {
+                constexpr uint64_t private_payload = 1ull << 30;
+                const uint64_t spares = o.adapt_every > 0 && o.adapt_swaps > 0
+                    ? (uint64_t) o.adapt_swaps * kSatBoost * max_cache_blob : 0;
+                const uint64_t private_pin = private_payload + spares;
+                const uint64_t private_commit = private_pin + basalt::core::pin_tracking_bytes(private_pin) + (512ull << 20);
+                const uint64_t host_reserve = basalt::core::plan_reserve(basalt::platform::ram_reserve()) + private_commit;
+                const uint64_t mapped_room = std::min(pin_room, basalt::core::ram_tier_room(host.available, host_reserve, true));
+                const uint64_t device_budget = memory.device_free - std::min(memory.device_free, (uint64_t) base_b);
+                const uint64_t commit_budget = memory.commit_room - std::min(memory.commit_room, (uint64_t) base_b);
+                const uint64_t gpu_budget = std::min(device_budget, commit_budget);
+                if (mapped_room > 0 && expert_total_bytes > gpu_budget) {
+                    const uint64_t cache_budget = basalt::core::gpu_budget_with_mapped_experts(
+                        expert_total_bytes, device_budget, commit_budget, mapped_room, private_payload, private_commit);
+                    if (cache_budget / cache_slot_bytes >= minimum_cache_slots && cache_budget < gpu_budget) {
+                        o.resident_budget = private_payload;
+                        late_b += (int64_t) (gpu_budget - cache_budget);
+                        basalt::log::info("basalt generate", "commit-limited UMA: leaving %.2f GiB of commit for the "
+                                          "private copy and registered expert pages", (double) (gpu_budget - cache_budget) / 1073741824.0);
+                    }
+                }
+            }
+            (void) cudaGetLastError();
+        }
         if (resident && !gpu_first) {
             void* probe = nullptr;
             const size_t pb = (size_t) 1 << 30;
@@ -186,8 +224,7 @@ int cache_size(Context& context) {
         // given on the command line is kept.  No slot at all: the start stops, saying what is short and what makes
         // room.  A card the default reserve leaves that much is sized as before.
         constexpr int kSmallReserveMib = 300;
-        const int64_t min_slots = (o.prefill_chunk > 0 && pf_borrow)
-            ? ((int64_t) basalt::prefill::Prefill::bytes_needed(g, ss, 256) + blob - 1) / blob + 128 : 1;
+        const int64_t min_slots = (int64_t) minimum_cache_slots;
         if (o.expert_cache < min_slots && !o.vram_reserve_given && o.vram_reserve_mib > kSmallReserveMib) {
             // the largest reserve (in MiB) that still leaves min_slots
             const int64_t fit_mib = ((int64_t) free_b - mtp_bind - late_b - min_slots * blob) / (1 << 20) - prefill_mib;

@@ -80,7 +80,7 @@ int resident_load(Context& context) {
             const uint64_t file_bytes = complement - copy;
             if (avail > 0 && file_bytes > 0) {
                 constexpr double kGiB = 1073741824.0;
-                if (o.resident_budget > 0 && o.resident_budget > room) {
+                if (o.resident_budget_given && o.resident_budget > room) {
                     return fatal_start_error(
                         "--resident-budget-gib " + gib_text(o.resident_budget) + " too high: " + gib_text(avail) +
                         " GiB free, " + gib_text(resident_headroom) + " GiB reserve, file cache and the driver's page "
@@ -99,7 +99,7 @@ int resident_load(Context& context) {
         bool resident_ok = src.plan_cache_complement(*context.reads, xcache, err, o.resident_pin, gpu_only, lend_from,
                                                      resident_headroom, o.resident_budget, &rank);
         std::string whole_err;
-        if (!resident_ok && o.resident_soft) {
+        if (!resident_ok && o.resident_soft && (o.resident_budget == 0 || o.resident_budget_given)) {
             // Keep the hottest experts that fit the RAM and commit budgets. Misses outside that tier
             // read the same bytes through the model's file mapping.
             whole_err = err;

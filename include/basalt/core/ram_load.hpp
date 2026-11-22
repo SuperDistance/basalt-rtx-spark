@@ -3,6 +3,7 @@
 // The bytes are read into it by the loader (loader.hpp).  Lookup of a placed blob stays with the model.
 #pragma once
 
+#include <algorithm>
 #include <cstdint>
 #include <functional>
 #include <string>
@@ -69,6 +70,34 @@ const uint8_t* ram_pin_alias(const std::vector<uint64_t>& starts, const std::vec
 /// Kernel memory the GPU driver keeps beside `pinned` bytes of page-locked host memory (its per-page tracking): a plan
 /// that pins counts it with them.
 inline uint64_t pin_tracking_bytes(uint64_t pinned) { return pinned / 36; }
+
+// A read-only file mapping already backs its weights. Reserve commit for the driver's registration metadata.
+inline constexpr uint64_t kMappedExpertBytesPerCommitByte = 14;
+inline uint64_t mapped_expert_commit_bytes(uint64_t bytes) {
+    return bytes / kMappedExpertBytesPerCommitByte + (bytes % kMappedExpertBytesPerCommitByte != 0);
+}
+
+// Give the GPU the largest cache that leaves commit for the private tier and for the file pages the host can hold.
+inline uint64_t gpu_budget_with_mapped_experts(uint64_t experts, uint64_t device_budget, uint64_t commit_budget,
+                                               uint64_t mapped_limit, uint64_t private_bytes, uint64_t private_commit) {
+    const uint64_t gpu_only = std::min({experts, device_budget, commit_budget});
+    if (gpu_only == experts) return gpu_only;
+    if (private_commit > commit_budget) return 0;
+    const uint64_t room = commit_budget - private_commit;
+    const uint64_t outside_private = experts - std::min(experts, private_bytes);
+    const auto mapping_cost = [&](uint64_t gpu) {
+        const uint64_t outside_gpu = outside_private - std::min(outside_private, gpu);
+        return mapped_expert_commit_bytes(std::min(mapped_limit, outside_gpu));
+    };
+    if (mapping_cost(0) > room) return 0;
+    uint64_t lo = 0, hi = std::min(gpu_only, room);
+    while (lo < hi) {
+        const uint64_t mid = hi - (hi - lo) / 2;
+        if (mapping_cost(mid) <= room - mid) lo = mid;
+        else hi = mid - 1;
+    }
+    return lo;
+}
 
 /// VRAM every card's context keeps for `pinned` bytes of registered host memory (its page tables: 8 bytes a 4 KiB page),
 /// whether the context was made before the registration or after it.
