@@ -484,6 +484,7 @@ private:
     uint64_t places_gen_ = 0;   ///< places_generation
     struct FilePin { uint64_t begin, end; const uint8_t* device; };
     std::vector<FilePin> file_pins_;   ///< ordered, non-overlapping intervals in the mapped view
+    platform::MappedFile file_pin_view_;  ///< separate virtual view of the same file pages for CUDA registration
     const uint8_t* file_device_alias(int64_t layer, int64_t expert) const;
     int64_t spares_want_ = 0;
     std::vector<std::pair<uint64_t, uint64_t>> spare_free_;   // (offset, bytes) of free places

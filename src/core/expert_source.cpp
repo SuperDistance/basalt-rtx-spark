@@ -1553,7 +1553,16 @@ uint64_t FileExpertSource::pin_file_experts(const std::vector<std::pair<int32_t,
     budget = std::min({budget, allowance, ram_tier_room(memory.available, reserve, true)});
     if (pin_tracking_bytes(budget) > commit_room(reserve)) return 0;
     const uint64_t page = platform::system_page_size();
-    if (page == 0 || reinterpret_cast<uintptr_t>(base_) % page != 0 || budget < page) return 0;
+    if (page == 0 || budget < page) return 0;
+
+    // Cache refills use the CPU view for CUDA host-to-device copies. Registering that address read-only changes
+    // how WDDM classifies the copy source. Use a separate virtual view backed by the same immutable file pages.
+    platform::MapOptions mo;
+    mo.offset = file_off_;
+    mo.bytes = mapped_bytes_;
+    mo.shared = true;
+    auto gpu_view = platform::MappedFile::open_ro(path_, nullptr, mo);
+    if (!gpu_view || reinterpret_cast<uintptr_t>(gpu_view->data()) % page != 0) return 0;
 
     file_pins_.reserve(std::min<uint64_t>(rank.size(), budget / page));
     uint64_t registered = 0;
@@ -1575,7 +1584,7 @@ uint64_t FileExpertSource::pin_file_experts(const std::vector<std::pair<int32_t,
         if ((at != file_pins_.end() && at->begin < end) ||
             (at != file_pins_.begin() && (at - 1)->end > begin)) continue;
 
-        auto* host = const_cast<uint8_t*>(base_ + begin);
+        auto* host = const_cast<uint8_t*>(gpu_view->data() + begin);
         if (cudaHostRegister(host, (size_t) (end - begin), cudaHostRegisterMapped | cudaHostRegisterReadOnly) != cudaSuccess) {
             (void) cudaGetLastError();
             break;
@@ -1589,15 +1598,20 @@ uint64_t FileExpertSource::pin_file_experts(const std::vector<std::pair<int32_t,
         file_pins_.insert(at, {begin, end, static_cast<const uint8_t*>(alias)});
         registered += end - begin;
     }
-    if (registered > 0) ++places_gen_;
+    if (registered > 0) {
+        file_pin_view_ = std::move(*gpu_view);
+        ++places_gen_;
+    }
     return registered;
 }
 
 void FileExpertSource::drop_file_pins() {
     if (file_pins_.empty()) return;
-    for (const FilePin& pin : file_pins_) (void) cudaHostUnregister(const_cast<uint8_t*>(base_ + pin.begin));
+    for (const FilePin& pin : file_pins_)
+        (void) cudaHostUnregister(const_cast<uint8_t*>(file_pin_view_.data() + pin.begin));
     (void) cudaGetLastError();
     file_pins_.clear();
+    file_pin_view_ = {};
     ++places_gen_;
 }
 
