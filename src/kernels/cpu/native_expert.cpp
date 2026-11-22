@@ -11,6 +11,12 @@
 #include "basalt/kernels/cpu/expert_layout.hpp"
 #include "basalt/platform/compiler.hpp"
 
+#if defined(__aarch64__) || defined(_M_ARM64)
+#include "basalt/core/diag.hpp"
+#include "basalt/platform/cpu.hpp"
+#include "nvfp4_i8mm.hpp"
+#endif
+
 #include "basalt/ggml/ggml.h"
 
 #include <cmath>
@@ -47,6 +53,78 @@ void gu_rows_ggml(const NativeFmt& f, const uint8_t* blob, const void* const* ac
         }
     }
 }
+
+void down_rows_ggml(const NativeFmt& f, const uint8_t* blob, const void* const* hq, int nt,
+                    float* const* out, int r0, int r1, float sd) {
+    const ggml_vec_dot_t dot = traits(f.d_type)->vec_dot;
+    for (int r = r0; r < r1; ++r) {
+        const uint8_t* dr = blob + f.down_off + (size_t) r * f.d_row;
+        for (int t = 0; t < nt; ++t) {
+            float s = 0.f;
+            dot((int) f.n_ff, &s, 0, dr, 0, hq[t], 0, 1);
+            out[t][r] = f.tail ? s * sd : s;
+        }
+    }
+}
+
+#if defined(__aarch64__) || defined(_M_ARM64)
+bool i8mm_enabled() {
+    static const bool available = basalt::platform::cpu_has_arm_i8mm();
+    return available && basalt::core::exp_flag("n1x_i8mm") > 0.0;
+}
+
+template<bool LIMITED>
+void gu_rows_i8mm(const NativeFmt& f, const uint8_t* blob, const void* const* act, int nt,
+                  float* const* ff, int r0, int r1, float sg, float su) {
+    const int paired_rows = r1 - (r1 - r0) % 2;
+    const int paired_tokens = nt - nt % 2;
+    const int n = (int) f.n_embd;
+    for (int r = r0; r < paired_rows; r += 2) {
+        const auto* gate = blob + (size_t) r * f.gu_row;
+        const auto* up = blob + f.up_off + (size_t) r * f.up_row;
+        for (int t = 0; t < paired_tokens; t += 2) {
+            float gd[4], ud[4];
+            nvfp4_i8mm_dot_2x2(n, gate, gate + f.gu_row, act[t], act[t + 1], gd);
+            nvfp4_i8mm_dot_2x2(n, up, up + f.up_row, act[t], act[t + 1], ud);
+            for (int i = 0; i < 4; ++i) {
+                float g = gd[i], u = ud[i];
+                if (f.tail) {
+                    g *= sg;
+                    u *= su;
+                }
+                if constexpr (LIMITED) {
+                    g = std::fmin(g, f.swiglu_limit);
+                    u = std::fmax(std::fmin(u, f.swiglu_limit), -f.swiglu_limit);
+                }
+                ff[t + i % 2][r + i / 2] = (g / (1.f + std::exp(-g))) * u;
+            }
+        }
+    }
+    if (paired_tokens < nt)
+        gu_rows_ggml<LIMITED>(f, blob, act + paired_tokens, 1, ff + paired_tokens, r0, paired_rows, sg, su);
+    if (paired_rows < r1)
+        gu_rows_ggml<LIMITED>(f, blob, act, nt, ff, paired_rows, r1, sg, su);
+}
+
+void down_rows_i8mm(const NativeFmt& f, const uint8_t* blob, const void* const* hq, int nt,
+                    float* const* out, int r0, int r1, float sd) {
+    const int paired_rows = r1 - (r1 - r0) % 2;
+    const int paired_tokens = nt - nt % 2;
+    const int n = (int) f.n_ff;
+    for (int r = r0; r < paired_rows; r += 2) {
+        const auto* w = blob + f.down_off + (size_t) r * f.d_row;
+        for (int t = 0; t < paired_tokens; t += 2) {
+            float dots[4];
+            nvfp4_i8mm_dot_2x2(n, w, w + f.d_row, hq[t], hq[t + 1], dots);
+            for (int i = 0; i < 4; ++i) out[t + i % 2][r + i / 2] = f.tail ? dots[i] * sd : dots[i];
+        }
+    }
+    if (paired_tokens < nt)
+        down_rows_ggml(f, blob, hq + paired_tokens, 1, out + paired_tokens, r0, paired_rows, sd);
+    if (paired_rows < r1)
+        down_rows_ggml(f, blob, hq, nt, out, paired_rows, r1, sd);
+}
+#endif
 
 // A layer whose gate and up types differ: each half through a multi-token row kernel (`rows`: iq512_rows or
 // iq256_rows), then native_gu_rows' SwiGLU expression.  A token's dots are the uniform layers' bits for each type.
@@ -218,6 +296,13 @@ void native_gu_rows(const NativeFmt& f, const uint8_t* blob, const void* const* 
         nvfp4_256_gu_rows(blob, f.gu_row, f.up_off, n, sg, su, f.swiglu_limit, act, nt, ff, r0, r1);
         return;
     }
+#if defined(__aarch64__) || defined(_M_ARM64)
+    if (f.gu_type == GGML_TYPE_NVFP4 && nt > 1 && r1 - r0 > 1 && i8mm_enabled()) {
+        if (f.swiglu_limit > 0.f) gu_rows_i8mm<true>(f, blob, act, nt, ff, r0, r1, sg, su);
+        else gu_rows_i8mm<false>(f, blob, act, nt, ff, r0, r1, sg, su);
+        return;
+    }
+#endif
     if (f.swiglu_limit > 0.f) gu_rows_ggml<true>(f, blob, act, nt, ff, r0, r1, sg, su);
     else gu_rows_ggml<false>(f, blob, act, nt, ff, r0, r1, sg, su);
 }
@@ -230,7 +315,6 @@ void native_down_rows(const NativeFmt& f, const uint8_t* blob, const void* const
         iq4nl256_down_rows(blob + f.down_off, f.d_row, (int) f.n_ff, hq, nt, out, r0, r1);
         return;
     }
-    const ggml_vec_dot_t dot = traits(f.d_type)->vec_dot;
     const int n = (int) f.n_ff;
     float sd = 1.f;
     if (f.tail) std::memcpy(&sd, blob + f.bytes - f.tail + 8, 4);
@@ -251,14 +335,13 @@ void native_down_rows(const NativeFmt& f, const uint8_t* blob, const void* const
         iq_exact_512_rows(f.d_type, blob + f.down_off, f.d_row, n, hq, nt, out, r0, r1);
         return;
     }
-    for (int r = r0; r < r1; ++r) {
-        const uint8_t* dr = blob + f.down_off + (size_t) r * f.d_row;
-        for (int t = 0; t < nt; ++t) {
-            float s = 0.f;
-            dot(n, &s, 0, dr, 0, hq[t], 0, 1);
-            out[t][r] = f.tail ? s * sd : s;
-        }
+#if defined(__aarch64__) || defined(_M_ARM64)
+    if (f.d_type == GGML_TYPE_NVFP4 && nt > 1 && r1 - r0 > 1 && i8mm_enabled()) {
+        down_rows_i8mm(f, blob, hq, nt, out, r0, r1, sd);
+        return;
     }
+#endif
+    down_rows_ggml(f, blob, hq, nt, out, r0, r1, sd);
 }
 
 }  // namespace basalt::kernels::cpu

@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT
 // Compare a two-token, two-row NVFP4 tile with Basalt's ARM64 SDOT kernel.
 // Build for ARMv8.6-A and run on a CPU with FEAT_I8MM.
+#include "../../src/kernels/cpu/nvfp4_i8mm.hpp"
+
 #include <arm_neon.h>
 
 #include <algorithm>
@@ -37,46 +39,9 @@ static inline float fp16_to_float(ggml_half value) {
 
 namespace {
 
-int8x16_t unpack_subblock(const uint8_t* codes, int8x16_t values) {
-    const uint8x8_t packed = vld1_u8(codes);
-    const uint8x16_t indices = vcombine_u8(vand_u8(packed, vdup_n_u8(15)), vshr_n_u8(packed, 4));
-    return vqtbl1q_s8(values, indices);
-}
-
-int32x4_t dot_tile(int8x16_t weight0, int8x16_t weight1, int8x16_t act0, int8x16_t act1) {
-    const int32x4_t zero = vdupq_n_s32(0);
-    const int8x16_t w_lo = vcombine_s8(vget_low_s8(weight0), vget_low_s8(weight1));
-    const int8x16_t w_hi = vcombine_s8(vget_high_s8(weight0), vget_high_s8(weight1));
-    const int8x16_t a_lo = vcombine_s8(vget_low_s8(act0), vget_low_s8(act1));
-    const int8x16_t a_hi = vcombine_s8(vget_high_s8(act0), vget_high_s8(act1));
-    return vmmlaq_s32(vmmlaq_s32(zero, w_lo, a_lo), w_hi, a_hi);
-}
-
 void i8mm(int blocks, const block_nvfp4* w0, const block_nvfp4* w1,
           const block_q8_0* a0, const block_q8_0* a1, float* output) {
-    const int8x16_t values = vld1q_s8(kvalues_fp4);
-    float32x4_t accum[4] = {vdupq_n_f32(0), vdupq_n_f32(0), vdupq_n_f32(0), vdupq_n_f32(0)};
-    for (int b = 0; b < blocks; ++b) {
-        for (int half = 0; half < 2; ++half) {
-            const block_q8_0& x = a0[2 * b + half];
-            const block_q8_0& y = a1[2 * b + half];
-            const float xd = fp16_to_float(x.d);
-            const float yd = fp16_to_float(y.d);
-            for (int sub = 0; sub < 2; ++sub) {
-                const int s = 2 * half + sub;
-                const int32x4_t products = dot_tile(
-                    unpack_subblock(w0[b].qs + 8 * s, values),
-                    unpack_subblock(w1[b].qs + 8 * s, values),
-                    vld1q_s8(x.qs + 16 * sub), vld1q_s8(y.qs + 16 * sub));
-                const float sd0 = nvfp4_scale(w0[b].d[s]);
-                const float sd1 = nvfp4_scale(w1[b].d[s]);
-                const float scales[] = {sd0 * xd, sd0 * yd, sd1 * xd, sd1 * yd};
-                accum[s] = vfmaq_f32(accum[s], vcvtq_f32_s32(products), vld1q_f32(scales));
-            }
-        }
-    }
-    // Match the four sub-block accumulators and the pairwise horizontal sum in the SDOT kernel.
-    vst1q_f32(output, vaddq_f32(vaddq_f32(accum[0], accum[1]), vaddq_f32(accum[2], accum[3])));
+    basalt::kernels::cpu::nvfp4_i8mm_dot_2x2(blocks * QK_NVFP4, w0, w1, a0, a1, output);
 }
 
 void sdot(int blocks, const block_nvfp4* w0, const block_nvfp4* w1,

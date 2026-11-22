@@ -40,6 +40,15 @@ function(basalt_arm64_kernels_cpu)
   target_sources(kernels_cpu PRIVATE src/kernels/cpu/q2_neon.cpp src/kernels/cpu/x86_absent.cpp
                                      $<TARGET_OBJECTS:ggml_dots_neon>)
   set_source_files_properties(src/kernels/cpu/q2_neon.cpp PROPERTIES COMPILE_OPTIONS "${BASALT_NEON_FLAGS}")
+  target_sources(kernels_cpu PRIVATE src/kernels/cpu/nvfp4_i8mm.cpp)
+  if(MSVC AND NOT CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+    set(BASALT_I8MM_FLAGS "/arch:armv8.6")
+  elseif(MSVC)
+    set(BASALT_I8MM_FLAGS "/clang:-march=armv8.6-a+i8mm+dotprod")
+  else()
+    set(BASALT_I8MM_FLAGS "-march=armv8.6-a+i8mm+dotprod")
+  endif()
+  set_source_files_properties(src/kernels/cpu/nvfp4_i8mm.cpp PROPERTIES COMPILE_OPTIONS "${BASALT_I8MM_FLAGS}")
 endfunction()
 
 # Tests and benches of the x86 kernels alone: not built, and their ctest entries disabled.
