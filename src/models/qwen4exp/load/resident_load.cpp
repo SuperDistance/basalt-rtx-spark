@@ -100,9 +100,8 @@ int resident_load(Context& context) {
                                                      resident_headroom, o.resident_budget, &rank);
         std::string whole_err;
         if (!resident_ok && o.resident_soft) {
-            // the whole complement does not fit - keep what does, the hottest by the profile, through the budget
-            // path (sized by the RAM alone) instead of none: the misses outside it read the same file bytes the mmap
-            // fallback reads, so the answers are unchanged.  Nothing pinned: the fallback below.
+            // Keep the hottest experts that fit the RAM and commit budgets. Misses outside that tier
+            // read the same bytes through the model's file mapping.
             whole_err = err;
             resident_ok = src.plan_cache_complement(*context.reads, xcache, err, o.resident_pin, gpu_only, -1, resident_headroom,
                                                     basalt::core::FileExpertSource::kResidentWhatFits, &rank);

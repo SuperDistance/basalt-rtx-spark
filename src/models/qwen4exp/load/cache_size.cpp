@@ -1,6 +1,5 @@
 #include "basalt/models/qwen4exp/shared_names.hpp"
 #include "basalt/core/device_memory.hpp"
-#include "basalt/core/diag.hpp"
 #include "context.hpp"
 
 namespace basalt::models::qwen4exp::generate {
@@ -115,14 +114,12 @@ int cache_size(Context& context) {
             if (basalt::core::conversation_state_sizes(g, zc, ce)) late_b += (int64_t) zc.gdn;
         }
         const int64_t base_b = reserve_b + ((int64_t) prefill_mib << 20) + mtp_bind + late_b;
-        // the RAM copy of the experts the cache does not hold is page-locked and mapped, which takes device memory per
-        // GiB mapped: a 1 GiB probe gives the rate, applied to the experts that stay out of the cache
-        // The host allocation probe includes its own Windows commit. Extrapolating its cost to the
-        // full complement can leave zero GPU slots when the system commit budget is the tighter limit.
-        // Give the GPU cache priority and size the RAM copy from the remaining budget in resident_load.
+        // On a commit-limited UMA device the host probe counts the allocation itself. Reserving that
+        // cost for the entire complement can leave no GPU cache even if some experts fit. For automatic
+        // placement, size the GPU tier first. The resident planner bounds the remaining RAM copy.
         const bool resident = o.serve && o.resident_cpu_experts && expert_total_bytes > 0;
-        const bool gpu_first = resident && memory.commit_room < memory.device_free &&
-                               basalt::core::exp_flag("n1x_commit_cache") > 0.0;
+        const bool gpu_first = resident && o.resident_soft && !o.resident_cpu_explicit && !o.resident_budget_given &&
+                               o.shared_expert_arena.empty() && !multi_gpu && memory.commit_room < memory.device_free;
         if (gpu_first)
             basalt::log::info("basalt generate", "commit-limited UMA: sizing the GPU cache before resident experts");
         if (resident && !gpu_first) {
