@@ -29,14 +29,14 @@ def api_request(port, method, route, body=None, timeout=8):
         connection.close()
 
 
-def make_prompt(seed):
+def make_prompt(seed, entries=24):
     rng = random.Random(seed)
     categories = ["lanterns", "radios", "labels", "cables", "chargers", "hammers", "sensors"]
     places = ["Albany", "Tacoma", "Fresno", "Bend", "Dover", "Tucson", "Savannah"]
     logs = [
         f"{rng.randrange(100000, 999999)}: {rng.choice(places)} received {rng.randrange(4, 888)} "
         f"{rng.choice(categories)}. The shipping team flagged {rng.randrange(1, 9)} cartons for review."
-        for unused in range(24)
+        for _ in range(entries)
     ]
     return "\n".join(logs) + (
         "\nWrite a detailed operational handover as numbered plain-text entries. For each entry in order, "
@@ -45,9 +45,9 @@ def make_prompt(seed):
     )
 
 
-def stream_request(port, alias, seed, max_tokens, start_barrier=None):
+def stream_request(port, alias, seed, max_tokens, start_barrier=None, prompt_entries=24):
     payload = json.dumps({
-        "model": alias, "messages": [{"role": "user", "content": make_prompt(seed)}],
+        "model": alias, "messages": [{"role": "user", "content": make_prompt(seed, prompt_entries)}],
         "reasoning_effort": "none", "chat_template_kwargs": {"enable_thinking": False},
         "temperature": 0, "max_tokens": max_tokens, "stream": True,
         "stream_options": {"include_usage": True},
@@ -58,6 +58,7 @@ def stream_request(port, alias, seed, max_tokens, start_barrier=None):
     started = time.perf_counter()
     first_token = None
     usage = None
+    timings = None
     finish = None
     try:
         connection.request("POST", "/v1/chat/completions", payload, {"Content-Type": "application/json"})
@@ -78,6 +79,7 @@ def stream_request(port, alias, seed, max_tokens, start_barrier=None):
                     first_token = time.perf_counter()
                 finish = choice.get("finish_reason") or finish
             usage = chunk.get("usage") or usage
+            timings = chunk.get("timings") or timings
         ended = time.perf_counter()
     finally:
         connection.close()
@@ -87,14 +89,14 @@ def stream_request(port, alias, seed, max_tokens, start_barrier=None):
         "seed": seed, "prompt_tokens": usage["prompt_tokens"], "output_tokens": usage["completion_tokens"],
         "ttft_s": first_token - started, "latency_s": ended - started, "finish": finish,
         "cached_tokens": (usage.get("prompt_tokens_details") or {}).get("cached_tokens", 0),
-        "started": started, "ended": ended,
+        "started": started, "ended": ended, "timings": timings,
     }
 
 
-def one_wave(port, alias, seeds, max_tokens):
+def one_wave(port, alias, seeds, max_tokens, prompt_entries=24):
     barrier = Barrier(len(seeds))
     with concurrent.futures.ThreadPoolExecutor(max_workers=len(seeds)) as pool:
-        jobs = [pool.submit(stream_request, port, alias, seed, max_tokens, barrier) for seed in seeds]
+        jobs = [pool.submit(stream_request, port, alias, seed, max_tokens, barrier, prompt_entries) for seed in seeds]
         return [job.result() for job in jobs]
 
 
@@ -103,6 +105,9 @@ def summarize(concurrency, waves):
     wall_time = sum(max(r["ended"] for r in w) - min(r["started"] for r in w) for w in waves)
     ttft = [r["ttft_s"] for r in requests]
     latency = [r["latency_s"] for r in requests]
+    timed = [r["timings"] for r in requests if r.get("timings")]
+    prefill = [t["prompt_per_second"] for t in timed if t.get("prompt_per_second") is not None]
+    decode = [t["predicted_per_second"] for t in timed if t.get("predicted_per_second") is not None]
     return {
         "concurrency": concurrency, "requests": len(requests),
         "output_tps": sum(r["output_tokens"] for r in requests) / wall_time,
@@ -114,6 +119,10 @@ def summarize(concurrency, waves):
         "median_cached_tokens": statistics.median(r["cached_tokens"] for r in requests),
         "median_prompt_tokens": statistics.median(r["prompt_tokens"] for r in requests),
         "median_output_tokens": statistics.median(r["output_tokens"] for r in requests),
+        "prefill_timing_samples": len(prefill),
+        "decode_timing_samples": len(decode),
+        "median_prefill_tps": statistics.median(prefill) if prefill else None,
+        "median_decode_tps": statistics.median(decode) if decode else None,
         "requests_detail": requests,
     }
 
@@ -124,21 +133,23 @@ def main():
     parser.add_argument("--port", required=True, type=int)
     parser.add_argument("--model")
     parser.add_argument("--out", required=True, type=Path)
-    parser.add_argument("--concurrency", nargs="+", default=[1, 2, 4, 8], type=int)
+    parser.add_argument("--concurrency", nargs="+", default=[1, 2, 3, 4], type=int)
     parser.add_argument("--max-tokens", default=160, type=int)
+    parser.add_argument("--prompt-entries", default=24, type=int)
     args = parser.parse_args()
-    if min(args.concurrency) < 1 or args.max_tokens < 1:
-        parser.error("concurrency and max-tokens must be positive")
+    if min(args.concurrency) < 1 or args.max_tokens < 1 or args.prompt_entries < 1:
+        parser.error("concurrency, max-tokens and prompt-entries must be positive")
     alias = args.model or api_request(args.port, "GET", "/v1/models")["data"][0]["id"]
     if not alias:
         raise RuntimeError("Expected a nonempty served model name")
-    one_wave(args.port, alias, [91], 32)
+    one_wave(args.port, alias, [91], 32, args.prompt_entries)
 
     args.out.parent.mkdir(parents=True, exist_ok=True)
-    results = {"model": alias, "max_tokens": args.max_tokens, "results": []}
+    results = {"model": alias, "max_tokens": args.max_tokens, "prompt_entries": args.prompt_entries, "results": []}
     for count in args.concurrency:
         waves = [
-            one_wave(args.port, alias, [100000 * count + wave * 100 + i for i in range(count)], args.max_tokens)
+            one_wave(args.port, alias, [100000 * count + wave * 100 + i for i in range(count)],
+                     args.max_tokens, args.prompt_entries)
             for wave in range(max(3, 6 // count))
         ]
         summary = summarize(count, waves)
