@@ -43,6 +43,7 @@ struct Prefill::Run {
     const core::ModelGeometry& g = *m.g;
     core::SessionState& ss = *m.ss;
     const Clock::time_point t_start = Clock::now();
+    const PrefillStats stats0 = owner.stats_;   ///< the counters before this run, for its own totals
     bool count_expert_groups = false;
     std::array<uint64_t, 4> nonresident_expert_groups{};   ///< 1–7, 8–31, 32–63, 64+ rows in host-grouped layers
     bool direct_ram_experts = false;

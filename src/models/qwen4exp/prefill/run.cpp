@@ -62,8 +62,16 @@ bool Prefill::Run::finish() {
     }
     owner.stats_.ms_total += ms_since(t_start);
     if (direct_ram_experts) {
-        basalt::log::info("basalt prefill", "direct RAM expert groups for %lld prompt rows: %lld",
-                          (long long) n, (long long) direct_ram_groups);
+        const PrefillStats& s1 = owner.stats_;
+        basalt::log::info("basalt prefill", "direct RAM expert groups for %lld prompt rows: %lld; staged %lld blobs "
+                          "(%lld by DMA) in %.1f ms of host time, %lld resident groups, %lld CPU experts, "
+                          "%lld chunks in %.0f ms",
+                          (long long) n, (long long) direct_ram_groups,
+                          (long long) (s1.experts_streamed - stats0.experts_streamed),
+                          (long long) (s1.experts_dma - stats0.experts_dma), s1.ms_experts_host - stats0.ms_experts_host,
+                          (long long) (s1.experts_resident - stats0.experts_resident),
+                          (long long) (s1.experts_cpu - stats0.experts_cpu), (long long) (s1.chunks - stats0.chunks),
+                          s1.ms_total - stats0.ms_total);
     }
     if (count_expert_groups) {
         const auto& h = nonresident_expert_groups;
