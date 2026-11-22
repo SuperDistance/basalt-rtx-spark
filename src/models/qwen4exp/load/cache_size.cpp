@@ -1,5 +1,6 @@
 #include "basalt/models/qwen4exp/shared_names.hpp"
 #include "basalt/core/device_memory.hpp"
+#include "basalt/core/diag.hpp"
 #include "context.hpp"
 
 namespace basalt::models::qwen4exp::generate {
@@ -72,8 +73,9 @@ int cache_size(Context& context) {
     if (o.expert_cache < 0) {
         // the prompt path's cuBLAS handle is made now, so the free figure below already has its device memory out
         if (o.serve && o.prefill_chunk > 0 && !basalt::prefill::Gemm::prepare_handle(err)) return fatal_start_error(err);
-        size_t free_b = 0, total_b = 0;
-        basalt::core::device_mem_info(&free_b, &total_b);
+        basalt::core::DeviceMemoryReading memory;
+        basalt::core::device_mem_reading(memory);
+        const uint64_t free_b = std::min(memory.device_free, memory.commit_room);
         // The batched prompt path's chunk buffers are allocated later, so they are reserved here - an over-subscribed
         // allocation can page to system memory and crawl.  With borrowing - the default with a profile - the prompt
         // path lends cache slots instead (`pf_borrow`, hoisted above so both cache-size branches read the same one).
@@ -115,7 +117,15 @@ int cache_size(Context& context) {
         const int64_t base_b = reserve_b + ((int64_t) prefill_mib << 20) + mtp_bind + late_b;
         // the RAM copy of the experts the cache does not hold is page-locked and mapped, which takes device memory per
         // GiB mapped: a 1 GiB probe gives the rate, applied to the experts that stay out of the cache
-        if (o.serve && o.resident_cpu_experts && expert_total_bytes > 0) {
+        // The host allocation probe includes its own Windows commit. Extrapolating its cost to the
+        // full complement can leave zero GPU slots when the system commit budget is the tighter limit.
+        // Give the GPU cache priority and size the RAM copy from the remaining budget in resident_load.
+        const bool resident = o.serve && o.resident_cpu_experts && expert_total_bytes > 0;
+        const bool gpu_first = resident && memory.commit_room < memory.device_free &&
+                               basalt::core::exp_flag("n1x_commit_cache") > 0.0;
+        if (gpu_first)
+            basalt::log::info("basalt generate", "commit-limited UMA: sizing the GPU cache before resident experts");
+        if (resident && !gpu_first) {
             void* probe = nullptr;
             const size_t pb = (size_t) 1 << 30;
             cudaDeviceSynchronize();
