@@ -33,11 +33,12 @@ These are short AC-powered tests with normal desktop activity and the existing 6
 | Qwen3.8-27B, upstream native build, eight 2,048-token slots | 27.48 | 40.96 | 61.70 | 71.84 |
 | Flash-Next, upstream native build, mapped-file experts | 7.85 | 9.18 | RAM guard stopped requests | |
 | Flash-Next, GPU-first under commit pressure | 9.77 | 10.17 | | |
-| Flash-Next, GPU-first with bounded RAM residency and I8MM | 10.04 | 9.92 | 14.53 | |
+| Flash-Next, GPU-first with bounded RAM residency and I8MM, four slots | 10.04 | 9.92 | 14.53 | |
+| Flash-Next, same patches, eight slots with more Windows commit available | | | | 38.31 |
 
-Qwen3.8-27B median time to first token was 0.41, 0.93, 1.67 and 2.95 seconds from C1 to C8. At C8, p95 was 4.99 seconds over 24 requests. Flash-Next four-slot runs used 4,096 tokens per slot, int8 KV and two waves per measured concurrency. The patched Flash-Next C4 completed eight requests with median TTFT of 17.49 seconds and p95 of 25.32 seconds. Windows commit, available RAM and the file cache varied between runs, so treat the serving differences as preliminary.
+Qwen3.8-27B median time to first token was 0.41, 0.93, 1.67 and 2.95 seconds from C1 to C8. At C8, p95 was 4.99 seconds over 24 requests. Flash-Next four-slot runs used 4,096 tokens per slot, int8 KV and two waves per measured concurrency. The patched Flash-Next C4 completed eight requests with median TTFT of 17.49 seconds and p95 of 25.32 seconds. At eight slots after pagefile growth, Flash-Next completed 16 requests with median TTFT of 10.38 seconds and p95 of 17.98 seconds. The server reported 47.5 GiB of loaded model data and a 20.9 GiB file-backed expert tier. Windows commit, available RAM and the file cache varied between runs, so treat the serving differences as preliminary.
 
-The first auto-placement attempt reserved almost 50 GiB in anticipated host mapping costs while the combined available budget was about 14 GiB. The `n1x_commit_cache` experiment prioritizes the GPU cache under Windows commit pressure. It started Flash-Next at the existing reservation. A subsequent fallback fix clamps the size of the ranked resident CPU complement to both RAM and commit. It successfully selected and loaded 0.64 GiB of hot experts when 0.65 GiB remained above the safety reserve.
+The first auto-placement attempt reserved almost 50 GiB in anticipated host mapping costs while the combined available budget was about 14 GiB. The `n1x_commit_cache` experiment prioritizes the GPU cache under Windows commit pressure. It started Flash-Next at the existing reservation. A subsequent fallback fix clamps the size of the ranked resident CPU complement to both RAM and commit. It successfully selected and loaded 0.64 GiB of hot experts when 0.65 GiB remained above the safety reserve. The Flash-Next eight-slot build used `--exp n1x_commit_cache=1,n1x_i8mm=1` and the same Windows GPU reservation.
 
 ## Unified memory
 
