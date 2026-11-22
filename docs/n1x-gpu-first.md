@@ -143,12 +143,78 @@ the NVFP4 pack on the same gate ([Flash-Next precision](precision/qwen38-flash-n
 gate and up are IQ2_S on 23 layers, IQ3_XXS on 21 and IQ4_XS on the last, and down is IQ4_NL almost everywhere. Its
 speed comes with about twice NVFP4's divergence from the BF16 model.
 
+## NVFP4 prompts on BF16 activations (W4A16)
+
+Below `FP4_MIN_TOKENS` (1,024) an NVFP4 layer ran MMQ, which on the N1X reads a 716-token prompt at about 250-520
+tokens/s. Lowering the FP4 tensor-core path's floor to 256 made that prompt 4.6x faster, but that path rounds the
+activations to FP4 (W4A4) and the 100-chunk gate on Qwen3.8-FN-FP4-Local (wikitext-2 against the BF16 base, T 3, int8
+KV) got worse in 73 of 100 chunks (paired t 4.7). It stays at 1,024.
+
+The W4A16 kernels (`moe_fp4.cu`, `a16` / `a16x`) keep the FP4 path's blocks, read the NVFP4 weights in place and
+widen them exactly to BF16 in registers (`cvt.rn.bf16x2.e2m1x2`, times the sub-block scale; an E2M1 value times a
+UE4M3 scale has at most six significant bits), against activations rounded only to BF16, on the BF16 tensor cores
+with FP32 accumulation; H stays BF16 for the down product. A block whose expert has at most 64 rows spreads its 128
+weight rows over all eight warps, and 16-row slices without rows are skipped. An integrated GPU with no peer now runs
+NVFP4 chunks below the floor this way instead of MMQ.
+
+| Prompt path on FP4-Local | PPL (base 3.2733) | KLD mean | KLD p99 | same top-1 | prompt ms/chunk |
+| --- | --- | --- | --- | --- | --- |
+| MMQ (int8 activations) | 3.3042 | 0.08877 | 1.0304 | 90.20% | 1192 |
+| FP4 from 256 (W4A4) | 3.3130 | 0.09291 | 1.0767 | 89.98% | 353 |
+| W4A16 | 3.3048 | 0.08847 | 1.0582 | 90.32% | 776 |
+
+Against MMQ, chunk by chunk, W4A16 is the same (mean dKLD -0.0003, se 0.0007, worse in 48 of 100). In
+`prefill_fp4_test` the expert layer lands at RMS 2.9e-3 from double math on the unrounded activations, against MMQ's
+1.6e-2 and the FP4 path's 0.16. The kernels' later speed-ups (128-value stages, the code conversion instruction, the
+eight-warp split) left the output bitwise unchanged, in the test and in the engine (the same greedy text as the gated
+build).
+
+The expert layer in the test (512 experts, top 10, one run per build, the FP4 path in the same run as the yardstick):
+
+| Tokens | MMQ | W4A16 | FP4 (W4A4) |
+| --- | --- | --- | --- |
+| 716 | 20.3 ms | 8.2 ms | 7.4 ms |
+| 2,048 | 22.7 ms | 9.2 ms | 8.7 ms |
+| 16,384 | 72.0 ms | 36.9 ms | 24.8 ms |
+
+Served, a cold 716-token prompt reaches its first token in 0.66 s (MMQ 1.37 s, FP4 from 256 0.61 s). Chunks of 1,024
+tokens and more keep the FP4 path, which has not been gated on prompts that long.
+
 ## Stuck GPU clocks
 
 After a three-second Modern Standby entry from the power button, and a firmware thermal-profile test that ended within a
 minute of it, the GPU stayed in P8 at about 810 MHz and 6 W while 96% busy, across engine restarts. Decode fell to 22-32
-tok/s and a device-memory read probe to 53-58 GB/s (262-268 GB/s normally). A reboot cleared it. Which event caused it is
-unverified. Watch the GPU clock when decode drops for no reason.
+tok/s and a device-memory read probe to 53-58 GB/s (262-268 GB/s normally). A reboot cleared it.
+
+It happened again after an AC unplug and replug: about 800 MHz and 7 W at 64 °C under load, 19 tok/s, and this time it
+survived a warm reboot. Exiting SparkHelper from the tray cleared it at once (2,436 MHz, 50 W, 72 tok/s). The exit
+uncaps the GPU, returns the HP firmware fan mode to Adaptive and restores Windows power settings; which of the three held
+the clock is unverified. SparkHelper's tuning helper re-applies the profile, firmware fan mode included, at every logon
+and power-source change, which would explain surviving the reboot. The NVML "Reliability" clock-event reason (bit
+0x400) is set at full clocks too, so it says nothing here. Watch the GPU clock when decode drops for no reason.
+
+## GPU power that does not hold under serving
+
+Live agent traffic (one stream, 60K-110K-token cached contexts, 2026-11-22 12:10-12:45, on AC) did not keep the GPU at
+one power level, and the steps line up with neither a fixed cap nor one temperature:
+
+| When | P-state | Clock | GPU power | GPU / SoC temperature | Driver reason | Decode |
+| --- | --- | --- | --- | --- | --- | --- |
+| short test request, cool | P0 | 2,380-2,440 MHz | 48-50 W | 64 / 66 °C | none | 72-73 tok/s |
+| 12:33, 96% busy | P4 | 1,350-1,650 MHz | 20-23 W | 61 / 66 °C | none | 64-68 tok/s |
+| 12:35-12:38 | P0 | 2,000-2,250 MHz | 40-48 W | 80-86 / ~88 °C | none at the samples | 80-137 tok/s |
+| 12:39-12:41 (per-minute means) | P0, then mostly P4 | 2,080 → 1,880 MHz | 47.6 → 36.0 → 32.8 W | 75-77 / 82-83 °C | none at the samples | |
+
+The driver's cumulative counters moved between 12:33 and 12:38 by 39 s of "SW Power Capping" and 39 s of "SW Thermal
+Slowdown", and not at all from 12:38 to 12:42, so both a software power cap and a thermal slowdown act at times, while
+the 12:33 spell (cool, P4, half the power at 96% busy) and the 12:39-12:41 slide (power falling at a flat 83 °C SoC)
+carry no reason at all. The flat temperature while power falls suggests a platform controller holding the SoC near a
+temperature target by lowering the GPU's budget; the user also saw the fan start minutes after the chassis got hot. An
+unthrottled run with a cold fan heats the SoC from 49 to 97 °C in about 90 s (the KLD gate's log), after which the
+firmware's SwThermal slowdown sets in and the GPU settles at 40-45 W. Which controller picks P4 at 61 °C is
+unverified. For benchmarks this means: a short run measures the boost, a long one the platform's sustained budget, and
+the two differ by up to half; log P-state, clock, power and both temperatures with every number (`spark monitor`,
+`nvidia-smi -lms 1000`).
 
 ## Still open
 

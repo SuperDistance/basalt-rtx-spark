@@ -111,6 +111,10 @@ int run_engine(Options& o, std::vector<program::GpuCard>& chosen_cards) {
                                    : basalt::prefill::Prefill::kStreamAllMinDefault);
     };
     set_stream_all_min();
+    // NVFP4 prompt chunks below the FP4 floor on an integrated GPU with no peer: W4A16 instead of MMQ.  The same
+    // weights against BF16 activations (MMQ rounds them to int8) on the BF16 tensor cores: 2.5x MMQ's expert layer at
+    // 716 tokens, and the 100-chunk KLD gate equal to MMQ's (docs/n1x-gpu-first.md).
+    if (basalt::core::device_memory_model().integrated && o.peer_device < 1) basalt::prefill::Prefill::set_w4a16(true);
     if (o.serve && o.conversation_cache_disk_mib > 0 && o.conversation_cache_dir.empty()) {
         basalt::log::error("basalt", "--conversation-cache-disk-mib needs --conversation-cache-dir");
         return 2;

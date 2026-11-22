@@ -97,8 +97,11 @@ struct Prefill::Run::Chunk::Experts {
     const int mmq_dt = lay.native ? lay.fmt[(size_t) l].d_type : 42;
     const int mmq_ut = lay.native ? lay.fmt[(size_t) l].up_type : 42;   // the up rows' type
     // NVFP4 experts: FP4 block-scaled tensor cores, read in place from the blobs
-    const bool fp4_l = use_mmq && lay.native && mmq_gt == GGML_TYPE_NVFP4 && mmq_dt == GGML_TYPE_NVFP4 &&
-                       lay.fmt[(size_t) l].tail != 0 && T >= FP4_MIN_TOKENS;
+    // (below FP4_MIN_TOKENS, with w4a16(): the same kernels on BF16 activations and the BF16 tensor cores)
+    const bool nvfp4_l = use_mmq && lay.native && mmq_gt == GGML_TYPE_NVFP4 && mmq_dt == GGML_TYPE_NVFP4 &&
+                         lay.fmt[(size_t) l].tail != 0;
+    const bool w16_l = nvfp4_l && T < FP4_MIN_TOKENS && w4a16();
+    const bool fp4_l = nvfp4_l && (T >= FP4_MIN_TOKENS || w16_l);
     const bool fused_nat = chunk.native_fused_layer(l);
     const bool fused_l = (use_mmq && stream_all && !lay.native && fused::enabled()) || fused_nat;
     bool peer_now = false;                // multi-GPU: the peer computed rows of this layer (MMQ path only)
@@ -193,6 +196,7 @@ struct Prefill::Run::Chunk::Experts::Group {
     decltype(Experts::mmq_dt)& mmq_dt = experts.mmq_dt;
     decltype(Experts::mmq_ut)& mmq_ut = experts.mmq_ut;
     decltype(Experts::fp4_l)& fp4_l = experts.fp4_l;
+    decltype(Experts::w16_l)& w16_l = experts.w16_l;
     decltype(Experts::fused_nat)& fused_nat = experts.fused_nat;
     decltype(Experts::fused_l)& fused_l = experts.fused_l;
     decltype(Experts::peer_now)& peer_now = experts.peer_now;

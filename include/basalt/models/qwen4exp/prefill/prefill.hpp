@@ -93,6 +93,9 @@ public:
     /// An integrated GPU without a peer card: streaming wins from a few dozen tokens (no link to move experts over).
     static constexpr int64_t kStreamAllMinIntegrated = 64;
     static void set_stream_all_min(int64_t tokens);
+    /// NVFP4 layers of a chunk below FP4_MIN_TOKENS: the BF16 tensor cores on BF16 activations (W4A16) instead of
+    /// MMQ; before init.
+    static void set_w4a16(bool on);
 
     /// The streamed ring's depth for the layouts made from now on (`relayout`, `bytes_needed`, `ring_slots_for`); at
     /// most the one `init` laid out.  A shallower ring takes fewer of the lent cache slots.

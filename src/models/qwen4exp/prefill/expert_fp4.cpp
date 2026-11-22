@@ -23,6 +23,7 @@ void Prefill::Run::Chunk::Experts::Group::fp4_flush() {
     fg.tail_off = lay.fmt[(size_t) l].bytes - lay.fmt[(size_t) l].tail;
     fg.h = m.H; fg.dm = m.Dm;
     fg.a4h = fp.a4h; fg.gsh = fp.gsh; fg.toh = fp.toh; fg.rel = fp.rel;
+    if (w16_l) fg.a16x = m.Xq;   // BF16 token rows; H then holds BF16 rows
     fp4::run_group(fg, (int64_t) group_rows_cap((size_t) m.T), m.cs);
     if (gg_nslots > 0) {   // the blobs are read: give the ring slots back
         const int rel_slot = gg_slots[gg_nslots - 1];

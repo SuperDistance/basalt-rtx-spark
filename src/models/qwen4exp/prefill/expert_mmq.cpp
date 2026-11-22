@@ -35,7 +35,9 @@ void Prefill::Run::Chunk::Experts::Group::prepare_products() {
             cudaMemcpyAsync(m.bounds_dev, m.bounds_host.data(), m.bounds_host.size() * 4,
                             cudaMemcpyHostToDevice, m.cs);
         }
-        if (fp4_l) {   // the activations as FP4, once per token: the gate/up product reads a row's token
+        if (w16_l) {   // W4A16: the activations as BF16 rows, once per token (Xq holds T * K q8_1 rows: room enough)
+            fp4::to_bf16(m.mixed, T, N, N, m.Xq, m.cs);
+        } else if (fp4_l) {   // the activations as FP4, once per token: the gate/up product reads a row's token
             const Fp4Ptrs fp = fp4_ptrs(m.Xq, m.Hq, m.T, m.g->n_expert);
             fp4::quantize_tokens(m.mixed, T, N, N, fp.a4x, fp.gsx, m.cs);
         }

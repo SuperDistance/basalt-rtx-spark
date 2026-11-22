@@ -5,6 +5,7 @@
 // Adapted from Infernix (Ian Ranson and contributors), Apache-2.0: see THIRD_PARTY_LICENSES.
 #include "basalt/prefill/moe_fp4.hpp"
 
+#include <cuda_bf16.h>
 #include <cuda_fp16.h>
 #include <cuda_fp8.h>
 #include <cuda_runtime.h>
@@ -13,6 +14,7 @@
 #include <atomic>
 #include <cstdio>
 #include <cstdlib>
+#include "basalt/kernels/narrow_bf16.cuh"
 #include "basalt/log.hpp"
 
 namespace basalt::prefill::fp4 {
@@ -369,6 +371,236 @@ __global__ __launch_bounds__(kThreads, 1) void gemm_kernel(const GemmArgs a) {
         }
 }
 
+// ------------------------------------------------------------------------------------- W4A16 (BF16) GEMM
+
+constexpr int kK16 = 128;                                      // values per BF16 pipeline stage
+constexpr int kStages16 = 2;
+constexpr int kA16Row = kK16 * 2;                              // 256 bytes: sixteen 16-byte chunks
+constexpr int kA16Tile = kTileTokens * kA16Row;                // 16384
+constexpr int kB16Row = kK16 / 64 * 36;                        // 72: two 64-value NVFP4 blocks per weight row
+constexpr int kB16Stage = kRowsPerBlock * kB16Row;             // 9216
+constexpr int kSmem16 = kStages16 * (kBlockTiles * kA16Tile + kB16Stage);   // 83968
+
+struct Gemm16Args {
+    const uint8_t* blob[kMaxExperts];
+    size_t w_off;
+    int w_cols, half;
+    const __nv_bfloat16* a16;   // activation rows (row-major, w_cols values each)
+    const int32_t* bounds;
+    const int32_t* ids;         // row -> activation row, or null (row i reads row i)
+    void* dst;                  // float, or (SWIGLU) BF16
+    int64_t ld_dst;
+    size_t tail_off;
+};
+
+// c += A (16 tokens x 16 values, BF16) * B (16 x 8 weight rows, BF16), FP32 accumulation
+__device__ __forceinline__ void mma_bf16(float* c, const unsigned* a, unsigned b0, unsigned b1) {
+    asm volatile("mma.sync.aligned.m16n8k16.row.col.f32.bf16.bf16.f32 "
+                 "{%0,%1,%2,%3}, {%4,%5,%6,%7}, {%8,%9}, {%0,%1,%2,%3};\n"
+                 : "+f"(c[0]), "+f"(c[1]), "+f"(c[2]), "+f"(c[3])
+                 : "r"(a[0]), "r"(a[1]), "r"(a[2]), "r"(a[3]), "r"(b0), "r"(b1));
+}
+
+// A UE4M3 sub-block scale byte as the FP4 path's MMA reads it (bit 7 ignored, 0x7F, NaN in hardware, as 0), in both
+// halves of a bf16x2 (exact: every E4M3 value is a bf16)
+__device__ __forceinline__ unsigned ue4m3_scale2(unsigned s) {
+    s &= 0x7fu;
+    if (s == 0x7fu) s = 0;
+    return basalt::kernels::e4m3x2_bf16x2(s | (s << 8));
+}
+
+// A B fragment of a 16-value NVFP4 sub-block: the two code bytes at 2 tig (c, low byte first) hold values 2 tig and
+// 2 tig + 8 (byte 2 tig, low and high nibble) and 2 tig + 1 and 2 tig + 9 (byte 2 tig + 1); the mma wants
+// {2 tig, 2 tig + 1} and {2 tig + 8, 2 tig + 9}, each times the sub-block's scale (exact products)
+__device__ __forceinline__ void nvfp4_b_frag(unsigned c, unsigned sc2, unsigned& b0, unsigned& b1) {
+    unsigned t0, t1;
+    asm("{\n"
+        ".reg .b8 x0, x1, x2, x3;\n"
+        "mov.b32 {x0, x1, x2, x3}, %2;\n"
+        "cvt.rn.bf16x2.e2m1x2 %0, x0;\n"
+        "cvt.rn.bf16x2.e2m1x2 %1, x1;\n"
+        "}\n"
+        : "=r"(t0), "=r"(t1)
+        : "r"(c));
+    const unsigned lo = __byte_perm(t0, t1, 0x5410), hi = __byte_perm(t0, t1, 0x7632);
+    asm("mul.rn.bf16x2 %0, %1, %2;" : "=r"(b0) : "r"(lo), "r"(sc2));
+    asm("mul.rn.bf16x2 %0, %1, %2;" : "=r"(b1) : "r"(hi), "r"(sc2));
+}
+
+// Two BF16 values (the lower index in the low half), rounded to nearest even
+__device__ __forceinline__ unsigned bf16x2(float lo, float hi) {
+    const __nv_bfloat162 v = __floats2bfloat162_rn(lo, hi);
+    return *(const unsigned*) &v;
+}
+
+// One stage: the block's activation rows (sixteen 16-byte chunks per row, swizzled by row) and the block's weight rows
+// (two 36-byte NVFP4 blocks each, in 8-byte copies)
+template <bool SWIGLU>
+__device__ __forceinline__ void load_stage16(int stage, int kt, uint8_t* smem, const __nv_bfloat16* const* a_row,
+                                             const int* a_dst, int na, const uint8_t* w_src, size_t row_bytes, int rb,
+                                             int half) {
+    uint8_t* as = smem + stage * kBlockTiles * kA16Tile;
+    uint8_t* bs = smem + kStages16 * kBlockTiles * kA16Tile + stage * kB16Stage;
+#pragma unroll
+    for (int i = 0; i < kBlockTiles * kTileTokens * (kA16Row / 16) / kThreads; ++i)
+        if (i < na) cp_async16(as + a_dst[i], a_row[i] + (size_t) kt * kK16);
+    for (int i = threadIdx.x; i < kRowsPerBlock * (kB16Row / 8); i += kThreads) {
+        const int row = i / (kB16Row / 8), c = i % (kB16Row / 8);
+        cp_async8(bs + row * kB16Row + 8 * c,
+                  w_src + (size_t) b_row<SWIGLU>(rb, row, half) * row_bytes + (size_t) kt * kB16Row + 8 * c);
+    }
+}
+
+// The weight row behind B tile row r of a warp holding NR 8-row n-tiles: warp `wn` of 4 (NR 4) or of 8 (NR 2); with
+// SWIGLU its first NR / 2 n-tiles are gate rows and the rest the up rows of the same outputs
+template <bool SWIGLU, int NR> __device__ __forceinline__ int b_tile_row16(int wn, int r) {
+    if (!SWIGLU) return wn * NR * 8 + r * 8;
+    return r < NR / 2 ? wn * (NR / 2) * 8 + r * 8 : 64 + wn * (NR / 2) * 8 + (r - NR / 2) * 8;
+}
+
+template <bool SWIGLU, int NR>
+__device__ __forceinline__ void gemm16_body(const Gemm16Args& a, uint8_t* smem, const __nv_bfloat16* const* a_row,
+                                            const int* a_dst, int na, const uint8_t* w_src, size_t row_bytes, int rb,
+                                            int tp, int j, int cnt, int first, int ntiles, int nkt) {
+    const int lane = threadIdx.x & 31, warp = threadIdx.x >> 5;
+    const int warp_m = NR == 4 ? warp >> 2 : 0, wn = NR == 4 ? (warp & 3) : warp;
+    const bool live = warp_m < ntiles;
+    const int group = lane >> 2, tig = lane & 3;
+    // the 16-row slices of this warp's tile that hold rows (the rest are padding: neither read nor multiplied)
+    const int nmt = live ? min(4, (cnt - first - warp_m * kTileTokens + 15) / 16) : 0;
+    float acc[4][NR][4] = {};
+#pragma unroll
+    for (int s = 0; s < kStages16 - 1; ++s) {
+        if (s < nkt) load_stage16<SWIGLU>(s, s, smem, a_row, a_dst, na, w_src, row_bytes, rb, a.half);
+        cp_commit();
+    }
+    for (int kt = 0; kt < nkt; ++kt) {
+        cp_wait<kStages16 - 2>();
+        __syncthreads();
+        if (kt + kStages16 - 1 < nkt)
+            load_stage16<SWIGLU>((kt + kStages16 - 1) % kStages16, kt + kStages16 - 1, smem, a_row, a_dst, na, w_src,
+                                 row_bytes, rb, a.half);
+        cp_commit();
+        if (!live) continue;
+        const int stage = kt % kStages16;
+        const uint8_t* as = smem + stage * kBlockTiles * kA16Tile + warp_m * kA16Tile;
+        const uint8_t* bs = smem + kStages16 * kBlockTiles * kA16Tile + stage * kB16Stage;
+        const uint8_t* bp[NR];
+#pragma unroll
+        for (int r = 0; r < NR; ++r) bp[r] = bs + (b_tile_row16<SWIGLU, NR>(wn, r) + group) * kB16Row;
+#pragma unroll
+        for (int blk = 0; blk < kK16 / 64; ++blk) {
+            unsigned sc4[NR];
+#pragma unroll
+            for (int r = 0; r < NR; ++r) sc4[r] = *(const uint32_t*) (bp[r] + 36 * blk);
+#pragma unroll
+            for (int sb = 0; sb < 4; ++sb) {
+                const int ks = blk * 4 + sb;
+                unsigned af[4][4];
+#pragma unroll
+                for (int mt = 0; mt < 4; ++mt) {
+                    if (mt >= nmt) continue;
+                    const int row = mt * 16 + (lane & 15), chunk = 2 * ks + (lane >> 4);
+                    ldmatrix_x4(af[mt][0], af[mt][1], af[mt][2], af[mt][3],
+                                smem_addr(as + row * kA16Row + ((chunk ^ (row & 7)) << 4)));
+                }
+                // B fragment: weight row `group` of each n-tile
+                unsigned b0[NR], b1[NR];
+#pragma unroll
+                for (int r = 0; r < NR; ++r)
+                    nvfp4_b_frag(*(const uint16_t*) (bp[r] + 36 * blk + 4 + 8 * sb + 2 * tig),
+                                 ue4m3_scale2((sc4[r] >> (8 * sb)) & 0xffu), b0[r], b1[r]);
+#pragma unroll
+                for (int mt = 0; mt < 4; ++mt) {
+                    if (mt >= nmt) continue;
+#pragma unroll
+                    for (int r = 0; r < NR; ++r) mma_bf16(acc[mt][r], af[mt], b0[r], b1[r]);
+                }
+            }
+        }
+    }
+    cp_wait<0>();
+    if (!live) return;
+
+    const int tl = kBlockTiles * tp + warp_m;
+    const int64_t row0 = a.bounds[j] + (int64_t) tl * kTileTokens;
+    float4 tail = make_float4(0.0f, 0.0f, 0.0f, 0.0f);
+    if (SWIGLU) tail = *(const float4*) (a.blob[j] + a.tail_off);
+#pragma unroll
+    for (int mt = 0; mt < 4; ++mt)
+#pragma unroll
+        for (int h = 0; h < 2; ++h) {
+            const int t = mt * 16 + group + 8 * h;
+            if (tl * kTileTokens + t >= cnt) continue;
+            if (SWIGLU) {
+                __nv_bfloat16* out = (__nv_bfloat16*) a.dst + (row0 + t) * a.ld_dst + rb * 64 + wn * (NR / 2) * 8 + 2 * tig;
+#pragma unroll
+                for (int r = 0; r < NR / 2; ++r)
+                    *(unsigned*) (out + 8 * r) =
+                        bf16x2(swiglu_tail(acc[mt][r][2 * h], acc[mt][r + NR / 2][2 * h], tail),
+                               swiglu_tail(acc[mt][r][2 * h + 1], acc[mt][r + NR / 2][2 * h + 1], tail));
+            } else {
+                float* out = (float*) a.dst + (row0 + t) * a.ld_dst + rb * kRowsPerBlock + wn * NR * 8 + 2 * tig;
+#pragma unroll
+                for (int r = 0; r < NR; ++r) *(float2*) (out + 8 * r) = make_float2(acc[mt][r][2 * h], acc[mt][r][2 * h + 1]);
+            }
+        }
+}
+
+// The FP4 kernel's block (two 64-token tiles x 128 weight rows, eight warps, each one tile x 32 rows) on BF16 MMAs,
+// two 128-value stages deep (the shared memory of the FP4 kernel's four):
+// each weight sub-block is widened in registers (cvt.rn.bf16x2.e2m1x2, times the scale) and feeds the token groups of
+// the warp's tile that hold rows.  SWIGLU: the gate/up product's outputs leave as BF16 tail-scaled SwiGLU values.
+template <bool SWIGLU>
+__global__ __launch_bounds__(kThreads, 1) void gemm16_kernel(const Gemm16Args a) {
+    extern __shared__ __align__(1024) uint8_t smem[];
+    const int j = blockIdx.z, tp = blockIdx.y, rb = blockIdx.x;
+    const int cnt = a.bounds[j + 1] - a.bounds[j];
+    const int first = tp * kBlockTiles * kTileTokens;
+    if (first >= cnt) return;
+    const int ntiles = first + kTileTokens < cnt ? 2 : 1;
+    const int nkt = a.w_cols / kK16;
+    const size_t row_bytes = (size_t) (a.w_cols / 64) * 36;
+    const uint8_t* w_src = a.blob[j] + a.w_off;
+    const int64_t brow0 = a.bounds[j] + first;
+    // this thread's activation chunks: row c / 16 of the block, chunk c % 16; a padded row reads the block's first row
+    // (its outputs are never stored)
+    constexpr int kChunks = kBlockTiles * kTileTokens * (kA16Row / 16) / kThreads;
+    const __nv_bfloat16* a_row[kChunks];
+    int a_dst[kChunks];
+    int na = 0;
+#pragma unroll
+    for (int i = 0; i < kChunks; ++i) {
+        const int c = (int) threadIdx.x + i * kThreads, r = c >> 4, q = c & 15;
+        a_row[i] = nullptr;
+        a_dst[i] = 0;
+        if (r < ntiles * kTileTokens) {
+            const int64_t row = brow0 + (first + r < cnt ? r : 0);
+            const int64_t src = a.ids ? a.ids[row] : row;
+            a_row[i] = a.a16 + src * a.w_cols + 8 * q;
+            const int rr = r % kTileTokens;
+            a_dst[i] = (r / kTileTokens) * kA16Tile + rr * kA16Row + ((q ^ (rr & 7)) << 4);
+            na = i + 1;
+        }
+    }
+
+    // a block of one tile spreads its 128 weight rows over all eight warps (16 each), two tiles give each warp one tile
+    // and 32 rows; either way an output's MMA chain over K is the same
+    if (ntiles == 1) gemm16_body<SWIGLU, 2>(a, smem, a_row, a_dst, na, w_src, row_bytes, rb, tp, j, cnt, first, ntiles, nkt);
+    else gemm16_body<SWIGLU, 4>(a, smem, a_row, a_dst, na, w_src, row_bytes, rb, tp, j, cnt, first, ntiles, nkt);
+}
+
+// rows of x to BF16, eight values per thread
+__global__ void to_bf16_kernel(const float* __restrict__ x, int64_t rows, int cols, int64_t ld, __nv_bfloat16* __restrict__ y) {
+    const int64_t i = (int64_t) blockIdx.x * blockDim.x + threadIdx.x, per = cols / 8;
+    if (i >= rows * per) return;
+    const int64_t r = i / per, c = (i % per) * 8;
+    const float4 v0 = *(const float4*) (x + r * ld + c), v1 = *(const float4*) (x + r * ld + c + 4);
+    uint4 o;
+    o.x = bf16x2(v0.x, v0.y); o.y = bf16x2(v0.z, v0.w); o.z = bf16x2(v1.x, v1.y); o.w = bf16x2(v1.z, v1.w);
+    *(uint4*) (y + r * cols + c) = o;
+}
+
 __global__ void tails_kernel(GemmArgs a, size_t off, int n, float* dst) {
     const int j = threadIdx.x;
     if (j < n) ((float4*) dst)[j] = *(const float4*) (a.blob[j] + off);
@@ -439,8 +671,44 @@ template <bool GATHER, bool SWIGLU> void launch(const GemmArgs& a, dim3 grid, cu
     ck(cudaGetLastError(), "gemm");
 }
 
+template <bool SWIGLU> void launch16(const Gemm16Args& a, dim3 grid, cudaStream_t s) {
+    static std::atomic<bool> configured[64];
+    int dev = 0;
+    ck(cudaGetDevice(&dev), "device");
+    if (dev < 0 || dev >= 64) ck(cudaErrorInvalidDevice, "device range");
+    if (!configured[dev].load(std::memory_order_acquire)) {
+        ck(cudaFuncSetAttribute(gemm16_kernel<SWIGLU>, cudaFuncAttributeMaxDynamicSharedMemorySize, kSmem16), "smem");
+        configured[dev].store(true, std::memory_order_release);
+    }
+    gemm16_kernel<SWIGLU><<<grid, kThreads, kSmem16, s>>>(a);
+    ck(cudaGetLastError(), "gemm16");
+}
+
+size_t bf16_bytes(int64_t rows, int64_t cols) { return (size_t) rows * (size_t) cols * 2; }
+
+void to_bf16(const float* x, int64_t rows, int64_t cols, int64_t ld, void* dst, void* stream) {
+    if (rows <= 0) return;
+    if (cols % 64 != 0 || ld % 4 != 0) { basalt::log::error("basalt", "prefill bf16: %lld columns", (long long) cols); std::exit(1); }
+    const int64_t n = rows * (cols / 8);
+    to_bf16_kernel<<<(unsigned) ((n + 255) / 256), 256, 0, (cudaStream_t) stream>>>(x, rows, (int) cols, ld, (__nv_bfloat16*) dst);
+    ck(cudaGetLastError(), "to bf16");
+}
+
 void run(const Product& p, void* stream) {
     if (p.n <= 0 || p.max_rows <= 0) return;
+    if (p.a16) {
+        Gemm16Args a{};
+        for (int j = 0; j < p.n; ++j) a.blob[j] = p.blob[j];
+        a.w_off = p.w_off; a.w_cols = (int) p.w_cols; a.half = (int) (p.w_rows / 2);
+        a.a16 = (const __nv_bfloat16*) p.a16; a.bounds = p.bounds; a.ids = p.ids; a.dst = p.dst; a.ld_dst = p.ld_dst;
+        a.tail_off = p.tail_off;
+        const int block_rows = kBlockTiles * kTileTokens;
+        const dim3 grid((unsigned) (p.w_rows / kRowsPerBlock), (unsigned) ((p.max_rows + block_rows - 1) / block_rows),
+                        (unsigned) p.n);
+        if (p.swiglu) launch16<true>(a, grid, (cudaStream_t) stream);
+        else launch16<false>(a, grid, (cudaStream_t) stream);
+        return;
+    }
     if ((p.ids != nullptr) != p.swiglu) {
         basalt::log::error("basalt", "prefill fp4: token rows go with the SwiGLU output only");
         std::exit(1);
@@ -480,6 +748,17 @@ void run_experts(const Group& g, int i0, int n, void* stream) {
     gu.a4 = g.a4x; gu.gs = g.gsx; gu.ids = g.ids; gu.tokens = g.tokens; gu.bounds = g.bounds_dev + i0;
     gu.swiglu = true; gu.tail_off = g.tail_off;
     gu.dst = g.h - r0 * kFF; gu.ld_dst = kFF; gu.max_rows = maxr;
+    if (g.a16x) {   // W4A16: H as BF16 rows, which the down product reads as they are (absolute rows)
+        __nv_bfloat16* h16 = (__nv_bfloat16*) g.h - r0 * kFF;
+        gu.a16 = g.a16x; gu.dst = (float*) h16;
+        run(gu, stream);
+        Product dn;
+        for (int i = 0; i < n; ++i) dn.blob[i] = gu.blob[i];
+        dn.w_off = g.down_off; dn.w_rows = kN; dn.w_cols = kFF; dn.n = n;
+        dn.a16 = h16; dn.bounds = g.bounds_dev + i0; dn.dst = g.dm; dn.ld_dst = kN; dn.max_rows = maxr;
+        run(dn, stream);
+        return;
+    }
     run(gu, stream);
     rebase(g.bounds_dev + i0, n, g.rel, stream);   // this run's own row bounds
     plan(g.rel, n, g.toh, stream);

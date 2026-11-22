@@ -3,6 +3,8 @@
 // codes with a UE4M3 scale per 16 values and one FP32 scale per token (W4A4).  A layer's input is rounded once per
 // token (token planes: the gate/up product reads each row's token); H is laid out per 64-token tile of one expert
 // (each expert's rows padded to whole tiles), so a tile's codes and scales are one contiguous, bank-swizzled run.
+// The same products also run on BF16 activations (W4A16, `a16` / `a16x`): the weights widened exactly to BF16 in
+// registers, the BF16 tensor cores, H kept as BF16 rows.
 #pragma once
 
 #include <cstddef>
@@ -39,6 +41,13 @@ size_t token_bytes(int64_t tokens, int64_t cols);
 /// gs[tokens]: the same codes and scales quantize() gives every row that reads that token.
 void quantize_tokens(const float* x, int64_t tokens, int64_t cols, int64_t ld, void* a4, float* gs, void* stream);
 
+/// BF16 activations (W4A16): the same NVFP4 weights, read in place and widened exactly to BF16 (an E2M1 value times
+/// its UE4M3 scale has at most six significant bits), against activations rounded only to BF16 (the reference model's
+/// own), on the BF16 tensor cores with FP32 accumulation.  The activations are a plain row-major BF16 matrix: no
+/// tiles, no token scales.  Rows of x (`ld` floats apart) to BF16 rows of `cols` values at dst.
+size_t bf16_bytes(int64_t rows, int64_t cols);
+void to_bf16(const float* x, int64_t rows, int64_t cols, int64_t ld, void* dst, void* stream);
+
 /// n experts' products: expert j's matrix [w_rows, w_cols] of NVFP4 blocks starts at blob[j] + w_off; its rows
 /// [bounds[j], bounds[j+1]) of the planes go to dst rows of the same indices (dst + row * ld_dst).  The result is the
 /// plain product (no per-expert tail scale).  `max_rows`: the most rows one segment has.
@@ -46,6 +55,8 @@ void quantize_tokens(const float* x, int64_t tokens, int64_t cols, int64_t ld, v
 /// `tokens` rows (a4, gs from quantize_tokens; no tile_off), and dst gets [w_rows / 2] values per row, the tail-scaled
 /// SwiGLU silu(g s_gate) (u s_up) s_down of the blob's 16-byte tail at tail_off, the same bits as the plain product
 /// followed by mmq::swiglu.
+/// `a16` (W4A16): the activations are BF16 rows instead (a4, gs, tile_off unused): row i reads row ids[i] of a16 (or
+/// row i), and the SwiGLU output goes to dst as BF16 values (dst is then a BF16 matrix, ld_dst values per row).
 struct Product {
     const uint8_t* blob[kMaxExperts] = {};
     size_t w_off = 0;
@@ -61,6 +72,7 @@ struct Product {
     const int32_t* ids = nullptr;
     int64_t tokens = 0;
     size_t tail_off = 0;
+    const void* a16 = nullptr;
 };
 void run(const Product& p, void* stream);
 /// The 16-byte scale tail at `tail_off` of each of p's n blobs to dst[4 j .. 4 j + 3] (the tail swiglu reads).
@@ -70,6 +82,8 @@ void gather_tails(const Product& p, size_t tail_off, float* dst, void* stream);
 /// planes (already rounded to FP4) and, per run of the group, the gate/up product as the tail-scaled SwiGLU, the FP4
 /// rounding of H and the down product.  `h` holds one run's rows only (its row 0 is the run's first row); `dm` is the
 /// layer's own output, indexed by absolute row.
+/// `a16x` (W4A16): the layer's token rows in BF16 (to_bf16) instead of a4x/gsx; H then holds a run's rows as BF16 and
+/// the down product reads them as they are (a4h, gsh, toh, rel unused).
 struct Group {
     int n = 0;
     const uint8_t* blob[kMaxExperts] = {};
@@ -84,6 +98,7 @@ struct Group {
     void* a4h = nullptr;                    ///< a run's H planes, token scales, tile table and relative bounds
     float* gsh = nullptr;
     int32_t *toh = nullptr, *rel = nullptr; ///< kMaxExperts + 1 entries each
+    const void* a16x = nullptr;
 };
 /// Runs consecutive experts [i0, i0 + n) of the group (n >= 1): rows of `bounds_host` rows [i0, i0 + n].
 void run_experts(const Group& g, int i0, int n, void* stream);

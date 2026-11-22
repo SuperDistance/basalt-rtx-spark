@@ -13,7 +13,9 @@
 // product followed by mmq::swiglu (and the A4 reference in double to RMS 1e-5).  The group path (`fp4::run_group`, what
 // expert_fp4.cpp runs) with H holding only a run's rows must equal the absolute-row sequence of the plain kernels bitwise,
 // and so must every split of a group into runs (a row cap from one expert to none), on two routings with hot experts,
-// with nothing written past the run's rows.  Edge activations: zero sub-blocks
+// with nothing written past the run's rows.  W4A16 (BF16 activations): the layer against double math on the same
+// roundings (x and H to BF16) to RMS 4e-3, its down product on its own H to 1e-5, the unrounded double to 1e-2, every
+// split into runs bitwise equal, a zero token exactly 0.  Edge activations: zero sub-blocks
 // next to non-zero ones, tokens scaled by 1e-30 and 1e30, one huge sub-block in a tiny token: finite, zero stays zero,
 // and the gate/up product follows the A4 reference.  Then a microbench line (--no-bench skips it).  With a second
 // device, the peer card's share of a streamed chunk (its experts' rows in pieces of a row cap, each group planned on
@@ -437,6 +439,65 @@ int run_fp4_group(F4& f, F4Run& r, Bufs& b, const Layer& L, const float* x_dev, 
     guards = guard_clear(r.h.p, (size_t) r.cap_rows * FF * 4, r.h.bytes) &&
              guard_clear(r.a4h.p, fp4::a4_bytes(r.cap_rows, FF, GROUP), r.a4h.bytes) &&
              guard_clear(r.gsh.p, fp4::scale_count(r.cap_rows, GROUP) * 4, r.gsh.bytes);
+    return runs;
+}
+
+// BF16 rounding to nearest even (the device's __float2bfloat16_rn on finite values)
+float bf16r(float v) {
+    uint32_t u;
+    std::memcpy(&u, &v, 4);
+    u = (u + 0x7fffu + ((u >> 16) & 1u)) & 0xffff0000u;
+    float r;
+    std::memcpy(&r, &u, 4);
+    return r;
+}
+std::vector<float> download_bf16(const void* p, size_t n) {
+    std::vector<uint16_t> h(n);
+    ck(cudaMemcpy(h.data(), p, n * 2, cudaMemcpyDeviceToHost), "download bf16");
+    std::vector<float> out(n);
+    for (size_t i = 0; i < n; ++i) {
+        const uint32_t u = (uint32_t) h[i] << 16;
+        std::memcpy(&out[i], &u, 4);
+    }
+    return out;
+}
+
+// The W4A16 sequence (expert_fp4.cpp with BF16 activations): the token rows in BF16, then each group in runs of at most
+// `row_cap` rows, H holding a run's rows as BF16.
+struct W16 {
+    int64_t cap_rows;
+    Dev a16x, h, th;
+    W16(int64_t T, int64_t rows) : cap_rows(rows), a16x(fp4::bf16_bytes(T, N)), h(fp4::bf16_bytes(rows + kGuardRows, FF)),
+                                   th(2 * (GROUP + 1) * 4) {}
+};
+// `h_abs` (optional, with an unsplit cap: one run per group): every row's H, absolute, read back after each group
+int run_w4a16(W16& w, Bufs& b, const Layer& L, const float* x_dev, const int32_t* src_dev,
+              const std::vector<const uint8_t*>& blob, int64_t row_cap, cudaStream_t s,
+              std::vector<float>* h_abs = nullptr) {
+    const size_t n = L.order.size();
+    ck(cudaMemcpyAsync(b.bounds.p, L.bh.data(), L.bh.size() * 4, cudaMemcpyHostToDevice, s), "bounds");
+    fp4::to_bf16(x_dev, L.T, N, N, w.a16x.p, s);
+    int runs = 0;
+    for (size_t j0 = 0; j0 < n; j0 += GROUP) {
+        fp4::Group g;
+        g.n = (int) std::min<size_t>(GROUP, n - j0);
+        for (int q = 0; q < g.n; ++q) g.blob[q] = blob[(size_t) L.order[j0 + (size_t) q]];
+        g.bounds_host = L.bh.data() + j0;
+        g.bounds_dev = b.bounds.as<int32_t>() + j0;
+        g.ids = src_dev; g.a16x = w.a16x.p; g.tokens = L.T;
+        g.down_off = DOWN_OFF; g.tail_off = TAIL_OFF;
+        g.h = w.h.as<float>(); g.dm = b.dm.as<float>();
+        g.toh = w.th.as<int32_t>(); g.rel = g.toh + (GROUP + 1);
+        const int nr = fp4::run_group(g, row_cap, s);
+        runs += nr;
+        if (h_abs) {
+            if (nr != 1) throw std::runtime_error("h_abs needs one run per group");
+            const int64_t r0 = L.bh[j0], rn = L.bh[j0 + (size_t) g.n] - r0;
+            ck(cudaStreamSynchronize(s), "sync group H");
+            const std::vector<float> hg = download_bf16(w.h.p, (size_t) rn * FF);
+            std::copy(hg.begin(), hg.end(), h_abs->begin() + r0 * FF);
+        }
+    }
     return runs;
 }
 
@@ -1032,20 +1093,97 @@ int parity(cudaStream_t s) {
     std::printf("  FP16 fallback vs double:        rms %.3e  worst row %.3e\n", fd.rms, fd.worst);
     std::printf("  grouped gather == per-expert gather (bitwise): %s; zero token exactly 0: %s\n",
                 same_gather ? "yes" : "NO", zero_ok ? "yes" : "NO");
+    // W4A16: the same layer with BF16 activations, against double math on the same roundings (x and H to BF16; the
+    // weights exact), on the unrounded activations, and split into runs every way (bitwise)
+    bool w16_ok = true;
+    {
+        W16 w(T, rows);
+        ck(cudaMemset(b.dm.p, 0xff, (size_t) rows * N * 4), "clr");
+        std::vector<float> wh((size_t) rows * FF);
+        run_w4a16(w, b, L, x_dev.as<float>(), src_dev.as<int32_t>(), blob, (int64_t) 1 << 40, s, &wh);
+        ck(cudaStreamSynchronize(s), "sync w4a16");
+        const std::vector<float> wy = download(b.dm, (size_t) rows * N);
+        std::vector<float> r_y16((size_t) rows * N), r_h16((size_t) rows * FF), r_dn((size_t) rows * N);
+        parallel(E, [&](int e) {
+            if (L.cnt[(size_t) e] == 0) return;
+            const float sg = tails[(size_t) e][0], su = tails[(size_t) e][1], sd = tails[(size_t) e][2];
+            std::vector<float> wgu((size_t) 2 * FF * N), wd((size_t) N * FF), x16(N), h16(FF);
+            for (int r = 0; r < 2 * FF; ++r) tr->to_float(host[(size_t) e].data() + (size_t) r * GU_ROW, wgu.data() + (size_t) r * N, N);
+            for (int r = 0; r < N; ++r) tr->to_float(host[(size_t) e].data() + DOWN_OFF + (size_t) r * D_ROW, wd.data() + (size_t) r * FF, FF);
+            for (int32_t p = L.off[(size_t) e]; p < L.off[(size_t) e + 1]; ++p) {
+                const float* xt = x.data() + (size_t) L.src[(size_t) p] * N;
+                for (int c = 0; c < N; ++c) x16[(size_t) c] = bf16r(xt[c]);
+                for (int k = 0; k < FF; ++k) {
+                    double g = 0, u = 0;
+                    for (int c = 0; c < N; ++c) {
+                        g += (double) wgu[(size_t) k * N + c] * x16[(size_t) c];
+                        u += (double) wgu[(size_t) (FF + k) * N + c] * x16[(size_t) c];
+                    }
+                    g *= sg; u *= su;
+                    const float hv = (float) (g / (1.0 + std::exp(-g)) * u * sd);
+                    r_h16[(size_t) p * FF + k] = hv;
+                    h16[(size_t) k] = bf16r(hv);
+                }
+                for (int o = 0; o < N; ++o) {
+                    double a = 0, ad = 0;
+                    for (int k = 0; k < FF; ++k) {
+                        a += (double) wd[(size_t) o * FF + k] * h16[(size_t) k];
+                        ad += (double) wd[(size_t) o * FF + k] * wh[(size_t) p * FF + k];
+                    }
+                    r_y16[(size_t) p * N + o] = (float) a;
+                    r_dn[(size_t) p * N + o] = (float) ad;   // on the device's own H
+                }
+            }
+        });
+        double h2 = 0, hr2 = 0;
+        for (size_t i = 0; i < (size_t) rows * FF; ++i) {
+            const double d = (double) wh[i] - r_h16[i];
+            h2 += d * d; hr2 += (double) r_h16[i] * r_h16[i];
+        }
+        const double w_hrms = hr2 > 0 ? std::sqrt(h2 / hr2) : 0;
+        const Err wdn = compare(wy, r_dn, (size_t) rows), wr = compare(wy, r_y16, (size_t) rows),
+                  wd = compare(wy, r_dbl, (size_t) rows);
+        bool wzero = true;
+        for (int64_t p = 0; p < rows; ++p)
+            if (L.src[(size_t) p] == ZERO)
+                for (int o = 0; o < N; ++o) wzero &= wy[(size_t) p * N + o] == 0.0f;
+        bool wsplit = true, wguards = true;
+        int64_t maxcnt = 0;
+        for (int32_t c : L.cnt) maxcnt = std::max<int64_t>(maxcnt, c);
+        for (int64_t cap : {(int64_t) 2 * 64 + 1, (int64_t) 65, maxcnt, (int64_t) 1}) {
+            W16 w2(T, std::min<int64_t>(rows, std::max(cap, maxcnt)));
+            ck(cudaMemset(w2.h.p, 0xff, w2.h.bytes), "guard");
+            ck(cudaMemset(b.dm.p, 0xff, (size_t) rows * N * 4), "clr");
+            run_w4a16(w2, b, L, x_dev.as<float>(), src_dev.as<int32_t>(), blob, cap, s);
+            ck(cudaStreamSynchronize(s), "sync w4a16 split");
+            const std::vector<float> y2 = download(b.dm, (size_t) rows * N);
+            wsplit &= std::memcmp(y2.data(), wy.data(), wy.size() * 4) == 0;
+            wguards &= guard_clear(w2.h.p, fp4::bf16_bytes(w2.cap_rows, FF), w2.h.bytes);
+        }
+        std::printf("  W4A16 H vs double on BF16 activations: rms %.3e (tol 4e-3: H itself is BF16)\n", w_hrms);
+        std::printf("  W4A16 down vs double on its own H:     rms %.3e worst row %.3e (tol rms 1e-5)\n", wdn.rms, wdn.worst);
+        std::printf("  W4A16 layer vs double on BF16 roundings: rms %.3e worst row %.3e (tol rms 4e-3)\n", wr.rms, wr.worst);
+        std::printf("  W4A16 layer vs double (unrounded):     rms %.3e worst row %.3e (tol rms 1e-2; MMQ %.3e, FP4 %.3e)\n",
+                    wd.rms, wd.worst, ed.rms, fe.rms);
+        std::printf("  W4A16 split into runs every way == unsplit (bitwise): %s, guards: %s; zero token exactly 0: %s\n",
+                    wsplit ? "yes" : "NO", wguards ? "clear" : "WRITTEN", wzero ? "yes" : "NO");
+        std::printf("  W4A16 output hash (FNV-1a): layer %016llx\n", (unsigned long long) fnv(wy));
+        w16_ok = w_hrms <= 4e-3 && wdn.rms <= 1e-5 && wr.rms <= 4e-3 && wd.rms <= 1e-2 && wsplit && wguards && wzero;
+    }
     // the group path, split every way, on this routing and on one with more hot experts
     Layer Lb = route(T, E, rng, 5);
     bool split_ok = split_equivalence("routing A (2 hot experts)", L, x_dev.as<float>(), blob, s);
     split_ok &= split_equivalence("routing B (5 hot experts)", Lb, x_dev.as<float>(), blob, s);
     const bool edge_ok = edge_activations(host, blob, s);
-    const bool ok = split_ok && edge_ok && fe.rms <= 0.2 && fm.rms <= 0.2 && grms <= 1e-5 && gworst <= 1e-4 && es.rms <= 2e-4 && es.worst <= 1e-2 && ed.rms <= 2.5e-2 &&
+    const bool ok = split_ok && edge_ok && w16_ok && fe.rms <= 0.2 && fm.rms <= 0.2 && grms <= 1e-5 && gworst <= 1e-4 && es.rms <= 2e-4 && es.worst <= 1e-2 && ed.rms <= 2.5e-2 &&
                     ef.rms <= 2e-2 && same_gather && zero_ok &&
                     f4gu <= 1e-5 && f4dn.rms <= 1e-4 && indep && planes_ok && fused_same && hrms <= 1e-5;
     std::printf("parity: %s\n", ok ? "PASS" : "FAIL");
     return ok ? 0 : 1;
 }
 
-void bench(cudaStream_t s) {
-    constexpr int T = 16384, E = 512;
+void bench(int T, cudaStream_t s) {
+    constexpr int E = 512;
     std::mt19937 rng(77);
     // random code bytes with sane sub-block scales (timing only): one blob copied to every slot
     std::vector<uint8_t> h(BYTES);
@@ -1118,6 +1256,18 @@ void bench(cudaStream_t s) {
                 1e3 * ms4 / R, flop4 / (1e3 * ms4 / R) * 1e-6, 1e3 * msp / R, flop4 / (1e3 * msp / R) * 1e-6, ms4 / msp);
     std::printf("bench: NVFP4 MMQ layer, %d tokens x top %d over %d experts (%zu with rows): %.1f us, %.1f TFLOP/s "
                 "(gathers + q8_1 + gate/up + SwiGLU + down)\n", T, K, E, L.order.size(), us, flop / us * 1e-6);
+    W16 w16(T, rows);
+    auto prod16 = [&]() { run_w4a16(w16, b, L, x_dev.as<float>(), src_dev.as<int32_t>(), blob, (int64_t) 1 << 40, s); };
+    for (int w = 0; w < 2; ++w) prod16();
+    cudaEventRecord(e0, s);
+    for (int r = 0; r < R; ++r) prod16();
+    cudaEventRecord(e1, s);
+    ck(cudaEventSynchronize(e1), "bench w4a16");
+    float ms16 = 0;
+    cudaEventElapsedTime(&ms16, e0, e1);
+    std::printf("bench: W4A16 expert path, %d tokens: BF16 rows + gate/up with SwiGLU + down %.1f us (%.1f TFLOP/s); "
+                "x%.2f vs MMQ, x%.2f vs the FP4 path\n", T, 1e3 * ms16 / R, flop4 / (1e3 * ms16 / R) * 1e-6,
+                us / (1e3 * ms16 / R), msp / ms16);
 }
 
 }  // namespace
@@ -1138,7 +1288,7 @@ int main(int argc, char** argv) {
         cudaStream_t s;
         ck(cudaStreamCreateWithFlags(&s, cudaStreamNonBlocking), "stream");
         int rc = parity(s);
-        if (do_bench) bench(s);
+        if (do_bench) for (int t : {716, 2048, 16384}) bench(t, s);
         cudaStreamDestroy(s);
         // the GEMM launch's shared-memory opt-in is per device: every other device must run it too
         for (int d = 1; d < ndev && rc == 0; ++d) {
