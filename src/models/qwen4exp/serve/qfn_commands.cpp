@@ -178,6 +178,16 @@ Flow QfnRuntime::run_request() {
 
 int QfnRuntime::init_before_input() {
     if (const int code = init_prompt()) return code;
+    // The verifier sizes its staging buffers during initialization, based on the expert aliases it can use.
+    const double file_pin_mib = basalt::core::exp_flag("n1x_file_gpu_mib");
+    if (o.batch > 0 && srcp == &src && !multi_gpu && !peer.valid() && xpeers.empty() &&
+        file_pin_mib >= 1.0 && file_pin_mib < (double) (UINT64_MAX >> 20)) {
+        const uint64_t pinned = src.pin_file_experts(profile, [&](int32_t layer, int32_t expert) {
+            return !host_res.empty() && host_res[(size_t) layer * g.n_expert + (size_t) expert] >= 0;
+        }, (uint64_t) file_pin_mib << 20);
+        basalt::log::info("basalt serve", "GPU staging: %.1f MiB of read-only model pages registered",
+                          (double) pinned / 1048576.0);
+    }
     if (const int code = init_verify()) return code;
     if (const int code = init_conversations()) return code;
     return init_tiers();
