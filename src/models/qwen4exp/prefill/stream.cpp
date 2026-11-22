@@ -23,6 +23,11 @@ bool Prefill::Run::Chunk::native_fused_layer(int64_t l) const {
     return fused::native_supported(f.gu_type, f.d_type, f.up_type);
 }
 
+bool Prefill::Run::Chunk::direct_walk_layer(int64_t l) const {
+    return stream_all && run.direct_ram_experts && lay0.native && mmq_plan().any && mmq_plan().layer[(size_t) l] &&
+           !native_fused_layer(l);
+}
+
 const uint8_t* Prefill::Run::Chunk::mapped_fused_blob(int64_t l, int32_t e) const {
     const uint8_t* alias = m.src->device_alias(l, e);
     return reinterpret_cast<uintptr_t>(alias) % 16 == 0 ? alias : nullptr;
@@ -34,7 +39,9 @@ bool Prefill::Run::Chunk::start_stream() {
         std::vector<Stager::Job> js;
         for (int64_t l = LB; l < LE; ++l) {
             seq_start[(size_t) l] = seq.size();
-            const bool direct = run.direct_ram_experts && native_fused_layer(l);
+            // experts read where they lie (an integrated GPU): the fused kernels' layers, and the MMQ / FP4 layers' (the
+            // streamed walk takes such an expert's alias instead of a staged copy: the same bytes, no copy)
+            const bool direct = run.direct_ram_experts && (native_fused_layer(l) || direct_walk_layer(l));
             for (int32_t e = 0; e < m.g->n_expert; ++e) {
                 if (m.host_res && m.cache && m.host_res[(size_t) l * m.g->n_expert + e] >= 0) continue;
                 if (direct && mapped_fused_blob(l, e) != nullptr) continue;

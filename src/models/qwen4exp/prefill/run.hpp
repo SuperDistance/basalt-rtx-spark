@@ -91,6 +91,8 @@ struct Prefill::Run::Chunk {
     const uint8_t* remote_blob(int64_t l, int32_t e) { return run.remote_blob(l, e); }
     bool native_fused_layer(int64_t l) const;
     const uint8_t* mapped_fused_blob(int64_t l, int32_t e) const;
+    /// a stream-all MMQ / FP4 layer whose experts in RAM the streamed walk reads in place (integrated GPU)
+    bool direct_walk_layer(int64_t l) const;
     void copy_ahead(int64_t L);
     // the consumer's side: entry k's copy is on the copy stream (the thread issued it), then k is given back
     void wait_issued(size_t k) {

@@ -68,7 +68,7 @@ bool Prefill::Run::finish() {
         basalt::log::info("basalt prefill", "direct RAM expert groups for %lld prompt rows: %lld; staged %lld blobs "
                           "(%lld by DMA) in %.1f ms of host time, %lld resident groups, %lld CPU experts, "
                           "%lld chunks in %.0f ms",
-                          (long long) n, (long long) direct_ram_groups,
+                          (long long) n, (long long) (direct_ram_groups + s1.experts_direct - stats0.experts_direct),
                           (long long) (s1.experts_streamed - stats0.experts_streamed),
                           (long long) (s1.experts_dma - stats0.experts_dma), s1.ms_experts_host - stats0.ms_experts_host,
                           (long long) (s1.experts_resident - stats0.experts_resident),

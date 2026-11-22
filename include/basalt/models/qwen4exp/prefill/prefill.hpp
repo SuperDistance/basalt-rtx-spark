@@ -36,6 +36,7 @@ struct PrefillStats {
     int64_t experts_streamed = 0;   ///< expert blobs copied host -> device
     int64_t experts_dma = 0;        ///< ...of which straight from the pinned arena (no CPU copy)
     int64_t experts_resident = 0;   ///< expert-layer groups served from the VRAM tier
+    int64_t experts_direct = 0;     ///< expert-layer groups read in place from RAM by the streamed walk (no copy)
     int64_t experts_cpu = 0;        ///< experts computed on the CPU pool instead of streamed
     double cpu_share = 0;           ///< the share of the streamed experts the CPU took last
     double ms_ple = 0;

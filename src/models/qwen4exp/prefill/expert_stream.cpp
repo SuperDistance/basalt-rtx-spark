@@ -36,7 +36,7 @@ bool Prefill::Run::Chunk::Experts::Group::start_staging() {
     // the unpinned ones are copied to pinned buffers by the stager's threads, in this order
     job_of.assign(order.size(), -1);
     if (!stream_all) {
-        const bool direct = run.direct_ram_experts && m.src && use_mmq && lay.native && !fp4_l;
+        const bool direct = run.direct_ram_experts && m.src && use_mmq && lay.native;
         if (direct) mapped_of.assign(order.size(), nullptr);
         const bool ahead = ahead_n > 0 && m.ahead_layer[l & 1] == l;
         std::vector<Stager::Job> js;
@@ -156,10 +156,12 @@ bool Prefill::Run::Chunk::Experts::Group::walk() {
                 if (!group_gather || gg_nslots == 0) give_back(consumed);   // its group was gathered
             } else {
                 const bool r0 = m.host_res && m.cache && m.host_res[(size_t) l * m.g->n_expert + e] >= 0;
+                // not streamed: resident, or (start_stream's direct layers) read where it lies in RAM
                 const uint8_t* bp = r0 ? m.cache->device_slot(m.host_res[(size_t) l * m.g->n_expert + e])
-                                       : nullptr;
+                                  : chunk.direct_walk_layer(l) ? chunk.mapped_fused_blob(l, e) : nullptr;
                 if (bp == nullptr) { err = "prefill: an expert is neither resident, streamed nor on the peer"; return false; }
-                ++owner.stats_.experts_resident;
+                if (r0) ++owner.stats_.experts_resident;
+                else ++owner.stats_.experts_direct;
                 if (!compute(j, bp, -1)) return false;
                 if (group_gather && gg_nslots == 0) give_back(consumed);
             }
