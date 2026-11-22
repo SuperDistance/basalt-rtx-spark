@@ -87,6 +87,33 @@ In the two uncached C1 requests per arm, median engine prefill was 165 versus 18
 
 A separate greedy check held the GPU cache, private RAM allocation and 8,191.7 MiB of registered pages fixed in both arms. The only change was whether the GPU gather read eligible groups directly. It handled 1,628 groups and matched the staged arm's greedy response and all 34 accepted-row logit hashes.
 
+The larger-budget A/B/B/A repeat kept the same 7,677 GPU cache slots and 2 GiB private expert tier. It used two C1 requests and two C4 waves per arm, with the same input and output lengths on AC in Balanced mode. The preceding registration implementation stopped at 19,732.4 MiB with a 24 GiB cap because experts can share boundary pages. The registered arms left 11.0 GiB of SSD-only weights, versus 30.2 GiB in the controls. Registration raised measured system commit by 1,320 and 1,364 MiB in the two runs.
+
+| Arm | C1 prefill tok/s | C1 decode tok/s | C1 median TTFT | C1 output tok/s | C4 output tok/s | C4 p95 TTFT |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| File staging 1 | 174.95 | 23.20 | 4.21 s | 13.16 | 17.98 | 19.04 s |
+| Registered 1 | 251.90 | 26.45 | 2.94 s | 16.49 | 20.66 | 15.44 s |
+| Registered 2 | 236.05 | 24.25 | 3.13 s | 15.30 | 19.30 | 16.30 s |
+| File staging 2 | 149.00 | 15.05 | 4.96 s | 9.55 | 15.48 | 22.70 s |
+
+Both registered arms beat the faster control. The two controls had matching placement and similar speculative counts. Windows commit and file cache conditions drifted, and the precise cause of the slower second control is unverified.
+
+### Using the available memory at the existing split
+
+The merged-registration planner selects the ranked experts, counts overlapping boundary pages once, and registers each contiguous interval. This removed the previous limit from skipping adjacent experts. It stops at the driver, physical RAM and Windows commit budgets. On Windows ARM64 the file expert source tests covered overlapping pages, joining two existing ranges, and falling back to a smaller range when a larger one would exceed the budget.
+
+One automatic launch with no fixed GPU slot count or private RAM copy size held all 46.8 GiB of routed IQ3 experts in memory. Basalt placed 24.8 GiB on the GPU first and topped up the private RAM tier to 22.0 GiB after startup. The proposed read-only tier registered zero pages on this launch because commit headroom was tight at its earlier initialization step. The engine reported 16.1 GiB of free host RAM at ready. C1 measured 347.35 prefill tok/s, 35.10 decode tok/s, and 2.17 s median TTFT. C4 reached 26.91 aggregate output tok/s with a 10.75 s p95 TTFT.
+
+The separate maximum-mapping check used a 2 GiB private expert budget. The inherited cache estimate priced every non-GPU expert as a private pinned copy, so the automatic GPU planner predicted zero slots. The private copy estimate now observes the configured cap and includes adaptive swap space. The same IQ3 configuration then started with 7,565 GPU cache slots (14.4 GiB), 2 GiB of private RAM experts, and 30.4 GiB of registered experts across 5,511 ranges. It had zero SSD-only routed experts and 4.99 GiB of free host RAM at ready. C1 measured 354.95 prefill tok/s, 25.00 decode tok/s, and 2.16 s median TTFT. C4 reached 19.64 aggregate output tok/s with a 13.70 s p95 TTFT. The heavier GPU placement in the preceding run delivered better decode throughput. Both launches used the same laptop memory split, AC power, Balanced mode, and the same fixture, with different serving reserves and expert placement. NVML did not report a GPU power limit. [Basalt estimate](https://github.com/jesdga95/basalt/blob/85f797f01fd1b698d8cce8d39f29f0adadd4d443/src/models/qwen4exp/load/cache_size.cpp) · [ARM port estimate](https://github.com/yanmindi/basalt-arm-sm121/blob/2ec7a844f9d83cda0fa579801f85cd8898a12bec/src/models/qwen4exp/load/cache_size.cpp)
+
+With the same mapping policy, the larger NVFP4-DQ6_K pack started with 14.0 GiB of routed experts on the GPU, 2.0 GiB in private RAM and 33.1 GiB in registered pages. That left 14.2 GiB on SSD and 4.93 GiB of free host RAM at ready. C1 completed at 110.75 prefill tok/s and 9.10 decode tok/s. The RAM guard rejected C4 requests after the free host RAM dropped below 2 GiB. The mapped tier now applies the existing filesystem-cache reserve when the routed experts will still spill.
+
+The retry left 8.46 GiB of host RAM at ready. It placed 13.4 GiB of experts on the GPU, 31.0 GiB in both RAM tiers and 18.9 GiB on SSD. C1 finished both requests at medians of 128.35 prefill tok/s and 14.60 decode tok/s. The file-cache change and the different GPU slot count make this a capacity check. The C4 trial was stopped to start the live IQ3 server, so steady C4 behavior for NVFP4 remains unverified.
+
+### Separating prompt and decode costs
+
+Flash-Next's PLE reader already deduplicates pages across a prompt chunk, uses bounded outstanding I/O, and caches individual rows. Its per-token read is issued ahead of the layer that needs it. NVIDIA's native Windows backend uses registered buffers with Windows I/O rings for embedding tables and reports plan, submit, wait and complete time separately. Basalt can distinguish this latency from expert reads by collecting PLE read latency and hit rate alongside its per-window GPU and CPU timings. An implementation change requires measurements with routed expert placement and the file-cache budget held fixed. [NVIDIA Windows backend](https://github.com/NVIDIA/hyperflare-inference/blob/main/docs/windows.md#serve-a-prepared-core)
+
 ### Direct GPU reads from mapped system memory
 
 An opt-in path gives the CUDA grouped expert kernel addresses of selected mapped experts. It supports different expert sizes across layers and bypasses the copy to device scratch. The parity test used Flash-Next geometry, random NVFP4, IQ3_XXS and IQ2_S weights (the latter two with IQ4_NL down projections), and one-, three- and eight-row windows. The direct addresses and output matched the existing staged CUDA path bit for bit in every exercised case. At eight rows, the direct plan plus compute ran in 133–160 µs, about 64–104 GB/s of selected weights. Staging then computing those groups separately took 177–286 µs in the same test, before any overlap with other streams. The ARM64 Release rebuild of `dec_moe.cu` took 206 seconds under a six-job build.
