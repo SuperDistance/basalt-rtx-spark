@@ -204,10 +204,12 @@ private:
     // cache, and its streamed ring is this deep (the loan shrinks with it); otherwise the ring is full depth.
     static constexpr int64_t kLendCapDecoding = 1216;
     static constexpr int kRingDecoding = 64;
-    // A read of at most this many tokens runs alone even while slots decode: they wait for it (a few seconds at
+    // A read of at most this many tokens runs alone even while slots decode: they wait for it (about a second at
     // most) and it lends and reads as on an idle engine.  A longer read goes beside them, within the limits above,
     // and so does the rest of one that gave way to a shorter request (in its chunk).
-    static constexpr int64_t kReadAlone = 16384;
+    static constexpr int64_t kReadAlone = 2048;
+    // With no slot decoding a read of at most this many tokens runs as one prefill; a longer one goes in chunks.
+    static constexpr int64_t kReadAloneIdle = 16384;
     bool any_loan{};
     static constexpr int64_t kStepChunks[] = {6144, 4096, 3072, 2048, 1536, 1024, 512};
     int64_t split_chunk_max{};

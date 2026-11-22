@@ -29,7 +29,7 @@ over slots.
 
 ### Prompts beside decoding slots
 
-A prompt of up to 16,384 tokens is read at once, and the slots wait a few seconds. A longer one is read beside them, on its own thread,
+A prompt of up to 2,048 tokens is read at once, and the slots wait about a second. A longer one is read beside them, on its own thread,
 while the slots keep decoding. A short request that arrives meanwhile goes first at the end of the current chunk.
 
 ## The console log
