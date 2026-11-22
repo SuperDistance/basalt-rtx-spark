@@ -1,5 +1,11 @@
 # Basalt on RTX Spark N1X
 
+## Laptop serving target
+
+Run Qwen3.8-27B and Flash-Next natively on Windows ARM64, at the laptop's existing memory split. The application should choose its expert placement automatically from the GPU budget, free system RAM and Windows commit. Give frequently used weights a GPU home where the budget allows, and let eligible work access shared RAM directly. Measure the cost of each placement, since the memory segments differ in page size, caching and how the driver accounts for them. [NVIDIA CUDA UMA guidance](https://docs.nvidia.com/rtx-spark/rtx-spark-porting-guide/latest/uma/umacuda.html)
+
+Prioritize C1 decode tokens/s, cold prefill tokens/s, and time to first token. Then measure C2, C3 and C4, reporting per-request latency as well as aggregate throughput. Use C8 as an optional capacity and stability check. Compare against GB10 with matched workloads and evaluate CPU or NPU offload by its effect on the full request.
+
 ## Baseline and target
 
 The local fork tracks `yanmindi/basalt-arm-sm121` at `2ec7a844f9d83cda0fa579801f85cd8898a12bec`. The baseline builds as Windows ARM64 with MSVC and CUDA 13.5 for `sm_121`. The test laptop is a 128 GiB HP OmniBook X with driver 621.24. Windows currently reports 64,000 MiB of dedicated GPU memory.
