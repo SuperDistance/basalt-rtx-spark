@@ -8,6 +8,7 @@
 #include "basalt/platform/direct_file.hpp"
 #include "basalt/platform/memory.hpp"
 #include "basalt/platform/system.hpp"
+#include "../../src/core/file_pin_ranges.hpp"
 
 #include <cuda_runtime.h>
 
@@ -34,6 +35,19 @@ namespace {
 
 void require(bool ok, const std::string& message) {
     if (!ok) throw std::runtime_error(message);
+}
+
+void test_file_pin_ranges() {
+    using basalt::core::detail::plan_file_pin_ranges;
+    using Range = std::pair<uint64_t, uint64_t>;
+    require(plan_file_pin_ranges({{40960, 49152}, {0, 8192}, {4096, 12288}, {12288, 16384}, {49152, 53248}}, 24576) ==
+                std::vector<Range>{{40960, 49152}, {0, 16384}},
+            "shared or adjacent pages must consume budget only once, with hot ranges first");
+    require(plan_file_pin_ranges({{8192, 12288}, {0, 4096}, {4096, 8192}, {16384, 20480}}, 12288) ==
+                std::vector<Range>{{0, 12288}},
+            "a new expert can bridge two already selected ranges");
+    require(plan_file_pin_ranges({{0, 8192}, {16384, 20480}}, 4096) == std::vector<Range>{{16384, 20480}},
+            "a range that does not fit must leave capacity for a smaller expert");
 }
 
 struct TempDirectory {
@@ -562,6 +576,7 @@ void test_host_memory_namespaced() {
 
 int main() {
     try {
+        test_file_pin_ranges();
         test_home_regions();
         test_complement_plan();
         test_resident_lend_region();

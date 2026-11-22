@@ -180,15 +180,18 @@ int QfnRuntime::init_before_input() {
     if (const int code = init_prompt()) return code;
     // The verifier sizes its staging buffers during initialization, based on the expert aliases it can use.
     const double file_pin_mib = basalt::core::exp_flag("n1x_file_gpu_mib");
-    if (o.batch > 0 && srcp == &src && !multi_gpu && !peer.valid() && xpeers.empty() &&
-        file_pin_mib >= 1.0 && file_pin_mib < (double) (UINT64_MAX >> 20)) {
+    uint64_t file_pin_budget = 0;
+    if (file_pin_mib == -1.0) file_pin_budget = UINT64_MAX;
+    else if (file_pin_mib >= 1.0 && file_pin_mib < (double) (UINT64_MAX >> 20))
+        file_pin_budget = (uint64_t) file_pin_mib << 20;
+    if (file_pin_budget > 0 && srcp == &src && !multi_gpu && !peer.valid() && xpeers.empty()) {
         const auto started = Clock::now();
         const uint64_t ram_before = basalt::platform::available_memory();
         uint64_t commit_before = 0, limit_before = 0;
         const bool commits = basalt::platform::commit_headroom(commit_before, limit_before);
         const uint64_t pinned = src.pin_file_experts(profile, [&](int32_t layer, int32_t expert) {
             return !host_res.empty() && host_res[(size_t) layer * g.n_expert + (size_t) expert] >= 0;
-        }, (uint64_t) file_pin_mib << 20);
+        }, file_pin_budget);
         basalt::log::info("basalt serve", "GPU staging: %.1f MiB of read-only model pages registered",
                           (double) pinned / 1048576.0);
         uint64_t commit_after = 0, limit_after = 0;

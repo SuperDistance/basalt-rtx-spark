@@ -5,6 +5,7 @@
 #include "basalt/core/load_progress.hpp"
 #include "basalt/core/peer_experts.hpp"
 #include "basalt/kernels/cpu/expert_layout.hpp"
+#include "file_pin_ranges.hpp"
 
 #include "basalt/core/pinned.hpp"
 #include "basalt/core/loader.hpp"
@@ -1559,7 +1560,10 @@ uint64_t FileExpertSource::pin_file_experts(const std::vector<std::pair<int32_t,
     if (!platform::host_available_memory(memory) || !host_pin_budget(allowance, why)) return 0;
     const uint64_t reserve = plan_reserve(platform::ram_reserve());
     budget = std::min({budget, allowance, ram_tier_room(memory.available, reserve, true)});
-    if (pin_tracking_bytes(budget) > commit_room(reserve)) return 0;
+    // File pages need commit for driver bookkeeping, even when the weights already have file backing.
+    constexpr uint64_t kBytesPerCommitByte = 14;
+    if (const uint64_t commit = commit_room(reserve); budget / kBytesPerCommitByte > commit)
+        budget = commit * kBytesPerCommitByte;
     const uint64_t page = platform::system_page_size();
     if (page == 0 || budget < page) return 0;
 
@@ -1572,10 +1576,9 @@ uint64_t FileExpertSource::pin_file_experts(const std::vector<std::pair<int32_t,
     auto gpu_view = platform::MappedFile::open_ro(path_, nullptr, mo);
     if (!gpu_view || reinterpret_cast<uintptr_t>(gpu_view->data()) % page != 0) return 0;
 
-    file_pins_.reserve(std::min<uint64_t>(rank.size(), budget / page));
-    uint64_t registered = 0;
+    std::vector<std::pair<uint64_t, uint64_t>> ranked_ranges;
+    ranked_ranges.reserve(rank.size());
     for (const auto& [layer, expert] : rank) {
-        if (budget - registered < page) break;
         const uint8_t* blob = mapped_blob(layer, expert);
         if (blob == nullptr || skip(layer, expert) || has_resident(layer, expert)) continue;
         const uint64_t off = (uint64_t) (blob - base_);
@@ -1586,14 +1589,26 @@ uint64_t FileExpertSource::pin_file_experts(const std::vector<std::pair<int32_t,
             if (pad > mapped_bytes_ - end) continue;
             end += pad;
         }
-        if (end - begin > budget - registered) continue;
-        auto at = std::lower_bound(file_pins_.begin(), file_pins_.end(), begin,
-                                   [](const FilePin& pin, uint64_t value) { return pin.begin < value; });
-        if ((at != file_pins_.end() && at->begin < end) ||
-            (at != file_pins_.begin() && (at - 1)->end > begin)) continue;
+        ranked_ranges.emplace_back(begin, end);
+    }
 
+    const auto plan = detail::plan_file_pin_ranges(ranked_ranges, budget);
+    file_pins_.reserve(plan.size());
+    uint64_t registered = 0;
+    for (const auto& [begin, end] : plan) {
+        const uint64_t span = end - begin;
+        const uint64_t free_ram = platform::available_memory();
+        if (span / kBytesPerCommitByte > commit_room(reserve) ||
+            (free_ram > 0 && span > ram_tier_room(free_ram, reserve, true))) {
+            basalt::log::info("basalt", "read-only expert registration reached the memory budget at %.1f MiB",
+                              (double) registered / 1048576.0);
+            break;
+        }
         auto* host = const_cast<uint8_t*>(gpu_view->data() + begin);
-        if (cudaHostRegister(host, (size_t) (end - begin), cudaHostRegisterMapped | cudaHostRegisterReadOnly) != cudaSuccess) {
+        const auto status = cudaHostRegister(host, (size_t) span, cudaHostRegisterMapped | cudaHostRegisterReadOnly);
+        if (status != cudaSuccess) {
+            basalt::log::warn("basalt", "read-only expert registration stopped at %.1f MiB: %s",
+                              (double) registered / 1048576.0, cudaGetErrorString(status));
             (void) cudaGetLastError();
             break;
         }
@@ -1603,12 +1618,14 @@ uint64_t FileExpertSource::pin_file_experts(const std::vector<std::pair<int32_t,
             (void) cudaGetLastError();
             break;
         }
-        file_pins_.insert(at, {begin, end, static_cast<const uint8_t*>(alias)});
-        registered += end - begin;
+        file_pins_.push_back({begin, end, static_cast<const uint8_t*>(alias)});
+        registered += span;
     }
     if (registered > 0) {
+        std::sort(file_pins_.begin(), file_pins_.end(), [](const FilePin& a, const FilePin& b) { return a.begin < b.begin; });
         file_pin_view_ = std::move(*gpu_view);
         ++places_gen_;
+        basalt::log::info("basalt", "read-only expert pages registered in %zu ranges", file_pins_.size());
     }
     return registered;
 }
