@@ -166,8 +166,11 @@ void test_native_variable_layout() {
             "native bounds check accepted an invalid layer or expert");
     require(source.reads() == 4, "invalid native lookups changed the read count");
 
+    const uint64_t reserve = basalt::platform::ram_reserve();
+    basalt::platform::set_ram_reserve(0);
     const uint64_t pinned = source.pin_file_experts({{0, 0}, {1, 1}},
         [](int32_t, int32_t) { return false; }, 8ull << 20);
+    basalt::platform::set_ram_reserve(reserve);
     if (pinned > 0) {
         require(source.file_resident(0, 0) && !source.file_resident(0, 1) &&
                     !source.file_resident(-1, 0) && !source.file_resident(1, experts),
