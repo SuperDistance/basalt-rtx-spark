@@ -1,6 +1,5 @@
 // src/kernels/cpu/pool.cpp - the CPU expert pool.  Read pool.hpp first; it explains the protocol.
 #include "basalt/kernels/cpu/pool.hpp"
-#include "basalt/core/diag.hpp"
 #include "basalt/core/progress.hpp"
 #include "basalt/kernels/cpu/expert_layout.hpp"
 
@@ -81,18 +80,14 @@ void ExpertPool::diag(std::FILE* f) const {
     std::fprintf(f, " for %lld ms\n", (long long) (now_ms() - hstate_ms_.load()));
 }
 
-ExpertPool::ExpertPool(int n_workers, PoolAffinity affinity)
-    : affinity_(affinity), topo_(detect_cpu_topology(true, affinity)) {
+ExpertPool::ExpertPool(int n_workers, PoolAffinity affinity, std::chrono::microseconds spin_before_sleep)
+    : spin_before_sleep_(spin_before_sleep), affinity_(affinity), topo_(detect_cpu_topology(true, affinity)) {
     n_ = n_workers;
     if (n_ < 1) n_ = 1;
     active_.store(n_);
     wstate_.reset(new std::atomic<int32_t>[(size_t) n_]);
     for (int i = 0; i < n_; ++i) wstate_[(size_t) i].store(kParked);
     hstate_ms_.store(now_ms());
-    // A/B diagnostic: a shorter park spin before the sleep, for engines whose CPU jobs arrive too sparsely for the
-    // spin to pay for its power on a shared CPU and GPU budget.
-    if (const double us = basalt::core::exp_flag("n1x_pool_spin_us", -1.0); us >= 0.0)
-        spin_before_sleep_ = std::chrono::microseconds((int64_t) us);
     g_diag_pool.store(this);
     basalt::core::diag_pool_fn().store(&diag_active_pool);
     split_multi_.resize((size_t) kMaxSplitMulti);

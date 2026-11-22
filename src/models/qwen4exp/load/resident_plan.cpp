@@ -282,7 +282,10 @@ int resident_plan(Context& context) {
             if (o.serve) { std::printf("%s\n", line.c_str()); std::fflush(stdout); }
             else basalt::log::info("basalt generate", "%s", line.c_str());
         }
-        auto& pool = pool_store.emplace(plan.pool_workers, affinity);
+        // an integrated GPU shares the package's power with the CPU: the workers sleep between their sparse jobs
+        const auto spin = basalt::core::device_memory_model().integrated ? cpu::ExpertPool::kSpinBeforeSleepShared
+                                                                          : std::chrono::microseconds(cpu::ExpertPool::kSpinBeforeSleep);
+        auto& pool = pool_store.emplace(plan.pool_workers, affinity, spin);
         if (pool.is_hybrid() && pool.affinity() != cpu::PoolAffinity::All) {
             const char* aff_str = pool.affinity() == cpu::PoolAffinity::PCores ? "p-cores" : "auto";
             basalt::log::info("basalt generate", "hybrid CPU detected (%d P-cores / %d threads, %d E-cores), pool workers: %d, affinity: %s",

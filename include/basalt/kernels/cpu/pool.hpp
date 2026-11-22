@@ -67,7 +67,10 @@ public:
     ///
     /// The host thread joins the drain: `run()` claims jobs itself instead of spinning on `done_`, so the pool uses
     /// every core.
-    explicit ExpertPool(int n_workers, PoolAffinity affinity = PoolAffinity::All);
+    /// `spin_before_sleep` is how long a parked worker spins before it sleeps (`kSpinBeforeSleep`, or
+    /// `kSpinBeforeSleepShared` where the CPU and the GPU draw on one power budget).
+    explicit ExpertPool(int n_workers, PoolAffinity affinity = PoolAffinity::All,
+                        std::chrono::microseconds spin_before_sleep = kSpinBeforeSleep);
     /// The watchdog's view of the pool: the batch, the counters, every thread's state.
     void diag(std::FILE* f) const;
     ~ExpertPool();
@@ -123,6 +126,10 @@ public:
     /// NOT only between requests: with most experts in VRAM many layers have no CPU work, so the workers also sleep
     /// mid-request - which the claim protocol above must survive.
     static constexpr std::chrono::milliseconds kSpinBeforeSleep{20};
+    /// The park spin where the CPU and the GPU share one power budget (an integrated GPU): a spinning core takes power
+    /// the GPU could use, and with the experts on the GPU the CPU jobs come too far apart for a long spin to catch
+    /// them, so the workers sleep almost at once and the next batch wakes them.
+    static constexpr std::chrono::microseconds kSpinBeforeSleepShared{200};
     /// A parked worker pauses, and yields its core once every this long until the next batch or the sleep: a thread
     /// the OS queued behind it (a worker taken off this core in the middle of its task when the threads outnumber the
     /// cores, or another program's) waits at most this long.  With nothing else runnable the yield returns at once.
