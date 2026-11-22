@@ -166,6 +166,28 @@ void test_native_variable_layout() {
             "native bounds check accepted an invalid layer or expert");
     require(source.reads() == 4, "invalid native lookups changed the read count");
 
+    const uint64_t pinned = source.pin_file_experts({{0, 0}, {1, 1}},
+        [](int32_t, int32_t) { return false; }, 8ull << 20);
+    if (pinned > 0) {
+        require(source.file_resident(0, 0) && !source.file_resident(0, 1) &&
+                    !source.file_resident(-1, 0) && !source.file_resident(1, experts),
+                "registered pages marked an unregistered or invalid expert as resident");
+        const uint8_t* alias = source.device_alias(0, 0);
+        uint8_t marker = 0;
+        require(alias != nullptr && cudaMemcpy(&marker, alias, sizeof(marker), cudaMemcpyDeviceToHost) == cudaSuccess &&
+                    marker == 'a',
+                "registered expert device alias did not read the first expert");
+        if (source.file_resident(1, 1)) {
+            alias = source.device_alias(1, 1);
+            require(alias != nullptr && cudaMemcpy(&marker, alias, sizeof(marker), cudaMemcpyDeviceToHost) == cudaSuccess &&
+                        marker == 'd',
+                    "registered expert alias used the wrong native layer stride");
+        }
+        source.drop_file_pins();
+        require(!source.file_resident(0, 0) && source.device_alias(0, 0) == nullptr,
+                "unregistering expert pages left a stale device alias");
+    }
+
     check_file_size_rejection(source, dir.path, layers, experts, total);
     create_experts(dir.path, total, {{layer0_bytes, 'c'}});
     err.clear();
