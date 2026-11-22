@@ -8,6 +8,7 @@
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
+#include <cwchar>
 #include <numeric>
 #include <random>
 #include <stdexcept>
@@ -28,7 +29,7 @@ void check(cudaError_t status) {
 
 enum class Placement { Device, HostMapped, Registered64k, Registered2m };
 
-constexpr std::array kNames{"device", "host_mapped", "host_registered_64k", "host_registered_2m"};
+
 
 struct Buffer {
     Placement placement;
@@ -110,6 +111,50 @@ private:
     }
 };
 
+struct FileView {
+    HANDLE file = INVALID_HANDLE_VALUE;
+    HANDLE mapping = nullptr;
+    void* host = nullptr;
+    const uint4* gpu = nullptr;
+    bool registered = false;
+
+    FileView() = default;
+    FileView(const FileView&) = delete;
+    FileView& operator=(const FileView&) = delete;
+
+    void open(const wchar_t* path, std::uint64_t offset, std::size_t bytes) {
+        file = CreateFileW(path, GENERIC_READ, FILE_SHARE_READ, nullptr, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr);
+        LARGE_INTEGER size{};
+        if (file == INVALID_HANDLE_VALUE || !GetFileSizeEx(file, &size) || size.QuadPart < 0 ||
+            offset > static_cast<std::uint64_t>(size.QuadPart) ||
+            bytes > static_cast<std::uint64_t>(size.QuadPart) - offset) {
+            throw std::runtime_error("Cannot open a model slice of the requested size");
+        }
+        mapping = CreateFileMappingW(file, nullptr, PAGE_READONLY, 0, 0, nullptr);
+        if (!mapping) throw std::runtime_error("Cannot create a read-only file mapping");
+        host = MapViewOfFile(mapping, FILE_MAP_READ, static_cast<DWORD>(offset >> 32),
+                             static_cast<DWORD>(offset), bytes);
+        if (!host) throw std::runtime_error("Cannot map the model slice");
+        check(cudaHostRegister(host, bytes, cudaHostRegisterMapped | cudaHostRegisterReadOnly));
+        registered = true;
+        void* alias = nullptr;
+        check(cudaHostGetDevicePointer(&alias, host, 0));
+        gpu = static_cast<const uint4*>(alias);
+    }
+
+    ~FileView() {
+        if (registered) cudaHostUnregister(host);
+        if (host) UnmapViewOfFile(host);
+        if (mapping) CloseHandle(mapping);
+        if (file != INVALID_HANDLE_VALUE) CloseHandle(file);
+    }
+};
+
+struct Input {
+    const char* name;
+    const uint4* device;
+};
+
 struct Events {
     cudaEvent_t start = nullptr;
     cudaEvent_t end = nullptr;
@@ -144,11 +189,11 @@ __global__ void read_tiles(const uint4* __restrict__ input, const unsigned* __re
     }
 }
 
-float timed_reads(const Buffer& input, const unsigned* order, unsigned tiles, unsigned long long* totals,
+float timed_reads(const uint4* input, const unsigned* order, unsigned tiles, unsigned long long* totals,
                   const Events& events, unsigned repeats, unsigned long long expected) {
     const unsigned blocks = std::min(kMaxBlocks, tiles);
     check(cudaEventRecord(events.start));
-    for (unsigned i = 0; i < repeats; ++i) read_tiles<<<blocks, kThreads>>>(input.gpu, order, tiles, totals);
+    for (unsigned i = 0; i < repeats; ++i) read_tiles<<<blocks, kThreads>>>(input, order, tiles, totals);
     check(cudaEventRecord(events.end));
     check(cudaEventSynchronize(events.end));
     check(cudaGetLastError());
@@ -172,7 +217,7 @@ struct Test {
     bool shuffle;
 };
 
-void run() {
+void run(const wchar_t* model, std::uint64_t model_offset) {
     constexpr unsigned kAllocationBytes = 512 * kMiB;
     constexpr unsigned kAllTiles = kAllocationBytes / kTileBytes;
     const std::array<Test, 3> cases{{
@@ -181,6 +226,7 @@ void run() {
         {"2m_repeated", 2 * kMiB / kTileBytes, 120, false},
     }};
 
+    static_assert(sizeof(unsigned) == 4);
     check(cudaSetDevice(0));
     cudaDeviceProp gpu{};
     check(cudaGetDeviceProperties(&gpu, 0));
@@ -200,18 +246,36 @@ void run() {
 
     Buffer device(Placement::Device), mapped(Placement::HostMapped);
     Buffer registered64k(Placement::Registered64k), registered2m(Placement::Registered2m);
-    std::array inputs{&device, &mapped, &registered64k, &registered2m};
+    for (auto* allocation : {&device, &mapped, &registered64k, &registered2m}) {
+        allocation->allocate(kAllocationBytes);
+    }
+    std::vector<Input> inputs{
+        {"device", device.gpu}, {"host_mapped", mapped.gpu},
+        {"host_registered_64k", registered64k.gpu}, {"host_registered_2m", registered2m.gpu},
+    };
 
-    for (auto* input : inputs) {
-        input->allocate(kAllocationBytes);
-        if (input->host) {
-            auto* bytes = static_cast<unsigned char*>(input->host);
-            for (unsigned tile = 0; tile < kAllTiles; ++tile) {
-                std::memset(bytes + static_cast<std::size_t>(tile) * kTileBytes, tile_value(tile), kTileBytes);
-            }
+    FileView file;
+    if (model) {
+        file.open(model, model_offset, kAllocationBytes);
+        std::memcpy(mapped.host, file.host, kAllocationBytes);
+        inputs.push_back({"file_registered", file.gpu});
+    } else {
+        auto* bytes = static_cast<unsigned char*>(mapped.host);
+        for (unsigned tile = 0; tile < kAllTiles; ++tile) {
+            std::memset(bytes + static_cast<std::size_t>(tile) * kTileBytes, tile_value(tile), kTileBytes);
         }
     }
+    std::memcpy(registered64k.host, mapped.host, kAllocationBytes);
+    std::memcpy(registered2m.host, mapped.host, kAllocationBytes);
     check(cudaMemcpy(device.gpu, mapped.host, kAllocationBytes, cudaMemcpyHostToDevice));
+
+    std::vector<unsigned long long> tile_sums(kAllTiles);
+    const auto* words = static_cast<const unsigned*>(mapped.host);
+    constexpr std::size_t kTileWords = kTileBytes / sizeof(unsigned);
+    for (unsigned tile = 0; tile < kAllTiles; ++tile) {
+        const auto* begin = words + tile * kTileWords;
+        tile_sums[tile] = std::accumulate(begin, begin + kTileWords, 0ull);
+    }
 
     Buffer work(Placement::Device);
     work.allocate(kAlignment);
@@ -230,30 +294,41 @@ void run() {
         check(cudaMemcpy(gpu_order, order.data(), test.tiles * sizeof(order[0]), cudaMemcpyHostToDevice));
         unsigned long long expected = 0;
         for (unsigned index = 0; index < test.tiles; ++index) {
-            expected += tile_value(order[index]) * (kTileBytes / sizeof(unsigned)) * 0x01010101ull;
+            expected += tile_sums[order[index]];
         }
-        for (const auto* input : inputs) timed_reads(*input, gpu_order, test.tiles, totals, events, 3, expected);
-        std::array<std::array<double, 8>, kNames.size()> samples{};
+        for (const auto& input : inputs) timed_reads(input.device, gpu_order, test.tiles, totals, events, 3, expected);
+        std::vector<std::array<double, 10>> samples(inputs.size());
         for (std::size_t round = 0; round < samples[0].size(); ++round) {
             for (std::size_t step = 0; step < inputs.size(); ++step) {
                 const std::size_t mode = (round + step) % inputs.size();
-                const float ms = timed_reads(*inputs[mode], gpu_order, test.tiles, totals, events, test.repeats, expected);
+                const float ms = timed_reads(inputs[mode].device, gpu_order, test.tiles, totals, events, test.repeats, expected);
                 samples[mode][round] = static_cast<double>(test.tiles) * kTileBytes * test.repeats / (ms * 1e6);
             }
         }
         for (std::size_t mode = 0; mode < inputs.size(); ++mode) {
             auto& rates = samples[mode];
             std::sort(rates.begin(), rates.end());
-            std::printf("%s,%s,%.2f,%.2f,%.2f\n", test.name, kNames[mode],
+            std::printf("%s,%s,%.2f,%.2f,%.2f\n", test.name, inputs[mode].name,
                         (rates[rates.size() / 2 - 1] + rates[rates.size() / 2]) / 2, rates.front(), rates.back());
         }
     }
 }
 }  // namespace
 
-int main() {
+int wmain(int argc, wchar_t** argv) {
     try {
-        run();
+        if (argc == 1) {
+            run(nullptr, 0);
+        } else if (argc == 3) {
+            wchar_t* tail = nullptr;
+            const auto offset = std::wcstoull(argv[2], &tail, 10);
+            if (argv[2][0] == L'-' || tail == argv[2] || *tail || offset % kAlignment) {
+                throw std::runtime_error("The model offset must be a nonnegative multiple of 2 MiB");
+            }
+            run(argv[1], offset);
+        } else {
+            throw std::runtime_error("Usage: uma-read-probe [MODEL_FILE OFFSET_BYTES]");
+        }
     } catch (const std::exception& err) {
         std::fprintf(stderr, "UMA probe: %s\n", err.what());
         return 1;
