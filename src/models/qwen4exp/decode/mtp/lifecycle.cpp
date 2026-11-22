@@ -13,6 +13,7 @@ MtpDrafter::~MtpDrafter() {
     if (pf_dev_) cudaFree(pf_dev_);
     for (auto& st : stores_)
         for (void* a : st) if (a) cudaFree(a);
+    for (void* a : {(void*) seg_slots_, (void*) seg_rows_, (void*) seg_rows_of_, (void*) store_pt_}) if (a) cudaFree(a);
     if (rstage_) cudaFree(rstage_);
     if (rkeep_) cudaFree(rkeep_);
     if (own_R_) cudaFree(own_R_);

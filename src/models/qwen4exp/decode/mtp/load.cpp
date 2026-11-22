@@ -193,6 +193,7 @@ bool MtpDrafter::load(const MtpFiles& files, const ModelGeometry& g, SessionStat
                     vram_ += bytes;
                     draft_kv_bytes += bytes;
                 }
+            if (!init_seg(err)) return false;   // the stores read and written in place where the path allows it
         }
     }
     uint64_t draft_kv_max = draft_kv_bytes;

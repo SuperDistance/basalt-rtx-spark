@@ -21,6 +21,7 @@
 #include "basalt/models/qwen4exp/decode/layer.hpp"
 #include "basalt/core/model_file.hpp"
 #include "basalt/models/qwen4exp/decode/session.hpp"
+#include "basalt/models/qwen4exp/kernels/qsa_seg.hpp"
 #include "basalt/kernels/sampler.hpp"
 
 #include <cuda_runtime.h>
@@ -292,6 +293,30 @@ private:
     /// pages [a, b) of one sequence's K/V into another's; `*_work`: that side is the working state (all pages in place,
     /// or its ring)
     void copy_pages(int to, bool to_work, int from, bool from_work, int64_t a, int64_t b, const KvArr* lay, int na);
+    // Stores read and written in place (stores beside the fused INT8 path): the graphs append and attend through a
+    // segment table whose rows name the sequence `tgt_` (slot n_stores_ is st_, the main sequence, which st_ then
+    // always holds; the others are their store rings with a static page table).  Each sequence's rows are kept on the
+    // device and copied into the table's rows in stream order before a launch (stage_target), so a launch never reads
+    // a later target.
+    static constexpr int kSegRows = 16;
+    bool seg_on_ = false;
+    int tgt_ = 0;
+    basalt::kernels::QsaSegSlot* seg_slots_ = nullptr;   ///< [n_stores_ + 1]
+    basalt::kernels::QsaSeg* seg_rows_ = nullptr;        ///< [kSegRows]: the rows the graphs read
+    basalt::kernels::QsaSeg* seg_rows_of_ = nullptr;     ///< [(n_stores_ + 1) * kSegRows]: each sequence's rows
+    int32_t* store_pt_ = nullptr;                        ///< [n_stores_ * pages]: the stores' ring page tables
+    bool init_seg(std::string& err);
+    basalt::kernels::QsaSegTable seg_table() const;
+    bool stage_target(std::string& err);
+    /// the sequence the next K/V writes belong to (a store's own when stores are in place)
+    int writer() const { return seg_on_ ? tgt_ : cur_; }
+    /// stores in place: the sequence the next forwards address (no copy)
+    bool target(int id, std::string& err) {
+        if (id < 0 || id > n_stores_) { err = "mtp: no such K/V store"; return false; }
+        tgt_ = id;
+        return true;
+    }
+    void note_cells_of(int id, int64_t lo, int64_t hi);
     /// KV streaming beside stores: the ring's pages of the sequence it holds, as far as its store keeps them, over the
     /// host copy (which every sequence appends to), so a conversation image read from that copy has the sequence's
     /// own window.  Waits for the drafter's stream; a no-op without a ring or stores.

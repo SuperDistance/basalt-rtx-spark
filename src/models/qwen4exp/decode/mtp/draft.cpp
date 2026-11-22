@@ -8,6 +8,7 @@ using namespace mtp_detail;
 
 bool MtpDrafter::draft(int T, const int32_t* tokens, int64_t p, int a, int32_t* drafts, std::string& err,
                        float* probs, int* n_drafts) {
+    if (seg_on_) tgt_ = n_stores_;   // the main sequence's draft
     if (relay_src_ != nullptr && T >= 1 && T <= max_t_) {
         const OnDevice on_device(device_);
         if (cudaMemcpyAsync(own_R_, relay_src_, (size_t) T * (size_t) (g_->hc * g_->n_embd) * sizeof(float),
@@ -85,6 +86,7 @@ bool MtpDrafter::draft_rows(int T, const int32_t* tokens, int64_t p, int a, int3
     if (max_steps > 0) {
         decode_gaps().mark(6);
         const cudaGraphExec_t first = cond ? cond_exec_[tier_][T] : round_exec_[tier_][T];
+        if (!stage_target(err)) return false;   // the graphs append to and attend over the target sequence
         decode_events().record(DecodeEvents::kDraftPre, cs_);
         if (cudaGraphLaunch(first, cs_) != cudaSuccess) {
             err = std::string("mtp draft: ") + cudaGetErrorString(cudaGetLastError());
@@ -206,6 +208,7 @@ bool MtpDrafter::stage_rows(const float* R_rows, int n, const float** staged, st
 
 bool MtpDrafter::draft_from(const float* R_rows, int T, const int32_t* tokens, int64_t p, int a, int32_t* drafts,
                             std::string& err, float* probs, int* n_drafts) {
+    if (seg_on_) tgt_ = n_stores_;   // the main sequence's draft
     if (R_rows != window_R_) {
         const OnDevice on_device(device_);
         if (cudaMemcpyAsync((void*) window_R_, R_rows, (size_t) T * (size_t) (g_->hc * g_->n_embd) * sizeof(float),
@@ -220,6 +223,7 @@ bool MtpDrafter::draft_from(const float* R_rows, int T, const int32_t* tokens, i
 bool MtpDrafter::draft_first(int T, const float* R_row, int32_t token, int64_t cell, int32_t* drafts, std::string& err,
                              float* probs, int* n_drafts) {
     const OnDevice on_device(device_);
+    if (seg_on_) tgt_ = n_stores_;   // the main sequence's draft
     // row 0 is the real pair; rows 1.. repeat it and only write cells the next round overwrites
     const int64_t HCN = g_->hc * g_->n_embd;
     for (int t = 0; t < T; ++t)

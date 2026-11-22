@@ -153,7 +153,10 @@ bool MtpDrafter::record_forward(int T, int step_row0, cudaStream_t cs, std::stri
                 kp.k_norm = f32("self_attn.k_norm.weight"); kp.steps = step;
                 kp.k_q = st_.k_q; kp.v_q = st_.v_q; kp.k_scale = st_.k_scale; kp.v_scale = st_.v_scale;
                 kp.page_table = st_.page_table; kp.host = st_.host; kp.eps = EPS;
-                qsa_dec_kv_post(kp, T, s, rope_scaling(), ckv);
+                if (seg_on_)   // the target sequence's own pools and page table (st_'s for the main sequence)
+                    qsa_dec_kv_post_seg(kp, seg_table(), T, s, rope_scaling(), ckv);
+                else
+                    qsa_dec_kv_post(kp, T, s, rope_scaling(), ckv);
             } else
             for (int t = 0; t < T; ++t) {
                 norm_rope(kcur_ + t * NKV * HD, f32("self_attn.k_norm.weight"), (int) NKV, (int) HD, pos + t * NH);
@@ -206,7 +209,11 @@ bool MtpDrafter::record_forward(int T, int step_row0, cudaStream_t cs, std::stri
         bool aq_done = false;
         if (!st_.kv_rot && qsa_dec_attn_supported(pools, s)) {   // the gate in the merge writes the q8_1 rows
             aq_done = true;
-            qsa_dec_attn(qcur_, pools, ident_, step, cap_, s, attn_scratch_, attn_, T, cs, qfull_, attn32_, (void*) xq_);
+            if (seg_on_)   // the target sequence's pools, each query bitwise qsa_dec_attn's over them
+                qsa_draft_attn_seg(qcur_, seg_table(), true, ident_, step, cap_, s, attn_scratch_, attn_, T, cs, qfull_,
+                                   attn32_, (void*) xq_);
+            else
+                qsa_dec_attn(qcur_, pools, ident_, step, cap_, s, attn_scratch_, attn_, T, cs, qfull_, attn32_, (void*) xq_);
         } else {
             qsa_decode_attn_batch(qcur_, pools, ident_, step, cap_, s, attn_scratch_, attn_, T, cs);
             if (st_.kv_rot) fwht256_inplace_cuda(attn_, (int64_t) T * NH, cs);

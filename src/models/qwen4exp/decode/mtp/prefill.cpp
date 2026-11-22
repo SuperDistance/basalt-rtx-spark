@@ -40,7 +40,7 @@ bool MtpDrafter::prefill_cur(const float* R_rows, const int32_t* next_tokens, in
     const int64_t HCN = g_->hc * g_->n_embd;
     // cells the window can never reach again need no K/V; the prompt is the main sequence's, so a batch slot's
     // catch-up rows (at its own position, which can be far below the prompt's) are never cut
-    const int64_t first_needed = cur_ == n_stores_ && window_ > 0 && prompt_len_ > 0 ? prompt_len_ - window_ - 64 : 0;
+    const int64_t first_needed = writer() == n_stores_ && window_ > 0 && prompt_len_ > 0 ? prompt_len_ - window_ - 64 : 0;
     // Every group's token / step / position records are uploaded at once; each group is then device copies and a
     // graph on the one stream, with a single sync at the end.
     const int64_t NHp = g_->n_head, per_row = 1 + 4 + NHp;
@@ -72,6 +72,7 @@ bool MtpDrafter::prefill_cur(const float* R_rows, const int32_t* next_tokens, in
             err = "mtp prefill: the input records upload failed";
             return false;
         }
+        if (!stage_target(err)) return false;   // the graphs below append to the target sequence
         const int32_t* d_tk = pf_dev_;
         const int32_t* d_stp = d_tk + n;
         const int32_t* d_ps = d_stp + 4 * n;
