@@ -6,6 +6,7 @@
 #include "basalt/kernels/cpu/expert_layout.hpp"
 #include "basalt/models/qwen4exp/geometry.hpp"
 #include "basalt/models/qwen4exp/decode/native_head.hpp"
+#include "basalt/models/qwen4exp/prefill/moe_fused_iq.hpp"
 #include "basalt/core/peer_experts.hpp"
 #include "basalt/log.hpp"
 #include <algorithm>
@@ -16,14 +17,27 @@
 namespace basalt::prefill {
 using namespace detail;
 
+bool Prefill::Run::Chunk::native_fused_layer(int64_t l) const {
+    if (!stream_all || !lay0.native || !mmq_plan().any || !mmq_plan().layer[(size_t) l]) return false;
+    const auto& f = lay0.fmt[(size_t) l];
+    return fused::native_supported(f.gu_type, f.d_type, f.up_type);
+}
+
+const uint8_t* Prefill::Run::Chunk::mapped_fused_blob(int64_t l, int32_t e) const {
+    const uint8_t* alias = m.src->device_alias(l, e);
+    return reinterpret_cast<uintptr_t>(alias) % 16 == 0 ? alias : nullptr;
+}
+
 bool Prefill::Run::Chunk::start_stream() {
     if (stream_all) {
         seq_start.assign((size_t) g.n_layers + 1, 0);
         std::vector<Stager::Job> js;
         for (int64_t l = LB; l < LE; ++l) {
             seq_start[(size_t) l] = seq.size();
+            const bool direct = run.direct_ram_experts && native_fused_layer(l);
             for (int32_t e = 0; e < m.g->n_expert; ++e) {
                 if (m.host_res && m.cache && m.host_res[(size_t) l * m.g->n_expert + e] >= 0) continue;
+                if (direct && mapped_fused_blob(l, e) != nullptr) continue;
                 if (ppc && ppc->peer && ppc->peer->has(l, e)) continue;   // multi-GPU: computed on (or read from) the peer
                 int job = -1;
                 const uint8_t* b = nullptr;

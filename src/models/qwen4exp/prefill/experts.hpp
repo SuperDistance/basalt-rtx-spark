@@ -99,7 +99,7 @@ struct Prefill::Run::Chunk::Experts {
     // NVFP4 experts: FP4 block-scaled tensor cores, read in place from the blobs
     const bool fp4_l = use_mmq && lay.native && mmq_gt == GGML_TYPE_NVFP4 && mmq_dt == GGML_TYPE_NVFP4 &&
                        lay.fmt[(size_t) l].tail != 0 && T >= FP4_MIN_TOKENS;
-    const bool fused_nat = use_mmq && stream_all && lay.native && fused::native_supported(mmq_gt, mmq_dt, mmq_ut);
+    const bool fused_nat = chunk.native_fused_layer(l);
     const bool fused_l = (use_mmq && stream_all && !lay.native && fused::enabled()) || fused_nat;
     bool peer_now = false;                // multi-GPU: the peer computed rows of this layer (MMQ path only)
     // CPU share: this layer's CPU experts (rows [T * K - rows_cpu, T * K) of Dm) run on a thread that

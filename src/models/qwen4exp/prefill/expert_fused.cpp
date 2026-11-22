@@ -34,8 +34,16 @@ bool Prefill::Run::Chunk::Experts::fused() {
                 if (k - k0 == per) break;
                 b.blob[e - b.e0] = m.stage_dev[k % (size_t) m.ring];
                 ++k;
-            } else {                  // not streamed: resident (the walk streams all others)
-                b.blob[e - b.e0] = m.cache->device_slot(m.host_res[(size_t) l * m.g->n_expert + e]);
+            } else {
+                const int32_t slot = m.host_res ? m.host_res[(size_t) l * m.g->n_expert + e] : -1;
+                if (slot < 0 || m.cache == nullptr) {
+                    const uint8_t* mapped = fused_nat && run.direct_ram_experts ? chunk.mapped_fused_blob(l, e) : nullptr;
+                    if (mapped == nullptr) { err = "prefill: a fused expert has no cache slot or mapped source"; return false; }
+                    b.blob[e - b.e0] = mapped;
+                    ++run.direct_ram_groups;
+                    continue;
+                }
+                b.blob[e - b.e0] = m.cache->device_slot(slot);
                 // counted whether routed or not (the routing stays on the GPU): at a streamed
                 // chunk's size (>= 1024 tokens x 10 of 512) nearly every expert is routed
                 ++owner.stats_.experts_resident;

@@ -88,6 +88,8 @@ struct Prefill::Run::Chunk {
                        const core::WeightRef* wsu, const core::WeightRef* wsd);
     int finish();
     const uint8_t* remote_blob(int64_t l, int32_t e) { return run.remote_blob(l, e); }
+    bool native_fused_layer(int64_t l) const;
+    const uint8_t* mapped_fused_blob(int64_t l, int32_t e) const;
     void copy_ahead(int64_t L);
     // the consumer's side: entry k's copy is on the copy stream (the thread issued it), then k is given back
     void wait_issued(size_t k) {
