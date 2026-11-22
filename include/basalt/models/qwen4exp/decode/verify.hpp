@@ -419,6 +419,8 @@ private:
     bool dm_sync(std::string& err);        ///< the residency tables to the devices, before a window
     bool dm_begin(std::string& err, DecodeGaps* gm);   ///< the tail's window start (tables, flags, the peer window)
     bool dm_stage_places(std::string& err);            ///< the staged share's RAM addresses, read again when they moved
+    bool dm_stage_on() const;                          ///< the window being recorded takes the staged share
+    bool dm_stage_direct() const;                      ///< the staged share is read in place (every window takes it)
     bool dm_end(std::string& err);         ///< the peer window's end
     void dm_free();
     std::string peer_released();           ///< after a release: whether the peer window ended (see dm_note)

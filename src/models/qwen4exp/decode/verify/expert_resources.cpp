@@ -100,8 +100,12 @@ bool Verifier::dm_init(std::string& err) {
         cudaGetLastError();
         d->pin = nullptr;
     }
+    // One card that shares its memory with the CPU (an integrated GPU) reads the experts outside its cache where they
+    // lie in RAM (the direct share below), so the CPU pool gets no decode work and warms nothing.
+    const bool direct_ram = device_memory_model().integrated && (peer_ == nullptr || !peer_->valid()) && lb_ == 0 &&
+                            le_ == g.n_layers && hand_in_ == nullptr && warm_src_ != nullptr;
     // the warm-ups' predictors, quantized once: every layer's router in int8 for the peer's, in 4-bit for the CPU pool's
-    const bool cpu_warm = warm_pool_ != nullptr && warm_src_ != nullptr && K <= 16 &&
+    const bool cpu_warm = !direct_ram && warm_pool_ != nullptr && warm_src_ != nullptr && K <= 16 &&
                           std::all_of(lay.fmt.begin(), lay.fmt.end(), [&](const basalt::kernels::cpu::NativeFmt& f) {
                               return f.bytes == lay.fmt[0].bytes && f.down_off == lay.fmt[0].down_off;
                           });
@@ -197,17 +201,17 @@ bool Verifier::dm_init(std::string& err) {
     }
     // The staged share: on one card, a batch window's layer with enough CPU misses sends some of them to CUDA0, copied
     // over PCIe from their RAM copies into staging while the pool reads the rest.  An expert without a mapped RAM copy
-    // is never staged; the addresses are read again before a batch window when the source's places moved (a swap).
+    // is never staged; the addresses are read again before a window when the source's places moved (a swap).
     // The count staged for m misses balances the pool's time for the rest against the copy's, both reading host
-    // memory at once.
-    const double direct_limit = exp_flag("n1x_direct_experts");
-    const bool direct = direct_limit >= 1.0 && direct_limit <= kDmStageMax && device_memory_model().integrated;
+    // memory at once.  On an integrated GPU the share is direct instead: CUDA0 computes up to kDmStageMax of a layer's
+    // misses in place from their mapped addresses, in every window, and the pool takes only what is left.
+    const bool direct = direct_ram;
     const bool single = d->pdev < 0 && d->xp.empty() && lb_ == 0 && le_ == g.n_layers && hand_in_ == nullptr &&
                         warm_src_ != nullptr;
     bool stage = single && staging_ != nullptr && warm_src_->pcie_layer(0) && lay.fmt[0].bytes % 16 == 0;
     for (int64_t l = 1; stage && l < g.n_layers; ++l) stage = lay.fmt[(size_t) l].bytes == lay.fmt[0].bytes;
     const int64_t blob = (int64_t) lay.fmt[0].bytes, stride = dec_moe_stage_stride(blob);
-    const int stage_slots = direct ? (int) direct_limit :
+    const int stage_slots = direct ? kDmStageMax :
         (int) std::min<int64_t>(kDmStageMax, (int64_t) (kStagingBlobs * (int64_t) lay.max_blob) / stride);
     if (single && (direct || stage) && stage_slots >= 1) {
         // per layer: the pool's experts after its doorbell, the staged ones after the copy, their own launches and
@@ -217,7 +221,7 @@ bool Verifier::dm_init(std::string& err) {
         std::vector<int32_t> kt((size_t) kDmCap + 1, 0);
         for (int m = 1; m <= kDmCap; ++m) {
             if (direct) {
-                kt[(size_t) m] = std::min(stage_slots, (m + 1) / 2);
+                kt[(size_t) m] = std::min(stage_slots, m);
                 continue;
             }
             double best = kPoolFixUs + m * cpu_us;
@@ -253,6 +257,9 @@ bool Verifier::dm_init(std::string& err) {
     basalt::log::info("basalt verify", "the MoE tail planned on the device%s", served.c_str());
     if (d->warm != nullptr)
         basalt::log::info("basalt verify", "the CPU pool warms its likeliest next-layer expert between doorbells");
+    if (d->stage_src != nullptr && d->stage_stride == 0)
+        basalt::log::info("basalt verify", "CUDA0 computes up to %d of a layer's experts outside its cache in place from "
+                          "RAM; the CPU pool takes the rest", kDmStageMax);
     return true;
 }
 

@@ -125,6 +125,11 @@ bool Verifier::run_slot_rows(const int* rows, int S, const int32_t* tokens, cons
 // The staged share's RAM addresses (a mapped, 16-byte aligned copy or 0), read again when the source's places moved
 // since: between windows, on the window's stream ahead of it.  The last window synchronized its stream, so the host
 // copy is free to rewrite.
+bool Verifier::dm_stage_direct() const { return dm_ != nullptr && dm_->stage_src != nullptr && dm_->stage_stride == 0; }
+
+// A batch window takes the share copied over PCIe; the share read in place goes into every window.
+bool Verifier::dm_stage_on() const { return dm_ != nullptr && dm_->stage_src != nullptr && (batch_rec_ || dm_stage_direct()); }
+
 bool Verifier::dm_stage_places(std::string& err) {
     DecMoe* d = dm_;
     if (d == nullptr || d->stage_src == nullptr) return true;
