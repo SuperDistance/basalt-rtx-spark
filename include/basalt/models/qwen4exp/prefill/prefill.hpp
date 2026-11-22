@@ -89,6 +89,8 @@ public:
     /// The chunk size from which every expert streams (below it only the routed experts are staged and the peer card
     /// computes the rows of its own); before init, which sizes the buffers by it.
     static constexpr int64_t kStreamAllMinDefault = 6144;
+    /// An integrated GPU without a peer card: streaming wins from a few dozen tokens (no link to move experts over).
+    static constexpr int64_t kStreamAllMinIntegrated = 64;
     static void set_stream_all_min(int64_t tokens);
 
     /// The streamed ring's depth for the layouts made from now on (`relayout`, `bytes_needed`, `ring_slots_for`); at

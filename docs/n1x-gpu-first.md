@@ -116,6 +116,33 @@ width per tensor, and list 0.0215 KLD at 3.0 bpw (11.8 GiB) and 0.0064 at 4.0 bp
 Radiance containers whose kernels target RDNA4, and no Flash-Next EXL3-V3 exists from that uploader yet. Basalt reads
 neither format today.
 
+## Short prompts take the fused path
+
+Below `stream_all_min()` a prompt chunk stages only its routed experts and runs MMQ per expert group, which costs about
+45 to 80 us per (expert, layer) group on the N1X whatever the token count: 0.47 s for a 109-row chunk (10,358 groups),
+1.2 s for 713 rows. The fused path streams every expert and costs about 0.29 s plus 0.44 ms per token. With no peer card
+there is no link to move experts over, so an integrated GPU now streams from 64 tokens (`kStreamAllMinIntegrated`; other
+cards keep 6,144). Uncached first-token times on the candidate build, two runs each: 89 tokens 0.35-0.41 s, 116 tokens
+0.37-0.47 s (0.60 before), 170 tokens 0.40-0.55 s (0.66), 716 tokens 0.67-0.73 s (1.04), 5,846 tokens 3.07 s (4.22 at
+cutoff 512 against the old 6,144). Under 64 new tokens the routed-only path stays cheaper (agent turns of a few dozen
+tokens read in about 0.1 s).
+
+The 100-chunk gate (wikitext-2 against the BF16 base, T 3, int8 KV, one GPU, UD-IQ3_XXS) reads the 256-token prompt
+halves through either path:
+
+| Prompt path | PPL (base 3.2733) | KLD mean | KLD p99 | same top-1 | prompt ms/chunk |
+| --- | --- | --- | --- | --- | --- |
+| routed-only below 6,144 (2ab91eb) | 3.2444 | 0.11814 | 1.3001 | 88.65% | 723 |
+| fused from 64 | 3.2407 | 0.11634 | 1.2527 | 88.78% | 404 |
+
+Only 3 of 25,500 rows are identical (the two paths round differently from the first scored position); the means do not
+get worse.
+
+This is also the first gate of the UD-IQ3_XXS pack on its own: KLD 0.118 and top-1 88.7%, against 0.0628 and 91.55% for
+the NVFP4 pack on the same gate ([Flash-Next precision](precision/qwen38-flash-next.md)). The pack is Unsloth's mix:
+gate and up are IQ2_S on 23 layers, IQ3_XXS on 21 and IQ4_XS on the last, and down is IQ4_NL almost everywhere. Its
+speed comes with about twice NVFP4's divergence from the BF16 model.
+
 ## Stuck GPU clocks
 
 After a three-second Modern Standby entry from the power button, and a firmware thermal-profile test that ended within a

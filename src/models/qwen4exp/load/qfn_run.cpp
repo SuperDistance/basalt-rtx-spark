@@ -1,4 +1,5 @@
 // The whole start of a Flash-Next engine, in order: its stack frames hold the resources while the server runs.
+#include "basalt/core/device_memory.hpp"
 #include "basalt/core/shipped_profiles.hpp"
 #include "basalt/models/qwen4exp/shared_names.hpp"
 #include "basalt/platform/compiler.hpp"
@@ -97,11 +98,17 @@ int run_engine(Options& o, std::vector<program::GpuCard>& chosen_cards) {
     // Chunks below this take the routed-only path with the peer card computing its experts' rows; from it on
     // every expert streams through the ring.  The routed-only path costs ~0.3 ms per token, streaming ~0.12 ms
     // plus the time to move the experts the primary lacks over its link; with --peer-exclusive that includes the
-    // peer-only experts, staged through the host, so streaming loses until later.
+    // peer-only experts, staged through the host, so streaming loses until later.  An integrated GPU with no peer
+    // moves nothing over a link: the routed-only path's fixed cost per routed expert group (about 45 to 80 us on the
+    // N1X, 0.6 s for a 116-token prompt) loses to streaming every expert (about 0.29 s plus 0.44 ms per token) from
+    // a few dozen tokens on.
     auto set_stream_all_min = [&]() {
+        const bool integrated_alone = basalt::core::device_memory_model().integrated && o.peer_device < 1;
         basalt::prefill::Prefill::set_stream_all_min(
             o.serve && o.peer_device >= 1 && !o.no_peer_prefill && peer_streamed_share
-                ? (o.peer_exclusive ? 4096 : 2560) : basalt::prefill::Prefill::kStreamAllMinDefault);
+                ? (o.peer_exclusive ? 4096 : 2560)
+                : integrated_alone ? basalt::prefill::Prefill::kStreamAllMinIntegrated
+                                   : basalt::prefill::Prefill::kStreamAllMinDefault);
     };
     set_stream_all_min();
     if (o.serve && o.conversation_cache_disk_mib > 0 && o.conversation_cache_dir.empty()) {
