@@ -84,6 +84,28 @@ the other arms, while another tool tested GPU caps; it is left out below.
 GPU power medians were 34-46 W at full clocks and the SoC reached 88-93 °C. At this split IQ3_XXS decodes faster and keeps
 far more RAM free; NVFP4 matches it on long prompts.
 
+## Cold prompts joining a decoding stream
+
+One stream decodes (717-token prompt, 1,500 tokens out) and a cold prompt joins it two seconds in. IQ3_XXS, the same
+serving settings, `67328e0`:
+
+| Joining prompt | Joiner's first token | The stream while the prompt is read | The stream with both decoding |
+| ---: | ---: | ---: | ---: |
+| 1,975 tokens | 2.30 s (974 tok/s) | 9.2 tok/s | 43.9 tok/s |
+| 7,704 tokens | 4.21 s (1,962 tok/s) | 2.4 tok/s, stalled about 4 s | 52.7 tok/s |
+| 15,334 tokens | 7.69 s (2,059 tok/s) | 1.2 tok/s, stalled about 7.5 s | 46.1 tok/s |
+| 30,103 tokens | 28.66 s (1,064 tok/s) | 30.8 tok/s, after a 3 s stall | 36.1 tok/s |
+
+Alone, the stream decodes at 69-80 tok/s. A prompt of up to 16,384 tokens is read while the decoding slot waits, and its
+first part of a longer one too (the 30K prompt's first 6,144 tokens). The rest of a longer one is read on its own thread
+beside the windows, which share the GPU about evenly with it: windows took 76 ms against 36 ms alone, and the read ran at
+half its speed alone. Lowering the read-alone limit to 2,048 tokens did not help: the joiner's prompt was still read with
+the decoding request taken out of its slot (its conversation copied out and back), and a 15K joiner took 29.7 s. The
+admission has to keep the slot decoding before a smaller limit can work.
+
+C1-C4 aggregate output on the same build (717-token prompts, 160 tokens out): 49.1, 54.3, 61.5 and 62.1 tok/s; per-request
+decode 76.9, 49.2, 30.1 and 22.8 tok/s; p95 first token 1.24, 2.69, 3.87 and 5.03 s.
+
 ## EXL3 quants
 
 EXL3 (ExLlamaV3, MIT) stores each linear as trellis codes in 16×16 tiles at `16*K` 16-bit words a tile, with fp16 sign
