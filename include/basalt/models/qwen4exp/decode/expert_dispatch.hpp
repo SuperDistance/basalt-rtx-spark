@@ -5,6 +5,8 @@
 #include "basalt/kernels/cpu/pool.hpp"
 #include "basalt/models/qwen4exp/geometry.hpp"
 
+#include <array>
+
 namespace basalt::core {
 
 class PeerExperts;
@@ -118,6 +120,8 @@ struct ExpertDispatch {
     std::vector<float> usage;
     int64_t multi_misses = 0;      ///< distinct (layer, expert) pairs the CPU computed in verify windows
     int64_t multi_entries = 0;     ///< routed (token, expert) entries the CPU served in verify windows
+    bool count_cpu_group_sizes = false;
+    std::array<uint64_t, basalt::kernels::cpu::MAXT + 1> cpu_group_sizes{};
     /// Multi-GPU: the second GPU's tier.  Its experts are computed there instead of on the CPU (kind 2).
     PeerExperts* peer = nullptr;
     int64_t peer_entries = 0;      ///< routed entries the peer served in verify windows

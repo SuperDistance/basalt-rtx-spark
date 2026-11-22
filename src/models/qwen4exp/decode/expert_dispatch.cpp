@@ -287,6 +287,8 @@ void expert_pool_dispatch_multi(ExpertDispatch& d, const float* x_f, const int32
         }
     const auto c3 = std::chrono::steady_clock::now();
     if (njobs > 0) {
+        if (d.count_cpu_group_sizes)
+            for (int j = 0; j < njobs; ++j) ++d.cpu_group_sizes[d.jobs_multi[(size_t) j].nt];
         d.pool->run_split_multi_native(lay.fmt[(size_t) d.layers], d.jobs_multi.data(), njobs);
     }
     if (d.peer != nullptr && !ext) {         // multi-GPU: the second GPU's rows, into the same mapped rows

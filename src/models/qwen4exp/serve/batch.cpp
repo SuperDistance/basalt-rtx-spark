@@ -433,6 +433,14 @@ bool QfnRuntime::batch_step() {
                      (ver.ms_wait - bt_wait0) / w, (ver.ms_pool - bt_pool0) / w, bt_commit / w, bt_emit / w,
                      (drive.d.multi_misses - bt_miss0) / (w * L), (drive.d.cache_hits - bt_hits0) / (w * L),
                      (drive.d.pcie_experts - bt_pcie0) / (w * L), 1000.0 * bt_rows / std::max(wall, 1e-9), wall);
+        if (drive.d.count_cpu_group_sizes) {
+            std::string counts;
+            for (size_t i = 1; i < drive.d.cpu_group_sizes.size(); ++i)
+                if (drive.d.cpu_group_sizes[i] != 0)
+                    counts += " " + std::to_string(i) + "=" + std::to_string(drive.d.cpu_group_sizes[i]);
+            basalt::log::info("basalt batch", "CPU expert groups by token count:%s", counts.empty() ? " none" : counts.c_str());
+            drive.d.cpu_group_sizes.fill(0);
+        }
         if (batch_adapt) {
             basalt::log::info("basalt batch adapt", "%lld rounds, %lld swaps queued (%.1f per round), %lld deferred "
                                  "(no free RAM place), %.3f ms/window of host time, peer swaps total %lld",
@@ -461,6 +469,7 @@ bool QfnRuntime::batch_step() {
 
 int QfnRuntime::init_batch() {
     bs = std::vector<BSlot>((size_t) std::max(o.batch, 0));
+    drive.d.count_cpu_group_sizes = basalt::core::exp_flag("n1x_cpu_group_stats") != 0;
     // the real MTP drafts in the batch windows (a draft K/V per slot); the scripted test drive keeps its own
     batch_spec = mtp_on && mtp.main_store() > 0 && o.batch > 0;
     S_all = S;
