@@ -68,6 +68,25 @@ A local test opened a 256 MiB read-only region of the 27B model using a Win32 fi
 
 The CUDA guide describes different L2 behavior for CUDA host allocations and suitably aligned registered memory. The opt-in `--exp n1x_file_gpu_mib=1024` registered 1,021.9 MiB of file-backed expert pages and initialized the verifier's GPU staging path. It registers a separate read-only virtual view so the normal CUDA host-to-device refill can still use the original file view. Registering the original view caused a CUDA invalid-argument error during a prompt cache-slot refill. With the separate view and early registration, the engine completed a warm-up and both eight-request waves. That run used 32 output tokens and measured 5.85 output tokens/s, with p95 first-token latency of 40.22 seconds. The 96-output-token control serves as a routing comparison. A matched run with staged-expert counts is needed to measure the performance effect of staging.
 
+### Registered read-only expert pages
+
+The shared-memory experiment registers model pages through a second read-only mapping. The engine can count these weights as RAM-resident without giving the adaptive cache a writable home there. CPU readers keep the original view, and the GPU can gather straight from the registered addresses during eligible prefill. The two routes share immutable file data. The current code leaves registration opt-in.
+
+On this laptop, registration covered 8,191.7 MiB in 0.19 seconds after earlier serving runs. During registration, system commit rose by 500.1 MiB and free system RAM fell by 326.2 MiB. These are system-wide snapshots taken with a warm file cache. The engine reported 14.6 GiB of GPU experts plus 2.0 GiB of private RAM experts in both arms. Registration added 8.0 GiB of expert data to the RAM tier and reduced the file-only tier from 30.2 GiB to 22.2 GiB. The Windows page file setting and 62.5 GiB GPU reservation stayed as configured.
+
+Flash-Next UD-IQ3_XXS ran on AC in Balanced mode, with four 4,096-token slots, int8 KV, prompt caching disabled, 7,677 GPU cache slots, about 717 input tokens and 128 output tokens. NVML did not report a GPU power limit. Both arms enabled the existing direct GPU read experiments. The control ran first, then the registered tier. Each arm ran two waves at each concurrency.
+
+| Concurrency | Control output tok/s | Registered output tok/s | Control median / p95 TTFT | Registered median / p95 TTFT |
+| ---: | ---: | ---: | ---: | ---: |
+| 1 | 12.96 | 13.00 | 4.44 / 4.59 s | 4.09 / 4.23 s |
+| 2 | 14.84 | 17.32 | 7.80 / 11.82 s | 5.33 / 9.98 s |
+| 3 | 18.34 | 18.24 | 9.77 / 14.58 s | 10.48 / 14.37 s |
+| 4 | 18.42 | 20.68 | 13.37 / 19.54 s | 11.88 / 17.18 s |
+
+In the two uncached C1 requests per arm, median engine prefill was 165 versus 180 tok/s and median decode was 23.95 versus 22.45 tok/s. At C4, decode windows averaged 101.72 and 103.10 ms in the two control waves, versus 91.27 and 90.32 ms with registered pages. Time waiting for CPU experts fell from 35.50 and 32.74 ms per window to 24.39 and 22.54 ms. The registered arm read 27,223 eligible expert groups directly during prefill, versus 5,418 from private RAM in the control, including warm-up. These short runs with many experts still file-backed need an alternating repeat before changing automatic placement.
+
+A separate greedy check held the GPU cache, private RAM allocation and 8,191.7 MiB of registered pages fixed in both arms. The only change was whether the GPU gather read eligible groups directly. It handled 1,628 groups and matched the staged arm's greedy response and all 34 accepted-row logit hashes.
+
 ### Direct GPU reads from mapped system memory
 
 An opt-in path gives the CUDA grouped expert kernel addresses of selected mapped experts. It supports different expert sizes across layers and bypasses the copy to device scratch. The parity test used Flash-Next geometry, random NVFP4, IQ3_XXS and IQ2_S weights (the latter two with IQ4_NL down projections), and one-, three- and eight-row windows. The direct addresses and output matched the existing staged CUDA path bit for bit in every exercised case. At eight rows, the direct plan plus compute ran in 133–160 µs, about 64–104 GB/s of selected weights. Staging then computing those groups separately took 177–286 µs in the same test, before any overlap with other streams. The ARM64 Release rebuild of `dec_moe.cu` took 206 seconds under a six-job build.
