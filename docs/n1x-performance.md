@@ -55,6 +55,16 @@ An affinity-pinned `SMMLA` probe executed on each of the 20 cores. Basalt detect
 
 Radiance IQR-V4 is a reference for selecting per-band precision by measured quality loss, including the output head. Basalt already ships mixed precision and separate FP8 and NVFP4 head measurements. For 27B, Basalt reports mean KLD of 0.0262 and 92.82% top-1 agreement for its FP8 head, versus 0.0312 and 91.83% for the NVFP4 head. Use those as quality anchors for frequency-weighted precision bands and time prefill and concurrent decode. For Flash-Next, run per-layer sensitivity and routing calibration first. Its 63.3 GiB routed-expert tier is the larger target, and the existing pack format supports different quantizers across layers. [Radiance IQR-V4 report](https://radiance.stilldeadco.de/whitepapers/iqr-v4.pdf) · [Basalt 27B precision](https://github.com/jesdga95/basalt/blob/main/docs/precision/qwen38-27b.md)
 
+Two published Unsloth-based Flash-Next packs offer a residency comparison. Their section sizes are from the packed model headers.
+
+| Pack | Full file | Routed experts | PLE table |
+| --- | ---: | ---: | ---: |
+| NVFP4-DQ6_K | 122.64 GiB | 63.28 GiB | 50.66 GiB |
+| UD-IQ4_XS | 90.94 GiB | 56.24 GiB | 26.82 GiB |
+| UD-IQ3_XXS | 81.59 GiB | 46.84 GiB | 26.82 GiB |
+
+IQ3_XXS saves 16.44 GiB in routed experts. It uses a different quantizer and GPU kernel path, so compare placement, throughput, and output quality on this laptop. [Flash-Next pack](https://huggingface.co/jesdga/Qwen3.8-Flash-Next-Basalt/blob/fc721830e519ab52012d372e89b90d9a7df30ff2/Qwen3.8-FN-UD-IQ3_XXS.basalt) · [Basalt Flash-Next precision](https://github.com/jesdga95/basalt/blob/main/docs/precision/qwen38-flash-next.md)
+
 ## NPU
 
 Local cuDLA 1.5.0 reported one DLA, hardware version 2. Creating and destroying a hybrid device succeeded. Creating a standalone device returned `cudlaErrorUnsupportedOperation`. cuDLA reported no unified addressing for the DLA handle. A native CUDA allocation of 64 KiB also registered and unregistered successfully through cuDLA. Both probes exercise the device API. Model execution and speed remain to be measured. [Community probe](https://github.com/roberthendriksen/rtx-spark-npu/blob/main/src/01_find_npu.py)
