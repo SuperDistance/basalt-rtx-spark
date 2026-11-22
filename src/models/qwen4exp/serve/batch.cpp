@@ -475,7 +475,9 @@ int QfnRuntime::init_batch() {
     bs = std::vector<BSlot>((size_t) std::max(o.batch, 0));
     drive.d.count_cpu_group_sizes = basalt::core::exp_flag("n1x_cpu_group_stats") != 0;
     // the real MTP drafts in the batch windows (a draft K/V per slot); the scripted test drive keeps its own
-    batch_spec = mtp_on && mtp.main_store() > 0 && o.batch > 0;
+    // Benchmark uncached batches with the same model allocations and solo drafter in both arms.
+    batch_spec = mtp_on && mtp.main_store() > 0 && o.batch > 0 &&
+                 (o.prompt_cache > 0 || basalt::core::exp_flag("n1x_batch_draft", 1) != 0);
     S_all = S;
     bpolicy.emplace(S, 0.03, false);   // the lookup-or-MTP choice, costs per row
     bt_draft = 0;
