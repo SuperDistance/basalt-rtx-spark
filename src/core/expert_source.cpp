@@ -1578,6 +1578,7 @@ uint64_t FileExpertSource::pin_file_experts(const std::vector<std::pair<int32_t,
 
     std::vector<std::pair<uint64_t, uint64_t>> ranked_ranges;
     ranked_ranges.reserve(rank.size());
+    uint64_t wanted_expert_bytes = 0;
     for (const auto& [layer, expert] : rank) {
         const uint8_t* blob = mapped_blob(layer, expert);
         if (blob == nullptr || skip(layer, expert) || has_resident(layer, expert)) continue;
@@ -1590,8 +1591,14 @@ uint64_t FileExpertSource::pin_file_experts(const std::vector<std::pair<int32_t,
             end += pad;
         }
         ranked_ranges.emplace_back(begin, end);
+        wanted_expert_bytes += layer_blob_bytes_[(size_t) layer];
     }
 
+    const uint64_t spill = wanted_expert_bytes - std::min(wanted_expert_bytes, budget);
+    const uint64_t file_cache = std::max(file_cache_keep(memory.available, reserve, true, wanted_expert_bytes, file_cache_),
+                                         file_cache_floor(spill, wanted_expert_bytes, file_cache_));
+    const uint64_t ram_reserve = reserve + file_cache;
+    budget = std::min(budget, ram_tier_room(memory.available, ram_reserve, true));
     const auto plan = detail::plan_file_pin_ranges(ranked_ranges, budget);
     file_pins_.reserve(plan.size());
     uint64_t registered = 0;
@@ -1599,7 +1606,7 @@ uint64_t FileExpertSource::pin_file_experts(const std::vector<std::pair<int32_t,
         const uint64_t span = end - begin;
         const uint64_t free_ram = platform::available_memory();
         if (span / kBytesPerCommitByte > commit_room(reserve) ||
-            (free_ram > 0 && span > ram_tier_room(free_ram, reserve, true))) {
+            (free_ram > 0 && span > ram_tier_room(free_ram, ram_reserve, true))) {
             basalt::log::info("basalt", "read-only expert registration reached the memory budget at %.1f MiB",
                               (double) registered / 1048576.0);
             break;
