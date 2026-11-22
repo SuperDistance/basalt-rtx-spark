@@ -22,19 +22,20 @@ These results use different prompts, decode settings, speculative drafters, and 
 
 An Ubuntu 26.04 N1X vLLM deployment reports about 60 tok/s for Flash-Next and a 445-to-146-second weight-load improvement from pinning the loader to the fast cores. Its Linux allocator and cache workarounds are specific to that stack. CPU placement during loading and model repack peak memory are useful measurements on Windows too. [N1X Linux serving report](https://github.com/LeonMarzollDev/local-llm-rtx-spark#the-fixes-that-matter-on-unified-memory)
 
-A paired comparison needs one unit of each machine, identical Basalt revision and weights where available, matching prompt and output lengths, sampling and speculation, KV format, context and prefix-cache policy. Track median and p95 time to first token, end-to-end and decode-only aggregate output tokens per second, per-request throughput, and memory placement at C1/C2/C4/C8. Record power source, power mode and temperature. Use `tools/port/spark_serve_bench.py --port PORT --out FILE` against the same local server configuration on each Spark. The replay client was checked with a local SSE endpoint at C1/C2/C4/C8. The initial 32,768-token/eight-slot configurations hit the Windows memory limits on the laptop.
+A paired comparison needs one unit of each machine, identical Basalt revision and weights where available, matching prompt and output lengths, sampling and speculation, KV format, context and prefix-cache policy. Track median and p95 time to first token, end-to-end and decode-only aggregate output tokens per second, per-request throughput, and memory placement at C1/C2/C4/C8. Record power source, power mode and temperature. Use `tools/port/spark_serve_bench.py --port PORT --out FILE` against the same local server configuration on each Spark. The replay client was checked with a local SSE endpoint at C1/C2/C4/C8. The initial 32,768-token/eight-slot configurations hit the Windows memory limits on the laptop. Windows later expanded its system-managed pagefile during the test session, so each result belongs to the available memory at its start.
 
 ## Local results
 
 These are short AC-powered tests with normal desktop activity and the existing 62.5 GiB GPU reservation. The prompts used about 717 input tokens and generated 160 output tokens. Throughput is aggregate end-to-end output tokens per second, including time spent reading the prompt.
 
-| Model and configuration | C1 | C2 | C4 |
-| --- | ---: | ---: | ---: |
-| Qwen3.8-27B, upstream native build, 2,048 tokens per slot | 27.03 | 42.26 | 59.71 |
-| Flash-Next, upstream native build, mapped-file experts | 7.85 | 9.18 | RAM guard stopped requests |
-| Flash-Next, GPU-first under commit pressure | 9.77 | 10.17 | |
+| Model and configuration | C1 | C2 | C4 | C8 |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| Qwen3.8-27B, upstream native build, eight 2,048-token slots | 27.48 | 40.96 | 61.70 | 71.84 |
+| Flash-Next, upstream native build, mapped-file experts | 7.85 | 9.18 | RAM guard stopped requests | |
+| Flash-Next, GPU-first under commit pressure | 9.77 | 10.17 | | |
+| Flash-Next, GPU-first with bounded RAM residency and I8MM | 10.04 | 9.92 | 14.53 | |
 
-Qwen3.8-27B median time to first token was 0.43, 0.68 and 2.00 seconds at C1, C2 and C4. Flash-Next baseline and GPU-first runs used four slots, 4,096 tokens per slot, int8 KV and two waves per measured concurrency. Windows commit, available RAM and the file cache varied between runs, so the Flash-Next improvement is preliminary.
+Qwen3.8-27B median time to first token was 0.41, 0.93, 1.67 and 2.95 seconds from C1 to C8. At C8, p95 was 4.99 seconds over 24 requests. Flash-Next four-slot runs used 4,096 tokens per slot, int8 KV and two waves per measured concurrency. The patched Flash-Next C4 completed eight requests with median TTFT of 17.49 seconds and p95 of 25.32 seconds. Windows commit, available RAM and the file cache varied between runs, so treat the serving differences as preliminary.
 
 The first auto-placement attempt reserved almost 50 GiB in anticipated host mapping costs while the combined available budget was about 14 GiB. The `n1x_commit_cache` experiment prioritizes the GPU cache under Windows commit pressure. It started Flash-Next at the existing reservation. A subsequent fallback fix clamps the size of the ranked resident CPU complement to both RAM and commit. It successfully selected and loaded 0.64 GiB of hot experts when 0.65 GiB remained above the safety reserve.
 
@@ -50,7 +51,7 @@ The CUDA guide describes different L2 behavior for CUDA host allocations and sui
 
 An affinity-pinned `SMMLA` probe executed on each of the 20 cores. Basalt detects Arm I8MM and its current ARM NVFP4/Q8_0 dot product uses SDOT. A two-activation, two-output-row I8MM probe matched the existing SDOT results bit for bit across 1,024 rows at widths 512, 2,048 and 3,072. The paired dot kernels ran 2.29?2.83? faster in the synthetic microbenchmark. The engine enables the gate/up and down variants through `--exp n1x_i8mm=1`. Native wrapper parity passed 40 cases covering odd token and row counts and both SwiGLU modes. Serving gains still depend on the fraction of experts that run on the CPU. Avoid spending GPU bandwidth on activations for CPU work if measured gather cost and overlap favor a smaller transfer.
 
-Radiance IQR-V4 is a reference for selecting per-band precision by measured quality loss, including the output head. Basalt already ships mixed precision and separate FP8 and NVFP4 head measurements. A new head experiment should retain the existing weights as a control, gate on KLD and top-1 agreement against the higher-precision reference, and time the fused kernels at C1 and C8. [Radiance IQR-V4 report](https://radiance.stilldeadco.de/whitepapers/iqr-v4.pdf) · [Basalt 27B precision](https://github.com/jesdga95/basalt/blob/main/docs/precision/qwen38-27b.md)
+Radiance IQR-V4 is a reference for selecting per-band precision by measured quality loss, including the output head. Basalt already ships mixed precision and separate FP8 and NVFP4 head measurements. For 27B, Basalt reports mean KLD of 0.0262 and 92.82% top-1 agreement for its FP8 head, versus 0.0312 and 91.83% for the NVFP4 head. Use those as quality anchors for frequency-weighted precision bands and time prefill and concurrent decode. For Flash-Next, run per-layer sensitivity and routing calibration first. Its 63.3 GiB routed-expert tier is the larger target, and the existing pack format supports different quantizers across layers. [Radiance IQR-V4 report](https://radiance.stilldeadco.de/whitepapers/iqr-v4.pdf) · [Basalt 27B precision](https://github.com/jesdga95/basalt/blob/main/docs/precision/qwen38-27b.md)
 
 ## NPU
 
