@@ -24,7 +24,7 @@ int main(int argc, char** argv) {
     }
     const int tokens = std::stoi(argv[3]);
     const int workers = std::stoi(argv[5]);
-    if (tokens <= 0 || tokens > 32 || workers < 1) return 1;
+    if (tokens <= 0 || tokens > 64 || workers < 1) return 1;
 
     constexpr int embedding = 2560;
     constexpr int hidden = 640;
@@ -82,25 +82,26 @@ int main(int argc, char** argv) {
 
     std::printf("{\"single_worker\":");
     measure(run_single);
-    if (tokens <= MAXT) {
-        const std::vector<float> single_output = output;
-        std::printf(",\"pool_workers\":%d,\"pool\":", workers);
-        ExpertPool pool(workers, PoolAffinity::Auto);
-        ExpertJobMulti job;
+    const std::vector<float> single_output = output;
+    std::vector<ExpertJobMulti> jobs((tokens + MAXT - 1) / MAXT);
+    for (size_t chunk = 0; chunk < jobs.size(); ++chunk) {
+        const int first = static_cast<int>(chunk) * MAXT;
+        ExpertJobMulti& job = jobs[chunk];
         job.blob = blob.data();
-        job.nt = tokens;
-        for (int i = 0; i < tokens; ++i) {
-            job.nact[i] = act[i];
-            job.out[i] = out[i];
+        job.nt = std::min(MAXT, tokens - first);
+        for (int i = 0; i < job.nt; ++i) {
+            job.nact[i] = act[first + i];
+            job.out[i] = out[first + i];
         }
-        measure([&] {
-            quantize_input();
-            pool.run_split_multi_native(fmt, &job, 1);
-        });
-        const bool same = std::memcmp(output.data(), single_output.data(), output.size() * sizeof(float)) == 0;
-        std::printf(",\"pool_bitwise_equal\":%s", same ? "true" : "false");
     }
-    std::printf("}\n");
+    std::printf(",\"pool_workers\":%d,\"pool_jobs\":%zu,\"pool\":", workers, jobs.size());
+    ExpertPool pool(workers, PoolAffinity::Auto);
+    measure([&] {
+        quantize_input();
+        pool.run_split_multi_native(fmt, jobs.data(), static_cast<int>(jobs.size()));
+    });
+    const bool same = std::memcmp(output.data(), single_output.data(), output.size() * sizeof(float)) == 0;
+    std::printf(",\"pool_bitwise_equal\":%s}\n", same ? "true" : "false");
     std::ofstream result(argv[4], std::ios::binary);
     if (!result.write(reinterpret_cast<const char*>(output.data()), output.size() * sizeof(float))) return 1;
 }
