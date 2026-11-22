@@ -41,6 +41,12 @@ Qwen3.8-27B median time to first token was 0.41, 0.93, 1.67 and 2.95 seconds fro
 
 The first auto-placement attempt reserved almost 50 GiB in anticipated host mapping costs while the combined available budget was about 14 GiB. The `n1x_commit_cache` experiment prioritizes the GPU cache under Windows commit pressure. It started Flash-Next at the existing reservation. A subsequent fallback fix clamps the size of the ranked resident CPU complement to both RAM and commit. It successfully selected and loaded 0.64 GiB of hot experts when 0.65 GiB remained above the safety reserve. Commit a700674 made GPU-first placement automatic for the default single-GPU resident path when commit is tighter than device memory. The verification run used the existing GPU reservation and default Basalt memory settings.
 
+The partial-RAM swap-space experiment held the GPU cache at 8,000 slots and used a configured 0.625 GiB resident budget.
+The two control runs reached 11.22 and 12.26 output tok/s at C8, and the experimental run reached 14.01 tok/s. The
+experiment reserved 60 swap places (158 MiB), compared with 384 places (1,013 MiB) allocated above the ranked expert
+payload by the controls. One experimental launch timed out before the server reported ready. These are short, exploratory
+96-output-token runs. The control and experimental process footprints differed. The experiment is opt-in.
+
 ## Unified memory
 
 The Flash-Next artifact holds 63.3 GiB of routed experts and about 50.7 GiB of Q8_0 per-layer token embeddings. Basalt can source those embeddings from SSD. At the current reservation, the experts need a placement policy that considers both WDDM budgets and Windows commit. Keep the GPU reservation in place during development and compare automatic placement at the same reservation.
@@ -67,8 +73,11 @@ IQ3_XXS saves 16.44 GiB in routed experts. It uses a different quantizer and GPU
 
 ## NPU
 
-Local cuDLA 1.5.0 reported one DLA, hardware version 2. Creating and destroying a hybrid device succeeded. Creating a standalone device returned `cudlaErrorUnsupportedOperation`. cuDLA reported no unified addressing for the DLA handle. A native CUDA allocation of 64 KiB also registered and unregistered successfully through cuDLA. Both probes exercise the device API. Model execution and speed remain to be measured. [Community probe](https://github.com/roberthendriksen/rtx-spark-npu/blob/main/src/01_find_npu.py)
+Local cuDLA 1.5.0 reported one DLA, hardware version 2. Creating and destroying a hybrid device succeeded. Creating a standalone device returned `cudlaErrorUnsupportedOperation`. cuDLA reported no unified addressing for the DLA handle. A native CUDA allocation of 64 KiB also registered and unregistered successfully through cuDLA. The official Windows ARM64 package, TensorRT 11.5.0.63 for CUDA 13.5, compiled a static FP16 32-channel 1x1
+projection with ReLU. The loadable ran through cuDLA hybrid mode. Outputs matched the NumPy reference exactly for both
+test inputs. Over 128 synchronous runs on AC, median submit-to-completion was 0.314 ms and p95 was 0.476 ms. This
+workload measures a single DLA graph including host submission and synchronization. [Community probe](https://github.com/roberthendriksen/rtx-spark-npu/blob/main/src/01_find_npu.py)
 
 XDA ran FP16 convolutions, fixed-shape attention with RoPE, and concurrent GPU and DLA work. Its fixed-shape 1×1 projection ran well below cuBLAS throughput. NVIDIA documents FP16 computation, fixed dimensions and batch size one for the Windows ARM compiler. AMD’s Ryzen AI demonstrates a hybrid LLM deployment through its own ONNX Runtime GenAI stack. [XDA experiments](https://www.xda-developers.com/nvidia-rtx-spark-npu-barely-mentions-spent-week-figuring-out/) · [NVIDIA DLA operation support](https://docs.nvidia.com/deeplearning/tensorrt/latest/inference-library/dla-windows-on-arm.html) · [AMD Ryzen AI LLM deployment](https://ryzenai.docs.amd.com/en/1.5/llm/overview.html)
 
-A first workload would compare a known fixed-shape DLA graph with the equivalent GPU result, then measure it alongside the unchanged Basalt baseline. Record DLA execution, combined throughput, Qwen p95 latency, and energy per output token if system-level power is available. A small fixed-shape drafter can be tested if its operations compile and end-to-end speculative acceptance justifies the transfer. The Windows ARM TensorRT compiler download from NVIDIA requires license acceptance. [TensorRT download](https://developer.nvidia.com/tensorrt/download/11x)
+A first workload would compare a known fixed-shape DLA graph with the equivalent GPU result, then measure it alongside the unchanged Basalt baseline. Record DLA execution, combined throughput, Qwen p95 latency, and energy per output token if system-level power is available. A small fixed-shape drafter can be tested if its operations compile and end-to-end speculative acceptance justifies the transfer. The TensorRT archive and Python bindings are installed in the local benchmark environment. [TensorRT download](https://developer.nvidia.com/tensorrt/download/11x)
