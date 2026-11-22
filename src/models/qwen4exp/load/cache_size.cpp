@@ -132,8 +132,19 @@ int cache_size(Context& context) {
                 basalt::core::device_mem_info(&f1, &t0);
                 cudaFreeHost(probe);
                 const double per_gib = f0 > f1 ? (double) (f0 - f1) : 0.0;
-                const double outside = std::max(0.0, (double) expert_total_bytes -
-                                                         (double) std::max<int64_t>((int64_t) free_b - base_b, 0));
+                double outside = std::max(0.0, (double) expert_total_bytes -
+                                                   (double) std::max<int64_t>((int64_t) free_b - base_b, 0));
+                if (o.resident_budget > 0) {
+                    int64_t swap_places = 0;
+                    if (o.serve && o.adapt_every > 0 && o.adapt_swaps > 0) {
+                        swap_places = (int64_t) o.adapt_swaps * kSatBoost;
+                        if (o.peer_device >= 1 || !o.peer_devices.empty())
+                            swap_places += std::max(o.peer_adapt_swaps, o.adapt_swaps);
+                    }
+                    const double spares = (double) swap_places * (double) max_cache_blob;
+                    // Only the private copy is charged at the measured cudaHostAlloc rate.
+                    outside = std::min(outside, (double) o.resident_budget + spares);
+                }
                 late_b += (int64_t) (per_gib * outside / (double) pb);
             }
             cudaGetLastError();
