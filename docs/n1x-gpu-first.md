@@ -65,6 +65,35 @@ none; greedy output repeated for a 30,105-token prompt read cold and from its ch
 74.9-78.2 tok/s and cold prefill 1,963-1,977 tok/s. The kernels match the staged CUDA path bit for bit
 (`dec_moe_parity --kq`, `--nvfp4`). Moving experts from the CPU to the GPU changes their rounding; the KLD gate is pending.
 
+## NVFP4 against IQ3_XXS
+
+The same build (`67328e0`) and serving settings (four 262,144-token slots, int8 KV, MTP 8, prompt cache on) ran both packs
+A/B/B/A. IQ3_XXS held every routed expert on the GPU. NVFP4-DQ6_K placed 43.2 GiB on the GPU and 20.1 GiB in RAM, which the
+GPU read in place, and left 3.8-6.0 GiB of physical RAM free against 14.1-15.8 GiB for IQ3. SparkHelper's Performance
+profile was active. The fourth arm (IQ3) ran with the GPU clock capped near 1,470 MHz, against 1,960-2,130 MHz medians in
+the other arms, while another tool tested GPU caps; it is left out below.
+
+| | IQ3_XXS | NVFP4-DQ6_K (two arms) |
+| --- | ---: | ---: |
+| C1 decode, 717-token prompt, median | 80.4 tok/s | 70.9 / 64.3 tok/s |
+| C1 output, prefill included | 52.7 tok/s | 45.6 / 41.3 tok/s |
+| C4 aggregate output | 63.2 tok/s | 54.9 / 54.8 tok/s |
+| Prefill 717 / 7,715 / 30,105 tokens | 725 / 2,143 / 2,227 tok/s | 603-542 / 2,054-2,228 / 2,154-2,423 tok/s |
+| Decode after a 30K prompt | 81.2 tok/s | 75.1 / 80.0 tok/s |
+
+GPU power medians were 34-46 W at full clocks and the SoC reached 88-93 °C. At this split IQ3_XXS decodes faster and keeps
+far more RAM free; NVFP4 matches it on long prompts.
+
+## EXL3 quants
+
+EXL3 (ExLlamaV3, MIT) stores each linear as trellis codes in 16×16 tiles at `16*K` 16-bit words a tile, with fp16 sign
+vectors around 128-point Hadamard rotations, and decodes in registers. turboderp's self-calibrated Flash-Next quants list
+mean KLD 0.0138 at 3.18 bpw (about 45 GiB of routed experts by bit count) against 0.0529 for a 2.90 bpw IQ3_XXS, on his own
+measurement. Hero422's EXL3-V3 quants of Qwen3.8-27B use an integer "mad" codebook with int8-activation compute and a bit
+width per tensor, and list 0.0215 KLD at 3.0 bpw (11.8 GiB) and 0.0064 at 4.0 bpw (14.9 GiB) on their own corpus; they are
+Radiance containers whose kernels target RDNA4, and no Flash-Next EXL3-V3 exists from that uploader yet. Basalt reads
+neither format today.
+
 ## Stuck GPU clocks
 
 After a three-second Modern Standby entry from the power button, and a firmware thermal-profile test that ended within a
