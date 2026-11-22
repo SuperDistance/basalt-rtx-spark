@@ -22,6 +22,8 @@ These results use different prompts, decode settings, speculative drafters, and 
 
 An Ubuntu 26.04 N1X vLLM deployment reports about 60 tok/s for Flash-Next and a 445-to-146-second weight-load improvement from pinning the loader to the fast cores. Its Linux allocator and cache workarounds are specific to that stack. CPU placement during loading and model repack peak memory are useful measurements on Windows too. [N1X Linux serving report](https://github.com/LeonMarzollDev/local-llm-rtx-spark#the-fixes-that-matter-on-unified-memory)
 
+A community native Windows ARM64 vLLM build reports 65.75 tok/s at C1 and 233.63 tok/s at C16 on its mixed Flash-Next workload. Its configuration specifies a 96 GB GPU split, a larger fixed minimum for the Windows page file, NVFP4 experts, and SSD-backed PLE. The throughput runner counts streamed tokens inside two 20-second windows after warm-up, with prefix caching enabled. The local Basalt fixtures use the existing 62.5 GiB reservation, different weights and end-to-end completion timing. [Native vLLM results and setup](https://github.com/devjeonghwan/vllm-for-rtx-spark#benchmarks) · [Workload method](https://github.com/devjeonghwan/vllm-for-rtx-spark/blob/main/benchmarks/README.md#workload-throughput)
+
 A paired comparison needs one unit of each machine, identical Basalt revision and weights where available, matching prompt and output lengths, sampling and speculation, KV format, context and prefix-cache policy. Track median and p95 time to first token, end-to-end and decode-only aggregate output tokens per second, per-request throughput, and memory placement at C1/C2/C4/C8. Record power source, power mode and temperature. Use `tools/port/spark_serve_bench.py --port PORT --out FILE` against the same local server configuration on each Spark. The replay client was checked with a local SSE endpoint at C1/C2/C4/C8. The initial 32,768-token/eight-slot configurations hit the Windows memory limits on the laptop. Windows later expanded its system-managed pagefile during the test session, so each result belongs to the available memory at its start.
 
 ## Local results
@@ -54,6 +56,8 @@ payload by the controls. One experimental launch timed out before the server rep
 
 The Flash-Next artifact holds 63.3 GiB of routed experts and about 50.7 GiB of Q8_0 per-layer token embeddings. Basalt can source those embeddings from SSD. At the current reservation, the experts need a placement policy that considers both WDDM budgets and Windows commit. Keep the GPU reservation in place during development and compare automatic placement at the same reservation.
 
+A separate N1X CUDA allocation probe measured about 64 MiB of Windows commit for an empty 64 MiB device allocation before any kernel ran, with little change in the CPU working set. NVIDIA forum staff confirmed the WDDM behavior after checking with an RTX Spark engineer. On this laptop, a drop in the system-managed commit limit cut the practical model budget while CUDA still reported more than 53 GiB of free device capacity. Both counters belong in comparisons of automatic placement. [Allocation measurements and NVIDIA response](https://forums.developer.nvidia.com/t/rtx-spark-on-windows-cuda-allocations-consume-system-commit-even-with-96-gib-dedicated-gpu-memory/386453)
+
 A local test opened a 256 MiB read-only region of the 27B model using a Win32 file mapping and registered it as CUDA mapped read-only host memory. GPU copies from three sampled offsets matched the model bytes. System committed memory was 56,640.11 MiB before and after registration. This validates the API path. A timing probe using the same bytes compares sequential, shuffled and repeated reads from dedicated device memory, ordinary CUDA host allocations, private registered memory at two alignments, and the file-backed mapping. GPU checksums matched across all placements. Large sequential and shuffled reads reached 262?268 GB/s on device allocations, 261?271 GB/s on CUDA mapped host allocations and 150?154 GB/s on the file-backed mapping. In these tests, mapped files bought capacity and avoided an anonymous copy, while CUDA mapped host allocations delivered streaming bandwidth close to device allocations. [NVIDIA CUDA UMA guidance](https://docs.nvidia.com/rtx-spark/rtx-spark-porting-guide/latest/uma/umacuda.html)
 
 The CUDA guide describes different L2 behavior for CUDA host allocations and suitably aligned registered memory. The opt-in `--exp n1x_file_gpu_mib=1024` registered 1,021.9 MiB of file-backed expert pages and initialized the verifier's GPU staging path. It registers a separate read-only virtual view so the normal CUDA host-to-device refill can still use the original file view. Registering the original view caused a CUDA invalid-argument error during a prompt cache-slot refill. With the separate view and early registration, the engine completed a warm-up and both eight-request waves. That run used 32 output tokens and measured 5.85 output tokens/s, with p95 first-token latency of 40.22 seconds. The 96-output-token control serves as a routing comparison. A matched run with staged-expert counts is needed to measure the performance effect of staging.
@@ -74,6 +78,27 @@ The direct arms dispatched 21,739 routed entries from outside the device cache. 
 
 On a single integrated GPU, the Experts card reports where the routed weights were placed at load. The same byte counts are in `/metrics`. A fresh automatic load with eight configured slots reported 21.2 GiB in the GPU cache, 25.6 GiB in RAM and zero file-backed experts. The three byte counts summed exactly to the pack's 50,292,326,400-byte routed-expert section. The load and a generation request completed under the laptop's existing reservation.
 
+### Direct reads during prefill
+
+An opt-in prefill experiment sends eligible pinned RAM expert addresses to the existing MMQ gather. It skips the host-to-device staging copy for those experts. The GPU cache, run-ahead copies, CPU-selected groups, file-backed experts and streamed long-prompt path use their existing routes. Flash-Next UD-IQ3_XXS was tested on AC, Windows Balanced, with eight 4,096-token slots, an 8 GiB device reserve, int8 KV, about 717 input tokens and 64 output tokens. Each arm served 16 requests. NVML did not report a GPU power limit.
+
+| Prefill path | GPU cache slots | File-backed experts | C8 output tok/s | p95 TTFT | Decode window time, two waves |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| Staged, run 1 | 8,466 | 28.7 GiB | 13.33 | 31.01 s | 130.86 / 96.55 ms |
+| Direct, run 1 | 8,466 | 28.7 GiB | 13.48 | 30.81 s | 116.36 / 92.80 ms |
+| Direct, run 2 | 8,261 | 29.1 GiB | 13.52 | 30.76 s | 118.95 / 96.16 ms |
+| Staged, run 2 | 8,189 | 29.2 GiB | 11.18 | 36.74 s | 157.13 / 112.88 ms |
+
+Both direct arms exercised the path, using it for 3,089 and 2,771 routed groups respectively, including warm-up and rerouted prompt chunks. All arms allocated a 2.73 GiB pinned complement, including adaptive spare slots. The pair with the same GPU cache differed by 1.1% in aggregate throughput. The smaller cache and much longer CPU waits in the final control limit the comparison. These results leave staging as the default. When the full expert set was in memory in the earlier decode experiment, throughput was about 54 tok/s at C8 with 160 generated tokens, a different fixture.
+
+A separate greedy test held the GPU cache at 7,677 slots and the pinned allocation at 2.73 GiB in both arms. The direct path handled 92 expert groups for the same 716-token prompt. All 34 reported accepted-row logit hashes matched, as did the 32-token response.
+
+### Optional model parking
+
+The `park-on-swap` model option keeps an idle Qwen3.8-27B engine alive while the router serves a different model. On Windows ARM64, Basalt saves the supported dense weight allocation to private system RAM, releases its device backing, and restores it at the same CUDA virtual addresses. The parked engine retains its KV cache and other allocations. Parking requires physical RAM and commit headroom. The router can unload a parked engine if the incoming model cannot load.
+
+One on-device smoke test served Qwen3.8-27B, switched to Flash-Next UD-IQ3_XXS, then served the same greedy 27B request again. The 27B response matched before and after, and `/v1/models` reported 17,181,966,336 parked weight bytes. The copy to RAM took 3.1 seconds and weight restore took 3.2 seconds. The return request took 8.25 seconds including Flash-Next shutdown, restore and generation, compared with 5.91 seconds for the initial 27B request on a warm filesystem cache. Flash-Next served with 45.6 GiB of file-backed experts while 27B was parked. Parking remains opt-in, and the serving benchmarks use a single loaded model.
+
 ## CPU experts and quantization
 
 An affinity-pinned `SMMLA` probe executed on each of the 20 cores. Basalt detects Arm I8MM and its current ARM NVFP4/Q8_0 dot product uses SDOT. A two-activation, two-output-row I8MM probe matched the existing SDOT results bit for bit across 1,024 rows at widths 512, 2,048 and 3,072. The paired dot kernels ran 2.29?2.83? faster in the synthetic microbenchmark. The engine enables the gate/up and down variants through `--exp n1x_i8mm=1`. Native wrapper parity passed 40 cases covering odd token and row counts and both SwiGLU modes. Serving gains still depend on the fraction of experts that run on the CPU. Avoid spending GPU bandwidth on activations for CPU work if measured gather cost and overlap favor a smaller transfer.
@@ -89,6 +114,16 @@ Two published Unsloth-based Flash-Next packs offer a residency comparison. Their
 | UD-IQ3_XXS | 81.59 GiB | 46.84 GiB | 26.82 GiB |
 
 IQ3_XXS saves 16.44 GiB in routed experts. It uses a different quantizer and GPU kernel path, so compare placement, throughput, and output quality on this laptop. [Flash-Next pack](https://huggingface.co/jesdga/Qwen3.8-Flash-Next-Basalt/blob/fc721830e519ab52012d372e89b90d9a7df30ff2/Qwen3.8-FN-UD-IQ3_XXS.basalt) · [Basalt Flash-Next precision](https://github.com/jesdga95/basalt/blob/main/docs/precision/qwen38-flash-next.md)
+
+An ARM64 CPU IQ3_XXS experiment used a 16 KiB signed lookup table to fold the per-vector sign multiplication into the lookup. It matched the Basalt NEON dot kernel bit for bit over 5,120 randomized rows at width 2,560. On this laptop it took 151.06 µs versus 126.59 µs for 640 rows, and 1,196.32 µs versus 1,026.07 µs for 5,120 rows. The lookup cost outweighed the saved arithmetic. Basalt keeps the existing kernel.
+
+A worker-count sweep used a real Flash-Next NVFP4 expert with synthetic activations and the I8MM diagnostic enabled. It tested 9, 14 and 19 unpinned workers in forward and reverse order on AC in Balanced mode. At 64 rows, 19 workers took 1.02–1.10 ms median versus 1.26–1.29 ms for 14. At 32 rows, 19 workers shortened the median but increased p95 from 1.09–1.34 ms to 1.44–2.29 ms. At eight rows, 19 workers also had a higher p95 in both runs. All worker counts matched the single-worker outputs bit for bit. The sweep used a warm expert in isolation. Serving still uses the automatic 14-worker pool on this laptop.
+
+### Flash-Next batched drafting
+
+An initial C8 A/B/B/A run compared `--spec 8` with `--spec 0` using eight 4,096-token slots and 16 requests per restart. End-to-end throughput was 49.26 and 45.54 tok/s with drafting, and 47.53 and 45.28 tok/s without. One drafting run held 23.4 GiB of GPU experts. The other three held 28.5 GiB. Every arm kept the remaining experts in RAM. The drafting runs produced about 1.05–1.06 tokens per active slot per window, spending 8.2–9.7 ms/window on drafts. The draft setting also affects state commit overlap. These comparisons do not isolate a benefit from drafting.
+
+The `n1x_batch_draft=0` diagnostic leaves the solo drafter and its allocations in place for an uncached serving benchmark. In the follow-up, Windows reported an 87.68 GiB commit limit at load, down from 112.41 GiB during the earlier runs. The first control had 23.7 GiB of experts on SSD and reached 26.31 tok/s at C8. The first diagnostic run and a control retry with a smaller cache and a 4 GiB device reserve both reached model ready, then returned cuBLAS status 14 from the first prompt. The cause is unverified. These runs leave the normal draft setting unchanged.
 
 ## NPU
 
@@ -125,6 +160,19 @@ In a separate run, a native cuBLAS reference held the same expert in FP16 in dev
 | 64 | 1.428 | 0.609 | 0.080 | 0.700 |
 
 The GPU path completed the single warm expert 6–8× faster than the DLA. Adding a DLA job beside a GPU job measured close to the sum of their individual times. Each GPU result was within 0.048% relative RMS of the FP32 reference. The TensorRT GPU builder failed to load `myelin_resource64_sm110_2.dll` from the local installation, so the GPU measurements use cuBLAS. To reproduce, compile `tools/port/n1x_expert_gpu_probe.cu` as an ARM64 CUDA DLL linked against cuBLAS and run the Python probe with `--gpu-library` and `--model`.
+
+The same-context burst probe queued several resident GPU expert calls around one DLA job. Both used the same weights and synthetic inputs. Each case used 64 warm iterations, and both outputs passed validation. The CUDA-only control with one extra call does the same amount of expert work as the hybrid cases. These are median wall times in milliseconds from a run on AC with Windows Balanced. NVML did not expose a configurable GPU power limit for the laptop.
+
+| Rows per expert | GPU jobs before adding one expert | GPU only | One extra GPU job | GPU then DLA, sequential | DLA submitted first | GPU submitted first |
+| ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| 32 | 8 | 0.540 | 0.582 | 1.004 | 0.637 | 0.953 |
+| 32 | 16 | 1.093 | 1.108 | 1.603 | 1.099 | 1.466 |
+| 32 | 32 | 1.951 | 2.193 | 2.809 | 2.108 | 2.527 |
+| 64 | 8 | 0.658 | 0.719 | 1.278 | 0.826 | 1.041 |
+| 64 | 16 | 1.254 | 1.392 | 1.935 | 1.399 | 1.922 |
+| 64 | 32 | 2.698 | 2.781 | 3.240 | 2.779 | 2.740 |
+
+Early DLA submission overlapped much of its execution with the GPU burst. Compared with the extra GPU call, the DLA-first median ranged from 0.085 ms faster to 0.107 ms slower. Its p95 improved in two of the six cases. This repeated-expert probe excludes model routing and staging, and the 12 MiB DLA loadable still competes for memory. Use `--gpu-burst 8 16 32 --tokens 32 64` to reproduce.
 
 In 16 eight-way Flash-Next requests with an 8,000-slot cache and file-backed misses, 51,585 of 56,628 CPU expert groups carried a single token. Only 137 groups carried four or more, and the largest group carried six. `--exp n1x_cpu_group_stats=1` counts the groups the CPU actually receives in batched decode. A separate run with `--exp n1x_prefill_group_stats=1` observed 188,114 nonresident expert groups across 19 prefill invocations. Of those, 37,115 carried at least 32 rows, including 16,174 with at least 64. The prefill counter covers layers that group routed IDs on the host. The two traces favor testing NPU offload during prefill.
 
