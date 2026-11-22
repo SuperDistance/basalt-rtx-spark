@@ -52,6 +52,11 @@ int main() {
         const uint64_t room = cavail > ram_reserve() ? cavail - ram_reserve() : 0;
         check(ram_budget() <= room + (256ull << 20), "and ram_budget leaves the reserve of the commit headroom");
         check(climit >= total_physical_memory() / 2, "the commit limit is of the RAM's order at least");
+        MEMORYSTATUSEX ms{};
+        ms.dwLength = sizeof ms;
+        check(GlobalMemoryStatusEx(&ms) && climit >= (uint64_t) ms.ullTotalPageFile &&
+                  climit - cavail + (256ull << 20) >= (uint64_t) (ms.ullTotalPageFile - ms.ullAvailPageFile),
+              "and it adds the page file's room to grow to the current limit, not to the charge");
 #else
         check(!has && cavail == 0 && climit == 0, "commit_headroom: no commit limit off Windows");
 #endif

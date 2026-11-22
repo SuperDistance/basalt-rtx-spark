@@ -154,6 +154,55 @@ uint64_t os_available_memory() {
 }
 }  // namespace
 
+namespace {
+// What the paging files can still grow by: each one's maximum past its current size, held to the free space of its
+// volume less a tenth of the volume. Windows extends a paging file when the commit charge reaches the current limit,
+// so a system-managed or ranged page file adds this much to the limit; a fixed-size one adds nothing.
+uint64_t page_file_growth() {
+    using Query = LONG(WINAPI*)(ULONG, PVOID, ULONG, PULONG);
+    static const Query query = [] {
+        const HMODULE nt = GetModuleHandleW(L"ntdll.dll");
+        return nt ? reinterpret_cast<Query>(reinterpret_cast<void*>(GetProcAddress(nt, "NtQuerySystemInformation")))
+                  : nullptr;
+    }();
+    if (query == nullptr) return 0;
+    struct Name { USHORT length, maximum_length; PWSTR buffer; };
+    struct Entry { ULONG next, total, in_use, peak; Name name; ULONG minimum, maximum; };   // sizes in pages
+    constexpr ULONG kPageFileInformationEx = 144;
+    constexpr LONG kLengthMismatch = (LONG) 0xC0000004L;
+    std::vector<uint8_t> buf(4096);
+    ULONG got = 0;
+    LONG st = query(kPageFileInformationEx, buf.data(), (ULONG) buf.size(), &got);
+    for (int tries = 0; st == kLengthMismatch && tries < 4; ++tries) {
+        buf.resize(std::max<size_t>(buf.size() * 2, got));
+        st = query(kPageFileInformationEx, buf.data(), (ULONG) buf.size(), &got);
+    }
+    if (st < 0 || got < sizeof(Entry)) return 0;
+    SYSTEM_INFO si{};
+    GetSystemInfo(&si);
+    const uint64_t page = si.dwPageSize;
+    uint64_t growth = 0;
+    for (size_t off = 0; off + sizeof(Entry) <= got;) {
+        const Entry* e = reinterpret_cast<const Entry*>(buf.data() + off);
+        if (e->maximum > e->total && e->name.buffer != nullptr) {
+            // "\??\C:\pagefile.sys": the volume is the drive after the prefix
+            const std::wstring path(e->name.buffer, e->name.length / sizeof(wchar_t));
+            const size_t colon = path.find(L':');
+            ULARGE_INTEGER free_b{}, total_b{};
+            if (colon != std::wstring::npos && colon > 0 &&
+                GetDiskFreeSpaceExW((path.substr(colon - 1, 2) + L"\\").c_str(), &free_b, &total_b, nullptr)) {
+                const uint64_t keep = total_b.QuadPart / 10;
+                const uint64_t disk = free_b.QuadPart > keep ? free_b.QuadPart - keep : 0;
+                growth += std::min<uint64_t>((uint64_t) (e->maximum - e->total) * page, disk);
+            }
+        }
+        if (e->next == 0) break;
+        off += e->next;
+    }
+    return growth;
+}
+}  // namespace
+
 bool commit_headroom(uint64_t& available, uint64_t& limit) {
     MEMORYSTATUSEX ms{};
     ms.dwLength = sizeof ms;
@@ -161,8 +210,9 @@ bool commit_headroom(uint64_t& available, uint64_t& limit) {
         available = limit = 0;
         return false;
     }
-    available = (uint64_t) ms.ullAvailPageFile;
-    limit = (uint64_t) ms.ullTotalPageFile;
+    const uint64_t growth = page_file_growth();
+    available = (uint64_t) ms.ullAvailPageFile + growth;
+    limit = (uint64_t) ms.ullTotalPageFile + growth;
     return true;
 }
 #else
@@ -796,10 +846,10 @@ std::string gib_size(uint64_t bytes) {
 std::string commit_headroom_note() {
     MEMORYSTATUSEX ms{};
     ms.dwLength = sizeof ms;
-    if (!GlobalMemoryStatusEx(&ms)) return "; the commit headroom is unknown";
-    return "; " + gib_size((uint64_t) ms.ullAvailPageFile) + " of commit charge free out of " +
-           gib_size((uint64_t) ms.ullTotalPageFile) + " (RAM plus page file), " +
-           gib_size((uint64_t) ms.ullTotalPhys) + " of RAM";
+    uint64_t available = 0, limit = 0;
+    if (!GlobalMemoryStatusEx(&ms) || !commit_headroom(available, limit)) return "; the commit headroom is unknown";
+    return "; " + gib_size(available) + " of commit charge free out of " + gib_size(limit) +
+           " (RAM plus page file, with its room to grow), " + gib_size((uint64_t) ms.ullTotalPhys) + " of RAM";
 }
 }  // namespace
 
