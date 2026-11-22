@@ -70,6 +70,14 @@ bool Prefill::Run::Chunk::Experts::Group::group() {
         if (e < 0 || e >= m.g->n_expert) { err = "prefill: routed id out of range"; return false; }
         ++m.cnt[(size_t) e];
     }
+    if (run.count_expert_groups) {
+        for (int32_t e = 0; e < m.g->n_expert; ++e) {
+            const int32_t rows = m.cnt[(size_t) e];
+            if (rows == 0 || (m.cache && m.cache->slot_of(l, e) >= 0)) continue;
+            const size_t bucket = rows < 8 ? 0 : rows < 32 ? 1 : rows < 64 ? 2 : 3;
+            ++run.nonresident_expert_groups[bucket];
+        }
+    }
     // multi-GPU: the rows of the experts the peer computes go last, as one block [rows_local, T*K)
     if (ppc && pre_mmq) {
         on_peer.assign((size_t) m.g->n_expert, 0);

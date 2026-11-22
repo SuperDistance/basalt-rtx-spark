@@ -1,9 +1,11 @@
 #include "run.hpp"
 #include "basalt/models/qwen4exp/prefill/prefill.hpp"
 #include "basalt/models/qwen4exp/decode/mtp.hpp"
+#include "basalt/core/diag.hpp"
 #include "basalt/core/progress.hpp"
 #include "basalt/models/qwen4exp/decode/layout.hpp"
 #include "basalt/core/peer_experts.hpp"
+#include "basalt/log.hpp"
 #include <algorithm>
 #include <string>
 
@@ -17,6 +19,7 @@ bool Prefill::run_impl(const int64_t* tokens, int64_t n, int64_t pos0, std::stri
 }
 
 bool Prefill::Run::execute() {
+    count_expert_groups = core::exp_flag("n1x_prefill_group_stats") != 0;
     // The direct successor's future lives on the Prefill object. Intermediate
     // stages therefore do not drain the complete remaining GPU chain here.
     s.n_head = g.n_head; s.n_head_kv = g.n_head_kv; s.head_dim = g.head_dim; s.idx_n_head = g.idx_q_heads;
@@ -55,6 +58,12 @@ bool Prefill::Run::finish() {
         return false;
     }
     owner.stats_.ms_total += ms_since(t_start);
+    if (count_expert_groups) {
+        const auto& h = nonresident_expert_groups;
+        basalt::log::info("basalt prefill", "nonresident expert groups for %lld prompt rows: 1-7=%llu 8-31=%llu 32-63=%llu 64+=%llu",
+                          (long long) n, (unsigned long long) h[0], (unsigned long long) h[1],
+                          (unsigned long long) h[2], (unsigned long long) h[3]);
+    }
     return true;
 }
 

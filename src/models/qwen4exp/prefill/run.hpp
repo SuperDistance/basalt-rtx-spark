@@ -14,6 +14,7 @@
 #include "basalt/models/qwen4exp/decode/layer.hpp"
 #include "basalt/core/peer_experts.hpp"
 #include <algorithm>
+#include <array>
 #include <atomic>
 #include <string>
 #include <thread>
@@ -42,6 +43,8 @@ struct Prefill::Run {
     const core::ModelGeometry& g = *m.g;
     core::SessionState& ss = *m.ss;
     const Clock::time_point t_start = Clock::now();
+    bool count_expert_groups = false;
+    std::array<uint64_t, 4> nonresident_expert_groups{};   ///< 1–7, 8–31, 32–63, 64+ rows in host-grouped layers
     const int64_t LB = owner.stage_lb_, LE = owner.stage_le_;
     // the card the ring's other-card copies come from (--peer-exclusive's peer, or set_ring_remote's card)
     const int remote_device = m.ring_peer ? m.ring_peer->device() : m.remote_dev;
