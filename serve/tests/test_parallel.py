@@ -739,12 +739,15 @@ class ParallelService(unittest.TestCase):
         e = ProcessEngine("missing-executable", [], lazy=True)
         e.batch = 2
         carry = [0, 0, 0]
-        e._parse_done("DONE 1 10 1.0 2.0 length 0 0 0 0 0 0 0 0.0 10 0 1")          # the admission: one window
+        e._parse_done("DONE 1 10 1.0 2.0 length 0 0 0 10 12 0 1 0.0 10 2 1")        # the admission: one window
+        self.assertEqual(e.last["hits"], 10)
         e._carry_drafts(carry, False)
         e._bdone_last("BDONE 0 30 stop 9.0 20 40 6".split())                         # the slot: six windows
         e._carry_drafts(carry, True)
         self.assertEqual(e.last["windows"], 7)
         self.assertEqual((e.last["drafts_accepted"], e.last["drafts_offered"]), (20, 40))
+        for key in ("hits", "lookups", "offloaded", "file_reads"):
+            self.assertNotIn(key, e.last)
         e._bdone_last("BDONE 0 30 stop 9.0 20 40".split())                           # an older engine: no windows
         self.assertNotIn("windows", e.last)
 

@@ -122,6 +122,7 @@ def relay_auto_flags(line: str) -> bool:
 # its log, such as a device-side trap message.
 PROTOCOL_LINES = (AUTO_FLAGS, "INFO ", "CONV ", "READY", "T ", "P ", "PP ", "PL ", "PT ", "RESUME ", "REUSED ", "DONE", "ERR",
                   "BADM ", "BT ", "BP ", "BDONE ", "YIELDED ", "VRAM ", "ENC ", "VIDEO ")
+EXPERT_COUNTERS = ("hits", "lookups", "offloaded", "file_reads")
 
 
 def log_unparsed(line: str, log) -> None:
@@ -1010,7 +1011,7 @@ class ProcessEngine:
         (optional trailing accepted, offered, windows; without them they are unknown, never an earlier run's)."""
         if len(f) < 5 or not isinstance(self.last, dict):
             return
-        prev = {k: v for k, v in self.last.items() if k not in ("drafts_accepted", "drafts_offered", "windows")}
+        prev = {k: v for k, v in self.last.items() if k not in (*EXPERT_COUNTERS, "drafts_accepted", "drafts_offered", "windows")}
         counts = {"drafts_accepted": int(f[5]), "drafts_offered": int(f[6])} \
             if len(f) >= 7 and f[5].isdigit() and f[6].isdigit() else {}
         if len(f) >= 8 and f[7].isdigit():
@@ -1197,6 +1198,7 @@ class ProcessEngine:
         slot, gen0, reserved = None, None, None
         solo_slot, run0, run_size, ctl_epoch = None, 0, 0, 0
         phase = "none"            # solo -> admit -> slot; "none" once the engine is done with it
+        used_batch = False
         stop_sent = False
         yields, solo_again = 0, 0
         carry = [0, 0, 0]         # draft counts (accepted, offered) and windows of the runs before the current one
@@ -1359,6 +1361,7 @@ class ProcessEngine:
                     self._note_first_reused(first, last0)
                     cont = bool(self._ctl_result and self._ctl_result[1])
                     phase = "slot" if cont else "none"
+                    used_batch |= cont
                     while pending:
                         t = pending.pop(0)
                         out.append(t)
@@ -1446,6 +1449,7 @@ class ProcessEngine:
                     line = self._drain_control("BADM", born=born)
                     if line and line.startswith("BADM ") and line.split()[2:3] in (["1"], ["2"]):
                         phase = "slot"
+                        used_batch = True
                 if drained and phase != "slot":
                     self._carry_run(carry, first, last0, True)     # a request that ran in earlier runs too
             except EngineDied:
@@ -1476,6 +1480,10 @@ class ProcessEngine:
                     with self.slot_cv:
                         self.slot_busy[slot] = False
                         self.slot_cv.notify_all()
+            # BDONE has no expert counts. A later solo continuation covers only part of the request.
+            if used_batch and isinstance(self.last, dict) and self.last is not last0:
+                for key in EXPERT_COUNTERS:
+                    self.last.pop(key, None)
 
     def _hold(self, slot: int, count: int) -> None:
         """`slot` now holds `count` tokens (the epoch moves: what a prompt's held prefix said of it is stale)."""
