@@ -1125,7 +1125,8 @@ class ProcessEngine:
                 ((self.info or {}).get("slot0_solo") and not (self.info or {}).get("solo_any_slot"))):
             return False
         with self.slot_cv:
-            return sum(1 for b in self.slot_busy if b) == 1 and self.waiting == 0
+            # a request holding the control lines is being admitted: it has stopped waiting but holds no slot yet
+            return sum(1 for b in self.slot_busy if b) == 1 and self.waiting == 0 and not self.ctl.locked()
 
     def _shorter_waiting(self, plen: int, free: int = 1) -> bool:
         """A waiting prompt under half this length is worth giving way to, when `free` slots are free (the one it
