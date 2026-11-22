@@ -432,13 +432,15 @@ __device__ __forceinline__ void mma_16816(float* d, const uint32_t* a, uint32_t 
 __device__ __forceinline__ void cp_async_commit() { asm volatile("cp.async.commit_group;\n" ::); }
 template <int N> __device__ __forceinline__ void cp_async_wait() { asm volatile("cp.async.wait_group %0;\n" ::"n"(N)); }
 
+// SEG: each query's pools come from its slot (a batch of draft rows of different sequences), otherwise `a.p`
+template <bool SEG>
 __global__ void __launch_bounds__(DTHREADS) draft_attn_chunk(AttnArgs a) {
     extern __shared__ __align__(16) unsigned char smem_raw[];
     DSmem& sm = *reinterpret_cast<DSmem*>(smem_raw);
     pdl_launch_dependents();
     pdl_wait();
     const int chunk = blockIdx.x, kvh = blockIdx.y, qi = blockIdx.z;
-    const QsaAttnPools& pools = a.p;
+    const QsaAttnPools pools = SEG ? a.tab.slots[a.tab.rows[qi].slot].pools() : a.p;
     const float* q = a.q + (size_t) qi * (size_t) (a.n_kv_heads * G) * HD + (size_t) kvh * G * HD;
     const int32_t* ids = a.ids + (size_t) qi * (size_t) a.cap;
     const int32_t* step = a.steps + (size_t) qi * kStepCount;
@@ -747,12 +749,12 @@ void qsa_dec_attn(const float* q, const QsaAttnPools& pools, const int32_t* ids,
         static std::atomic<bool> done[64];
         const int dev = opt_in_device("draft_attn");
         if (!done[dev].load(std::memory_order_acquire)) {
-            opt_in_check(cudaFuncSetAttribute(draft_attn_chunk, cudaFuncAttributeMaxDynamicSharedMemorySize, (int) bytes),
+            opt_in_check(cudaFuncSetAttribute(draft_attn_chunk<false>, cudaFuncAttributeMaxDynamicSharedMemorySize, (int) bytes),
                          "draft_attn");
-            cudaFuncSetAttribute(draft_attn_chunk, cudaFuncAttributePreferredSharedMemoryCarveout, 100);   // a hint
+            cudaFuncSetAttribute(draft_attn_chunk<false>, cudaFuncAttributePreferredSharedMemoryCarveout, 100);   // a hint
             done[dev].store(true, std::memory_order_release);
         }
-        launch_pdl(draft_attn_chunk, dim3((unsigned) a.n_chunks, (unsigned) s.n_head_kv, 1u), dim3(DTHREADS), bytes, st, a);
+        launch_pdl(draft_attn_chunk<false>, dim3((unsigned) a.n_chunks, (unsigned) s.n_head_kv, 1u), dim3(DTHREADS), bytes, st, a);
     } else if (mode == 1) {
         constexpr size_t bytes = sizeof(ChunkSmem<1>);
         opt_in<1>(attn_chunk_v2<1, false>, bytes);
@@ -808,6 +810,52 @@ void qsa_dec_attn_seg(const float* q, const QsaSegTable& t, bool int8, const int
     const cudaError_t e = cudaGetLastError();
     if (e != cudaSuccess) {
         basalt::log::error("basalt", "qsa_dec_attn_seg: %s", cudaGetErrorString(e));
+        std::exit(1);
+    }
+}
+
+void qsa_draft_attn_seg(const float* q, const QsaSegTable& t, bool int8, const int32_t* ids, const int32_t* steps,
+                        int64_t cap, const QsaShapes& s, float* scratch, float* attn, int64_t n_q, void* stream,
+                        const float* q_full, float* attn_gated, void* xq) {
+    if (n_q <= 0) return;
+    if (!int8 || cap < 8192) {   // the kernels qsa_dec_attn picks for such a pool and window
+        qsa_dec_attn_seg(q, t, int8, ids, steps, cap, s, scratch, attn, n_q, stream, q_full, attn_gated, xq);
+        return;
+    }
+    if (s.head_dim != HD || s.n_head != (int64_t) G * s.n_head_kv || !scratch || !ids || !steps || n_q > 65535 ||
+        t.n_rows < n_q) {
+        basalt::log::error("basalt", "qsa_draft_attn_seg: unsupported geometry, table or buffers");
+        std::exit(1);
+    }
+    AttnArgs a;
+    a.q = q; a.tab = t; a.ids = ids; a.steps = steps;
+    a.n_kv_heads = (int) s.n_head_kv; a.page_size = (int) s.page_size;
+    a.n_chunks = (int) ((cap + CHUNK - 1) / CHUNK); a.cap = (int) cap;
+    a.stride = (long long) qsa_decode_attn_scratch_floats(cap, s);
+    a.scale = 1.0f / sqrtf((float) HD);
+    a.scratch = scratch; a.attn = attn;
+    a.q_full = attn_gated != nullptr ? q_full : nullptr;
+    a.attn_gated = q_full != nullptr ? attn_gated : nullptr;
+    a.xq = a.attn_gated != nullptr ? xq : nullptr;
+    a.chunk = 0;
+    cudaStream_t st = (cudaStream_t) stream;
+    constexpr size_t bytes = sizeof(DSmem);
+    static std::atomic<bool> done[64];
+    const int dev = opt_in_device("draft_attn_seg");
+    if (!done[dev].load(std::memory_order_acquire)) {
+        opt_in_check(cudaFuncSetAttribute(draft_attn_chunk<true>, cudaFuncAttributeMaxDynamicSharedMemorySize, (int) bytes),
+                     "draft_attn_seg");
+        cudaFuncSetAttribute(draft_attn_chunk<true>, cudaFuncAttributePreferredSharedMemoryCarveout, 100);
+        done[dev].store(true, std::memory_order_release);
+    }
+    // grid z is the query: each query reads its own slot's pools, as draft_attn_chunk<false> does one query's
+    launch_pdl(draft_attn_chunk<true>, dim3((unsigned) a.n_chunks, (unsigned) s.n_head_kv, (unsigned) n_q),
+               dim3(DTHREADS), bytes, st, a);
+    const size_t mbytes = (size_t) (2 * a.n_chunks + WARPS) * sizeof(float);
+    launch_pdl(draft_merge, dim3((unsigned) s.n_head, (unsigned) n_q), dim3(THREADS), mbytes, st, a);
+    const cudaError_t e = cudaGetLastError();
+    if (e != cudaSuccess) {
+        basalt::log::error("basalt", "qsa_draft_attn_seg: %s", cudaGetErrorString(e));
         std::exit(1);
     }
 }

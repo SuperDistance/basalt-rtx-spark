@@ -96,6 +96,13 @@ void qsa_dec_attn_seg(const float* q, const QsaSegTable& t, bool int8, const int
                       int64_t cap, const QsaShapes& s, float* scratch, float* attn, int64_t n_q, void* stream,
                       const float* q_full = nullptr, float* attn_gated = nullptr, void* xq = nullptr);
 
+/// The draft layer's attention over rows of different sequences: each query bitwise what qsa_dec_attn computes for it
+/// over its slot's pools alone (the wide-window draft kernel for INT8 pools and a cap of 8192 cells or more, otherwise
+/// qsa_dec_attn_seg). Same outputs and scratch; n_q queries, one row each.
+void qsa_draft_attn_seg(const float* q, const QsaSegTable& t, bool int8, const int32_t* ids, const int32_t* steps,
+                        int64_t cap, const QsaShapes& s, float* scratch, float* attn, int64_t n_q, void* stream,
+                        const float* q_full = nullptr, float* attn_gated = nullptr, void* xq = nullptr);
+
 struct QsaSegCommitLayer {
     const QsaSegSlot* slots = nullptr;   ///< this layer's slots
     const float* raw = nullptr;          ///< [row][idx_dim]: the window's raw indexer keys of this layer

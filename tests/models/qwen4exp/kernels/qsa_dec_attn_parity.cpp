@@ -1,11 +1,13 @@
 // tests/models/qwen4exp/kernels/qsa_dec_attn_parity.cpp - qsa_dec_attn against qsa_decode_attn_batch (+ native_qsa_gate_apply), bitwise,
-// on random INT8 and FP16 pools through a permuted page table with masked pages; then a microbench of both.
+// on random INT8 and FP16 pools through a permuted page table with masked pages; the draft layer's segmented attention
+// (several sequences' draft rows in one launch) bitwise each sequence's own call; then a microbench of both.
 //   qsa_dec_attn_parity [iters]
 #include "basalt/kernels/native_mmvq.hpp"
 #include "basalt/models/qwen4exp/kernels/native_qsa.hpp"
 #include "basalt/models/qwen4exp/kernels/qsa.hpp"
 #include "basalt/models/qwen4exp/kernels/qsa_dec_attn.hpp"
 #include "basalt/models/qwen4exp/kernels/qsa_decode_attn.hpp"
+#include "basalt/models/qwen4exp/kernels/qsa_seg.hpp"
 
 #include <cuda_fp16.h>
 #include <cuda_runtime.h>
@@ -298,6 +300,86 @@ int main(int argc, char** argv) {
                 std::printf("draft attention w=%5d%s: max|ref| %.3g | reference kernel err %.3g | tensor-core err %.3g (%.2g of max) | new vs old %.3g  %s\n",
                             w, masked ? " masked" : "       ", max_ref, e_old, e_new, e_new / std::max(max_ref, 1e-30), e_vs_old, ok ? "ok" : "FAIL");
             }
+        // segmented draft attention: three sequences' draft rows in one launch (each its own pools and page table, one
+        // masked), every query bitwise its own qsa_dec_attn call, with the gated output and its q8_1 rows
+        {
+            constexpr int NS = 3;
+            Pools p2;
+            p2.kq = dalloc<int8_t>(rows * D); p2.vq = dalloc<int8_t>(rows * D);
+            p2.ks = dalloc<uint16_t>(rows * D / 64); p2.vs = dalloc<uint16_t>(rows * D / 64);
+            {
+                std::vector<int8_t> c(rows * D);
+                std::vector<uint16_t> sc(rows * D / 64);
+                for (int which = 0; which < 2; ++which) {
+                    for (auto& x : c) x = (int8_t) ((int) (rng() % 255) - 127);
+                    for (auto& x : sc) x = f16(ud(rng));
+                    up(which ? p2.vq : p2.kq, c);
+                    up(which ? p2.vs : p2.ks, sc);
+                }
+            }
+            const int widths[NS] = {32768, 1250, 257};
+            int32_t* tabs[NS];
+            std::vector<k::QsaSegSlot> hslots(NS);
+            std::vector<int32_t> hsteps((size_t) NS * k::kStepCount), hids((size_t) NS * cap, 0);
+            for (int i = 0; i < NS; ++i) {
+                std::vector<int32_t> tb = table;
+                std::shuffle(tb.begin(), tb.end(), rng);
+                if (i == 2) for (int j = 0; j < pages; j += 5) tb[j] = -1;
+                tabs[i] = dalloc<int32_t>(pages);
+                up(tabs[i], tb);
+                const Pools& pp = i == 1 ? p2 : p;
+                hslots[i].k_q = pp.kq; hslots[i].v_q = pp.vq; hslots[i].k_scale = pp.ks; hslots[i].v_scale = pp.vs;
+                hslots[i].page_table = tabs[i];
+                const int n_kv = std::min(max_cells, widths[i] + 333 * (i + 1)), start = n_kv - widths[i];
+                k::qsa_step_fill(hsteps.data() + i * k::kStepCount, n_kv - 1, s);
+                hsteps[i * k::kStepCount + k::kStepWidth] = widths[i];
+                for (int c = 0; c < widths[i]; ++c) hids[(size_t) i * cap + c] = start + c;
+            }
+            std::vector<k::QsaSeg> hrows(NS);
+            for (int i = 0; i < NS; ++i) { hrows[i].slot = i; hrows[i].first = i; hrows[i].len = 1; }
+            k::QsaSegSlot* dslots = dalloc<k::QsaSegSlot>(NS);
+            k::QsaSeg* drows = dalloc<k::QsaSeg>(NS);
+            ck(cudaMemcpy(dslots, hslots.data(), NS * sizeof(k::QsaSegSlot), cudaMemcpyHostToDevice), "slots");
+            ck(cudaMemcpy(drows, hrows.data(), NS * sizeof(k::QsaSeg), cudaMemcpyHostToDevice), "rows");
+            k::QsaSegTable tab;
+            tab.slots = dslots; tab.rows = drows; tab.segs = drows; tab.n_rows = NS; tab.n_seg = NS;
+            int32_t* sids = dalloc<int32_t>((size_t) NS * cap);
+            int32_t* ssteps = dalloc<int32_t>((size_t) NS * k::kStepCount);
+            up(sids, hids);
+            up(ssteps, hsteps);
+            float* sscr = dalloc<float>(sf * NS);
+            float* sout = dalloc<float>((size_t) NS * NH * D);
+            float* sgated = dalloc<float>((size_t) NS * NH * D);
+            uint8_t* sxq = dalloc<uint8_t>(k::native_q8_1_bytes(NH * D, NS));
+            k::qsa_draft_attn_seg(q, tab, true, sids, ssteps, cap, s, sscr, sout, NS, st, qfull, sgated, sxq);
+            ck(cudaStreamSynchronize(st), "sync");
+            const auto seg_out = down(sout, (size_t) NS * NH * D), seg_gated = down(sgated, (size_t) NS * NH * D);
+            const size_t xrow = k::native_q8_1_bytes(NH * D, 1);
+            const auto seg_xq = down(sxq, xrow * NS);
+            int seg_bad = 0;
+            for (int i = 0; i < NS; ++i) {   // the same row alone, through the single-sequence kernel
+                k::QsaAttnPools pa = hslots[i].pools();
+                k::qsa_dec_attn(q + (size_t) i * NH * D, pa, sids + (size_t) i * cap, ssteps + (size_t) i * k::kStepCount,
+                                cap, s, scr, out_new, 1, st, qfull + (size_t) i * NH * 2 * D, gated_new, xq_fm);
+                ck(cudaStreamSynchronize(st), "sync");
+                const auto o = down(out_new, (size_t) NH * D), gd = down(gated_new, (size_t) NH * D);
+                const auto x = down(xq_fm, xrow);
+                const bool same = std::memcmp(o.data(), seg_out.data() + (size_t) i * NH * D, o.size() * 4) == 0 &&
+                                  std::memcmp(gd.data(), seg_gated.data() + (size_t) i * NH * D, gd.size() * 4) == 0 &&
+                                  std::memcmp(x.data(), seg_xq.data() + xrow * i, xrow) == 0;
+                if (!same) ++seg_bad;
+                std::printf("segmented draft attention, sequence %d (w=%d%s): %s\n", i, widths[i], i == 2 ? ", masked" : "",
+                            same ? "bitwise its own call" : "DIFFERS");
+            }
+            size_t unstable = 0;
+            for (int rep = 0; rep < 50; ++rep) {
+                k::qsa_draft_attn_seg(q, tab, true, sids, ssteps, cap, s, sscr, sout, NS, st, qfull, sgated, sxq);
+                ck(cudaStreamSynchronize(st), "sync");
+                if (down(sout, (size_t) NS * NH * D) != seg_out) ++unstable;
+            }
+            if (unstable) std::printf("segmented draft attention: %zu of 50 repeats differ\n", unstable);
+            g_fail += seg_bad + (unstable ? 1 : 0);
+        }
         // microbench: one row, window 32768 and 1250, keys warm / flushed
         {
             std::vector<int32_t> tb = table;
