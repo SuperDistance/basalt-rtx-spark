@@ -209,6 +209,30 @@ class Routing(Base):
 
 
 class Swap(Base):
+    def test_parked_model_wakes_in_place_after_another_model_serves(self):
+        a = self.engines["A"]
+        self.svcs["A"].park_on_swap = True
+        a.can_sleep = lambda: True
+
+        def park(**kwargs):
+            self.events.append(("park", "A"))
+            a.native_parked_bytes, a.asleep = 1 << 30, True
+            return {"parked_weights_bytes": a.native_parked_bytes}
+
+        def wake(**kwargs):
+            self.events.append(("wake", "A"))
+            a.native_parked_bytes, a.asleep = 0, False
+            return {}
+
+        a.sleep, a.wake = park, wake
+        self.assertEqual(self.chat("A")[0], 200)
+        self.assertEqual(self.chat("B")[0], 200)
+        models = {item["id"]: item for item in self.get("/v1/models")[1]["data"]}
+        self.assertEqual(models["A"]["parked_weights_bytes"], 1 << 30)
+        self.assertEqual(self.chat("A")[0], 200)
+        self.assertEqual(self.order(), [("start", "A"), ("start", "B"), ("end", "B")])
+        self.assertIn(("wake", "A"), self.events)
+
     def test_a_swap_ends_one_engine_before_it_starts_the_next(self):
         self.assertEqual(self.chat("A")[0], 200)
         self.assertEqual(self.chat("B")[0], 200)

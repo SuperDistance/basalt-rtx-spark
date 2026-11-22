@@ -278,7 +278,8 @@ class ProcessEngine:
         self.ended, self.unloaded = True, True
         if "loading" not in self.__dict__:               # restart() holds these across its __init__ calls
             self.loading, self.load_status = False, {}
-        self.asleep = False              # its GPU state suspended by the driver (sleep/wake)
+        self.asleep = False
+        self.native_parked_bytes = 0     # the engine kept its process and moved the weights itself
         self.parked = None               # the VRAM that state held on each card ({gpu: MiB}) from NVML at the sleep; None: unknown
         self.restore_s = 0.0             # the driver's part of the last wake
         self.max_context = int(flag_value(args, "--max-context") or 0)   # the engine's own at READY
@@ -652,7 +653,7 @@ class ProcessEngine:
         return self._vram_command("VRAM" + ("" if reserve_mib is None else f" {int(reserve_mib)}"), timeout)
 
     def can_sleep(self) -> bool:
-        return suspend.available()
+        return bool(self.info.get("parkable_weight_bytes")) or suspend.available()
 
     def sleep(self, ram_check=None, timeout: float = 120.0) -> dict:
         """SLEEP: the engine gives its expert cache's VRAM back (its experts stay in RAM), then the driver moves the
@@ -660,6 +661,14 @@ class ProcessEngine:
         why the rest would not fit in RAM (None: it fits). Caller holds the service FIFO and the control lines.
         ValueError: not asleep (the engine is as it was)."""
         with self.sleep_lock:
+            if self.info.get("parkable_weight_bytes"):
+                try:
+                    out = self._vram_command("PARK", timeout)
+                except (EngineDied, ValueError) as e:
+                    raise self._silent(str(e)) from None
+                self.native_parked_bytes = out["parked_weights_bytes"]
+                self.asleep = True
+                return out
             out = self._vram_command("SLEEP", timeout)
             why = ram_check() if ram_check is not None else None
             held = None
@@ -679,6 +688,18 @@ class ProcessEngine:
         and still asleep. EngineDied when the GPU state cannot come back (the engine is ended so the next request
         starts it again)."""
         with self.sleep_lock:
+            if self.native_parked_bytes:
+                t = time.time()
+                try:
+                    out = self._vram_command("UNPARK", timeout)
+                except (EngineDied, ValueError) as e:
+                    self.native_parked_bytes = 0
+                    self.asleep = False
+                    raise self._silent(str(e)) from None
+                self.restore_s = time.time() - t
+                self.native_parked_bytes = 0
+                self.asleep = False
+                return out
             why = vram_check(self.parked) if vram_check is not None else None
             if why is not None:
                 raise WakeBlocked(why)
@@ -723,7 +744,8 @@ class ProcessEngine:
                     k, _, v = kv.partition("=")
                     out[k] = int(v) if v.lstrip("-").isdigit() else v
                 self.info.update({k: out[k] for k in ("expert_slots", "vram_free_mib") if k in out})
-                self.info["vram"] = out
+                if what not in ("PARK", "UNPARK"):
+                    self.info["vram"] = out
                 return out
             if time.time() > deadline:
                 raise EngineDied(f"the engine did not answer the {what} command")
@@ -1742,7 +1764,7 @@ class ProcessEngine:
         if self.proc is None:
             return
         with self.sleep_lock:                        # a sleep in progress ends first
-            if self.asleep:                          # its GPU state back first: QUIT runs CUDA calls
+            if self.asleep and not getattr(self, "native_parked_bytes", 0):  # QUIT needs the driver's process state to run
                 self.asleep = False
                 if suspend.resume(self.proc.pid) is not None:   # it cannot run, so QUIT would never be answered
                     try:
@@ -1750,6 +1772,8 @@ class ProcessEngine:
                         self.proc.wait(timeout=20)
                     except (OSError, subprocess.TimeoutExpired):
                         pass
+            self.native_parked_bytes = 0
+            self.asleep = False
         try:
             if self.proc.poll() is None:
                 try:

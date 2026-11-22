@@ -23,7 +23,7 @@ CONFIG_PATHS = ("model", "tokenizer", "image-dir")       # relative to the confi
 # a model entry's own, and what it may also inherit from the top-level "engine"; other server options are the server's
 ENTRY_OPTIONS = frozenset({"model", "alias"})
 MODEL_OPTIONS = frozenset({
-    "gpu", "vision", "parallel", "slot-full-context", "idle-sleep", "idle-unload", "min-free-vram-mib", "fit-max-tokens",
+    "gpu", "vision", "parallel", "slot-full-context", "idle-sleep", "idle-unload", "park-on-swap", "min-free-vram-mib", "fit-max-tokens",
     "grammar", "reasoning-effort", "reasoning-budget-tokens", "thinking-loop-tokens", "answer-room", "temperature", "top-p", "top-k", "min-p",
     "presence-penalty", "frequency-penalty", "repetition-penalty", "penalty-last-n", "seed", "video-max-tokens"})
 GRAMMAR_DEFAULT = True                      # the `grammar` option when neither the file nor the command line sets it
@@ -586,6 +586,8 @@ def build_parser() -> argparse.ArgumentParser:
     ap.add_argument("--lazy", action="store_true", help="start the API unloaded; load on first request; a sidecar image encoder is dropped, --vision dynamic stays")
     ap.add_argument("--idle-unload", type=float, default=None, metavar="SECONDS",
                     help="unload the model after this many seconds without requests; the next request loads it again")
+    ap.add_argument("--park-on-swap", action=argparse.BooleanOptionalAction, default=None,
+                    help="keep the model in memory when another configured model takes its turn, if supported")
     ap.add_argument("--idle-sleep", type=float, default=None, metavar="SECONDS",
                     help="put the model to sleep after this many seconds without requests: its VRAM is freed, its RAM "
                          "copy, conversations and learned expert placement stay, and the next request wakes it in a few "

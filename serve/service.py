@@ -73,13 +73,16 @@ class Service:
     on_loaded = None                                    # called after each weights load or wake this service ran
     boot_error = None                                   # the start-up load's failure, for the requests queued behind it
     start_tries = None                                  # tries of a load other than the start-up's (None: the engine's)
+    park_on_swap = False
 
     def model_entry(self) -> dict:
         """This model's row in /v1/models."""
         value = "loading" if self.loading else "loaded" if self.loaded() else "unloaded"
+        parked = getattr(self.engine, "native_parked_bytes", 0) if value == "loaded" else 0
         return {"id": self.model, "object": "model", "created": int(self.started_at), "owned_by": "basalt",
                 "status": {"value": value},
                 "asleep": getattr(self.engine, "asleep", False) is True,
+                **({"parked_weights_bytes": parked} if parked else {}),
                 "meta": {"n_ctx": self.engine.max_context},
                 "architecture": {"input_modalities": ["text", "image"] + (["video"] if self.video_on() else [])
                                  if self.vision is not None else ["text"],
@@ -401,9 +404,19 @@ class Service:
             if self.vision is not None and hasattr(self.vision, "unload"):
                 self.vision.unload()
 
+    def park_for_swap(self) -> bool:
+        """Keep an idle model in memory and give the next one the sidecar's space too."""
+        if self.sleep() != "asleep":
+            return False
+        with self.fifo:
+            if self.vision is not None and hasattr(self.vision, "unload"):
+                self.vision.unload()
+        return True
+
     def _wake(self):
         """Wake a sleeping engine (caller holds fifo); a failed wake ends it and the next start loads it again."""
         t = time.time()
+        kind = "weight restore" if getattr(self.engine, "native_parked_bytes", 0) else "driver restore"
         try:
             self.engine.wake(vram_check=self._wake_vram_check)
         except WakeBlocked as e:                        # nothing was touched: it stays asleep until the memory is free
@@ -412,7 +425,7 @@ class Service:
         except (ValueError, EngineDied) as e:
             print(f"[server] warning: waking the model failed ({e}); loading it again", flush=True)
             return
-        print(f"[server] model awake in {time.time() - t:.1f} s (driver restore {self.engine.restore_s:.1f} s)",
+        print(f"[server] model awake in {time.time() - t:.1f} s ({kind} {self.engine.restore_s:.1f} s)",
               flush=True)
 
     WAKE_VRAM_WAIT_S = 15.0                              # for memory just released elsewhere
@@ -469,14 +482,19 @@ class Service:
                 return "unsupported"
             t = time.time()
             try:
-                self.engine.sleep(ram_check=self._sleep_fits)
+                out = self.engine.sleep(ram_check=self._sleep_fits)
+            except EngineDied as e:
+                print(f"[server] warning: parking the model failed ({e})", flush=True)
+                return "not loaded"
             except ValueError as e:
                 if idle_for is not None:
                     self.sleep_refused_at = self.last_request_at or self.started_at
                 print(f"[server] warning: the model stays awake ({e})", flush=True)
                 return "no ram" if "RAM" in str(e) else "unsupported"
-            print(f"[server] model asleep{f' after {idle_for:.0f} s idle' if idle_for else ''} in {time.time() - t:.1f} s: "
-                  "its VRAM is free, the next request wakes it", flush=True)
+            parked = (out or {}).get("parked_weights_bytes", 0)
+            detail = f"{parked / 2 ** 30:.1f} GiB of weights in RAM" if parked else "its VRAM is free"
+            print(f"[server] model asleep{f' after {idle_for:.0f} s idle' if idle_for else ''} in {time.time() - t:.1f} s "
+                  f"({detail}). The next request wakes it.", flush=True)
             return "asleep"
         finally:
             if ctl is not None:

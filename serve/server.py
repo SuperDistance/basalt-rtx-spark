@@ -276,7 +276,9 @@ def build_model(a, cfg: dict, logs, multi: bool, known) -> Service:
         if cdir and cmib != "0" and a.debug:
             print(tagged("disk", f"conversations={cdir} disk-mib={cmib}"), flush=True)
         # always built unloaded: the load itself is the lazy path's, started by the caller instead of by a request
-        engine = ProcessEngine(cfg["engine_bin"], engine_args(cfg) + gwords, log=cfg.get("log"), env=env, lazy=True)
+        park_words = ["--park-weights"] if a.park_on_swap and "--park-weights" in (known or ()) else []
+        engine = ProcessEngine(cfg["engine_bin"], engine_args(cfg) + gwords + park_words,
+                               log=cfg.get("log"), env=env, lazy=True)
         if cfg.get("log"):                              # follow the engine's log file
             print(f"[server] engine log: {cfg['log']}", flush=True)
             echo_engine_line = engine_echo(engine)
@@ -301,6 +303,7 @@ def build_model(a, cfg: dict, logs, multi: bool, known) -> Service:
     svc.logs = logs
     svc.idle_unload_s = a.idle_unload or 0
     svc.idle_sleep_s = a.idle_sleep or 0
+    svc.park_on_swap = bool(a.park_on_swap)
     svc.min_free_vram_mib = a.min_free_vram_mib or 0
     svc.reasoning_budget_tokens = a.reasoning_budget_tokens or 0
     svc.answer_room = a.answer_room

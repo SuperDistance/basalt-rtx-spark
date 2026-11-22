@@ -378,7 +378,8 @@ function drawMain(live, hist, reqs, slots, total) {
 
 /* ---- several models: the picker names the model and choosing an unloaded one loads it ---- */
 const WORD = { loaded: "Loaded", unloaded: "Load", loading: "Loading", failed: "Failed" };
-const rowWord = m => m.asleep && m.status.value === "loaded" ? "Asleep" : WORD[m.status.value] || m.status.value;
+const rowWord = m => m.parked_weights_bytes && m.status.value === "loaded" ? "Parked"
+  : m.asleep && m.status.value === "loaded" ? "Asleep" : WORD[m.status.value] || m.status.value;
 function setPicker(open) {
   const root = $("#models");
   open ? root.setAttribute("data-open", "") : root.removeAttribute("data-open");
@@ -429,7 +430,7 @@ function drawModels(models, shown) {
   const focused = pop.contains(document.activeElement) ? document.activeElement.dataset.v : null;
   pop.replaceChildren(...models.map(m => {
     const b = document.createElement("button"); b.type = "button"; b.setAttribute("role", "menuitemradio");
-    const v = m.status.value, go = v === "unloaded" || v === "failed";
+    const v = m.status.value, go = v === "unloaded" || v === "failed" || (v === "loaded" && m.asleep);
     b.className = go ? "opt go" : "opt"; b.dataset.v = m.id; b.disabled = busy;
     b.setAttribute("aria-checked", String(m.id === name));
     const n = document.createElement("b"), w = document.createElement("span");

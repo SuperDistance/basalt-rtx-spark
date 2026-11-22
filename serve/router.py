@@ -1,6 +1,6 @@
 """Router: one Service per configured model, one model loaded at a time, requests picking theirs by name.
 
-A swap ends one engine process and starts the next. A request holds a turn from before its model is used until its reply
+A swap parks or ends one engine before activating the next. A request holds a turn from before its model is used until its reply
 ends. Turns follow one rule, so mixed traffic cannot starve or thrash:
   * A request for the loaded model goes at once while nothing waits. Once a request for another model waits, later
     arrivals queue behind it, whatever their model.
@@ -224,7 +224,7 @@ class Router:
                 self.cv.notify_all()
 
     def _swap(self, old, new, waiting: int) -> Exception | None:
-        """End `old`, start `new`; the failure, or None."""
+        """Release `old`'s device weights and activate `new`. Retry once without parked models if needed."""
         t = time.time()
         new.load_kind, new.loading = "weights", True    # the status routes show the load from now on
         if hasattr(new.engine, "load_status"):
@@ -232,11 +232,22 @@ class Router:
         print(f"[server] {f'swap {old.model} ->' if old else 'loading'} {new.model} ({waiting} waiting)", flush=True)
         try:
             if old is not None:
-                old.swap_out()                          # at its QUIT the engine spills its conversations to disk
+                if not (old.park_on_swap and old.park_for_swap()):
+                    old.swap_out()
                 with self.cv:
                     self.current = None
                     self.swap["phase"] = "loading"
-            new.load()
+            try:
+                new.load()
+            except (EngineDied, GpuBusy):
+                parked = [svc for svc in self.services if svc is not new and svc.loaded() and
+                          getattr(svc.engine, "asleep", False) is True]
+                if not parked:
+                    raise
+                for svc in parked:
+                    print(f"[server] unloading parked model {svc.model} to make room for {new.model}", flush=True)
+                    svc.swap_out()
+                new.load()
         except Exception as e:  # noqa: BLE001 - any failure ends in the batch's error, and the server stays up for the others
             print(f"[server] error: {new.model} did not load: {e}", flush=True)
             return e

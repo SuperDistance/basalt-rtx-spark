@@ -1,7 +1,6 @@
 # Models and the router
 
-Several models share one server. A request's `model` field picks one, and one is loaded at a time. A swap ends one engine process
-and starts the next.
+Several models share one server, and a request's `model` field picks which one runs. By default, a swap unloads the previous model. A model entry with `"park-on-swap": true` can stay in memory while another model runs.
 
 ```json
 {
@@ -21,7 +20,7 @@ and starts the next.
 - `server`: shared by the whole server: `host`, `port`, `allowed-host`, `cors-origin`, `image-url-host`, `image-dir`,
   `image-remote-only`, `max-payload-mib`, `lazy`, `open`, `debug`, `request-lines`.
 - An entry takes engine flags and these server options: `gpu`, `vision`, `parallel`, `slot-full-context`, `idle-sleep`,
-  `idle-unload`, `min-free-vram-mib`, `fit-max-tokens`, `grammar`, `video-max-tokens`, the reasoning settings and the sampling
+  `idle-unload`, `park-on-swap`, `min-free-vram-mib`, `fit-max-tokens`, `grammar`, `video-max-tokens`, the reasoning settings and the sampling
   defaults.
 - `version` is `2`. A file in the old shape (no `models`) is refused.
 - The command line wins for every model.
@@ -64,3 +63,9 @@ Clients wait through a swap; they do not get a 503 for it. A streamed response s
 
 `POST /v1/load` with `{"model": NAME}` swaps ahead of a request. `/health` and `/metrics` show the swap's progress. The console prints
 `[server] swap: Flash-Next -> DeepSeek, 2 waiting`.
+
+### Park a model on swap
+
+Set `"park-on-swap": true` on the model to keep. The Windows path for single-GPU Qwen3.8-27B moves its device weights into system RAM and keeps the process, sessions and CUDA scratch buffers. A request or `POST /v1/load` restores the weights at their original CUDA addresses. `/v1/models` includes `parked_weights_bytes` while the model is parked, and the model picker shows **Parked**.
+
+Basalt unloads the model if parking is unavailable. If another model fails to load while a model is parked, Basalt can release parked models and retry. `idle-unload` still controls when an idle model's memory is reclaimed.
