@@ -45,6 +45,8 @@ struct Prefill::Run {
     const Clock::time_point t_start = Clock::now();
     bool count_expert_groups = false;
     std::array<uint64_t, 4> nonresident_expert_groups{};   ///< 1–7, 8–31, 32–63, 64+ rows in host-grouped layers
+    bool direct_ram_experts = false;
+    int64_t direct_ram_groups = 0;
     const int64_t LB = owner.stage_lb_, LE = owner.stage_le_;
     // the card the ring's other-card copies come from (--peer-exclusive's peer, or set_ring_remote's card)
     const int remote_device = m.ring_peer ? m.ring_peer->device() : m.remote_dev;

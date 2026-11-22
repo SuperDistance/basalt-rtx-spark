@@ -98,15 +98,27 @@ bool Prefill::Run::Chunk::Experts::Group::walk() {
     if (cpu_maybe) cudaEventRecord(m.cpu_gev[0], m.cs);
     if (!stream_all) {
         size_t staged = 0;
+        // Gather directly from mapped pinned weights on UMA. Keep the existing cache and run-ahead hits.
+        const bool direct = run.direct_ram_experts && m.src && use_mmq && lay.native && !fp4_l;
+        std::vector<const uint8_t*> mapped(direct ? order.size() : 0, nullptr);
+        const bool ahead = ahead_n > 0 && m.ahead_layer[l & 1] == l;
         // staged this far ahead, a slot is copied into again only after the group that read it
         const size_t lookahead = STAGE - MMQ_GROUP - 1;
         for (size_t j = 0; j < order.size(); ++j) {
             while (staged < order.size() && staged <= j + lookahead) {
-                if (!stage_one(staged)) return false;
+                const int32_t e = order[staged];
+                if (direct && !(m.host_res && m.cache && m.host_res[(size_t) l * m.g->n_expert + e] >= 0) &&
+                    !(ahead && m.ahead_slot[l & 1][(size_t) e] >= 0) && m.src->pinned(l, e)) {
+                    mapped[staged] = m.src->device_alias(l, e);
+                }
+                if ((!direct || !mapped[staged]) && !stage_one(staged)) return false;
                 ++staged;
             }
             const int32_t e = order[j];
-            if (stage_of[j] < 0) {
+            if (direct && mapped[j]) {
+                if (!compute(j, mapped[j], -1)) return false;
+                ++run.direct_ram_groups;
+            } else if (stage_of[j] < 0) {
                 ++owner.stats_.experts_resident;
                 const int32_t rs = m.host_res ? m.host_res[(size_t) l * m.g->n_expert + e] : -1;
                 const uint8_t* bd = rs >= 0 && m.cache ? m.cache->device_slot(rs) : m.ring_peer->slot_ptr(l, e);
