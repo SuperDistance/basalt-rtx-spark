@@ -98,6 +98,35 @@ bool MtpDrafter::record_step(int j, bool copy_records, std::string& err) {
     return ok;
 }
 
+// A batched draft's catch-up: the K/V of every sequence's window rows (T in all), recorded as a round's catch-up is
+// (par_ picks the one-kernel hyper-connection reads), so each row's K/V is the bits its own round writes.
+bool MtpDrafter::capture_catch(int T, std::string& err) {
+    if (catch_exec_[T]) return true;
+    if (cudaStreamBeginCapture(cs_, cudaStreamCaptureModeThreadLocal) != cudaSuccess) { err = "mtp: begin capture"; return false; }
+    par_ = true;
+    const bool ok = record_forward(T, -1, cs_, err);   // tok_ / step_ / pos_ / Rin_ filled before launch
+    end_branches();
+    return finish_capture(cs_, ok, catch_exec_[T], "batched catch-up", err);
+}
+
+// A batched draft step: the full layer over S rows, row t at the cell staged in step row t of the sequence the segment
+// table's row t names, from Rin_ row t and tok_[t]; each row's draft and probability to the mapped row outputs, and
+// its draft into tok_[t] for the next step.  No row hands the next its hidden input (the next step computes it).
+bool MtpDrafter::capture_rows(int S, std::string& err) {
+    cudaGraphExec_t& exec = rows_exec_[tier_][S];
+    if (exec) return true;
+    if (cudaStreamBeginCapture(cs_, cudaStreamCaptureModeThreadLocal) != cudaSuccess) { err = "mtp: begin capture"; return false; }
+    chain_j_ = 0;
+    par_ = true;
+    have_pre_ = pre_next_ = false;
+    rows_mode_ = true;
+    bool ok = record_forward(S, 0, cs_, err);
+    rows_mode_ = false;
+    end_branches();
+    if (ok) basalt::kernels::mtp_rows_end(out_ids_, probs_, S, tok_, m_bout_, m_bprob_, cs_);
+    return finish_capture(cs_, ok, exec, "batched draft rows", err);
+}
+
 bool MtpDrafter::capture_round(int T, std::string& err) {
     cudaGraphExec_t& exec = round_exec_[tier_][T];
     if (exec) return true;

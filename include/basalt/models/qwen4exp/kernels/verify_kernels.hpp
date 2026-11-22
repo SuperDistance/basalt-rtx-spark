@@ -182,6 +182,10 @@ void mtp_stage(const MtpStageSeg* segs, int n_segs, float* f_dst, const float* f
 /// The draft chain's step end in one launch: tok_dst[0] = ids[row], out[j] = ids[row] and out_p[j] = probs[row] for
 /// row = *row_dev (the residual is not carried), then, with n > 0, mtp_draft_cond's handles for the same row.  False
 /// (nothing launched) when n > 0 and the build has no conditional graph nodes.
+/// Batched drafts (one row per sequence): row t's draft ids[t] becomes its next step's token tok_dst[t]; the drafts and
+/// their probabilities go to the mapped out[t] / out_p[t] (each probability before its draft, which the host polls).
+void mtp_rows_end(const int32_t* ids, const float* probs, int n, int32_t* tok_dst, int32_t* out, float* out_p,
+                  void* stream);
 bool mtp_step_end(const int32_t* ids, const int32_t* row_dev, int32_t* tok_dst, int32_t* out, int j, const float* probs,
                   float* out_p, const unsigned long long* h, int n, const int32_t* th_bits,
                   const float* hist, void* stream);

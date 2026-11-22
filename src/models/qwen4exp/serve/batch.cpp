@@ -3,6 +3,8 @@
 #include "basalt/core/device_memory.hpp"
 #include "basalt/protocol.hpp"
 #include "qfn_state.hpp"
+
+#include <cstring>
 #include "../../../program/serve/logprobs.hpp"
 
 namespace basalt::models::qwen4exp::serve {
@@ -386,7 +388,35 @@ bool QfnRuntime::batch_step() {
         // a slot gets about its share of the next window's rows: drafts past it cost the drafter's GPU time and
         // are cut (at four slots of an 8-row budget, two drafts a slot); the verdicts stay exact
         mtp.set_step_cap(nc > 1 ? (MB + nc - 1) / nc : 0);
-        for (int ci = 0; ci < nc; ++ci) {
+        // the drafting slots in one pass (stores in place): every slot's catch-up in one forward and one full-layer row
+        // per slot for each draft step, each row in its slot's own K/V and with its slot's own rule and cap
+        const int nb = std::min(nfull, (int) basalt::core::MtpDrafter::kDraftRowsMax);
+        const bool batched = mtp.seg_on() && nb >= 2;
+        if (batched) {
+            int ids[MR], r0[MR], Tn[MR], an[MR];
+            int64_t pn[MR];
+            float th[MR];
+            const int32_t* tk[MR];
+            int32_t* dr[MR];
+            float* pb[MR];
+            int nd[MR];
+            for (int ci = 0; ci < nb; ++ci) {
+                const int sg = cont[ci];
+                BSlot& sl = bs[(size_t) rows[sg]];
+                ids[ci] = rows[sg]; r0[ci] = r0s[sg]; Tn[ci] = lens[sg]; an[ci] = n_keep[sg] - 1; pn[ci] = p0s[sg];
+                th[ci] = sl.cum.th(); tk[ci] = outb + r0s[sg]; dr[ci] = sl.dr; pb[ci] = sl.dprob;
+            }
+            if (!mtp.draft_batch(nb, ids, Rw, r0, Tn, tk, pn, an, th, dr, pb, nd, err)) {
+                std::printf("ERR %s\n", err.c_str());
+                return false;
+            }
+            for (int ci = 0; ci < nb; ++ci) {
+                BSlot& sl = bs[(size_t) ids[ci]];
+                sl.n_dr = nd[ci];
+                sl.since_draft = 0;
+            }
+        }
+        for (int ci = batched ? nb : 0; ci < nc; ++ci) {
             const int sg = cont[ci];
             const int b = rows[sg];
             BSlot& sl = bs[(size_t) b];

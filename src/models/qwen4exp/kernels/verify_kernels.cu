@@ -888,6 +888,26 @@ __global__ void mtp_step_end_kernel(const int32_t* __restrict__ ids, const int32
 }
 }  // namespace
 
+namespace {
+__global__ void mtp_rows_end_kernel(const int32_t* __restrict__ ids, const float* __restrict__ probs, int n,
+                                    int32_t* __restrict__ tok_dst, int32_t* out, float* out_p) {
+    const int t = threadIdx.x;
+    if (t >= n) return;
+    const int32_t tok = ids[t];
+    tok_dst[t] = tok;   // each row's next step reads its own draft
+    ((volatile float*) out_p)[t] = probs[t];
+    __threadfence_system();
+    ((volatile int32_t*) out)[t] = tok;
+}
+}  // namespace
+
+void mtp_rows_end(const int32_t* ids, const float* probs, int n, int32_t* tok_dst, int32_t* out, float* out_p,
+                  void* stream) {
+    if (n < 1 || n > 32) { basalt::log::error("basalt", "mtp_rows_end: n out of range"); std::exit(1); }
+    mtp_rows_end_kernel<<<1, 32, 0, (cudaStream_t) stream>>>(ids, probs, n, tok_dst, out, out_p);
+    check("mtp_rows_end");
+}
+
 bool mtp_step_end(const int32_t* ids, const int32_t* row_dev, int32_t* tok_dst, int32_t* out, int j, const float* probs,
                   float* out_p, const unsigned long long* h, int n, const int32_t* th_bits,
                   const float* hist, void* stream) {

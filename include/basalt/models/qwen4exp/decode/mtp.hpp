@@ -163,6 +163,17 @@ public:
     const float* keep_rows(const float* R_rows, int rows, std::string& err);
     bool draft_seq(int id, const float* R_rows, int T, const int32_t* tokens, int64_t p, int a, int32_t* drafts,
                    std::string& err, float* probs, int* n_drafts);
+    /// The drafts of S sequences in one pass (stores read in place, seg_on()): each sequence's window rows' K/V in one
+    /// catch-up forward, then one full-layer row per sequence for each draft step, every row in its own sequence's
+    /// slot and with that sequence's own rule and cap.  Sequence s: store ids[s], window rows R_rows + r0s[s] rows (Ts[s]
+    /// of them, tokens toks[s], at cells p0s[s]..), a[s] accepted; drafts[s] / probs[s] / n_drafts[s] out.  The rows'
+    /// kernels round some drafts differently from a draft_seq of the same sequence (about one draft in five on the N1X);
+    /// verification is exact, so only which tokens are offered changes.  S <= kDraftRowsMax, sum of Ts <= the window.
+    static constexpr int kDraftRowsMax = 4;
+    bool seg_on() const { return seg_on_; }
+    bool draft_batch(int S, const int* ids, const float* R_rows, const int* r0s, const int* Ts, const int32_t* const* toks,
+                     const int64_t* p0s, const int* as, const float* cum_ths, int32_t* const* drafts, float* const* probs,
+                     int* n_drafts, std::string& err);
     /// The K/V cells [cell0, cell0 + n) of sequence `id` from window rows, no draft (`prefill` on that sequence).
     bool catch_up(int id, const float* R_rows, const int32_t* next_tokens, int64_t n, int64_t cell0, std::string& err);
     /// The same, later: the rows are kept and their cells are computed by the next `draft_seq` (or `flush`) of the
@@ -349,6 +360,17 @@ private:
     float host_th_ = -1.0f;  // < 0: cum_th_
     int chain_steps_ = 0;    ///< the steps the last draft() launched (its graph's)
     float *h_prob_ = nullptr, *m_prob_ = nullptr;   // each draft's probability under the draft layer
+    // batched drafts: the current step's draft and probability of each row (one row per sequence), polled by the host
+    int32_t *h_bout_ = nullptr, *m_bout_ = nullptr;
+    float *h_bprob_ = nullptr, *m_bprob_ = nullptr;
+    bool rows_mode_ = false;                      ///< record_forward: the full layer over one row per sequence
+    cudaGraphExec_t rows_exec_[2][kDraftRowsMax + 1] = {};   ///< [tier_][rows]: the full layer over the rows, their drafts out
+    bool capture_rows(int S, std::string& err);
+    cudaGraphExec_t catch_exec_[9] = {};          ///< [rows]: a batched draft's catch-up, as a round records its own
+    bool capture_catch(int T, std::string& err);
+    std::vector<int32_t> brec_;                   ///< batched draft records staged for upload
+    int32_t* brec_dev_ = nullptr;
+    int64_t brec_cap_ = 0;
     float* diag_ = nullptr;                         ///< spec_log: the draft head's logits per chain step (pinned)
     int64_t diag_stride_ = 0;
     std::vector<int32_t> diag_map_;                 ///< spec_log: the draft head's row -> token id

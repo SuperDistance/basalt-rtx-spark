@@ -51,7 +51,8 @@ bool MtpDrafter::record_forward(int T, int step_row0, cudaStream_t cs, std::stri
     // step_row0 >= 0: the full layer on step rows [step_row0, +T); step_row0 < 0: K/V only on rows [-1 - step_row0, +T)
     const bool full = step_row0 >= 0;
     const int row0 = full ? step_row0 : -1 - step_row0;
-    if (full && T != 1) { err = "mtp: the full layer runs one row at a time (its attention scratch is sized for one)"; return false; }
+    // the full layer runs one row, or (rows_mode_) one row per sequence of a batched draft, each row in its own slot
+    if (full && T != 1 && !rows_mode_) { err = "mtp: the full layer runs one row at a time (its attention scratch is sized for one)"; return false; }
     if (reuse_row && !full) { err = "mtp: only the full layer reuses a catch-up row"; return false; }
     const int64_t N = g.n_embd, HC = g.hc, K = ss.k, NH = g.n_head, HD = g.head_dim, NKV = g.n_head_kv;
     const QsaShapes s = shapes_of(g);
@@ -309,8 +310,8 @@ bool MtpDrafter::record_forward(int T, int step_row0, cudaStream_t cs, std::stri
             fa[0].w_down = bf16("hyper_connection_mixer.input_mix_weight_down.weight");
             fa[0].w_up = bf16("hyper_connection_mixer.input_mix_weight_up.weight");
             fa[0].w_inject = nullptr; fa[0].eps = EPS; fa[0].lo = lo_; fa[0].rs = rs_; fa[0].mixed = sample_;
-            if (T != 1) { err = "mtp: the one-kernel mixer read runs one row"; return false; }
-            HcFusedArgs h = hcf_args(fa, 1, xn_);
+            if (T != 1 && !rows_mode_) { err = "mtp: the one-kernel mixer read runs one row"; return false; }
+            HcFusedArgs h = hcf_args(fa, T, xn_);   // rows at the layer's fixed strides, each row's own bits
             if (hc_fused_q8_rows_ok()) { h.xq = xq_; mixer_q8 = true; }
             h.next_early = head_pdl;   // the head's blocks start with the read
             hc_fused_read(h, cs);
@@ -332,7 +333,32 @@ bool MtpDrafter::record_forward(int T, int step_row0, cudaStream_t cs, std::stri
         // the argmax drafts over the base rows only on tier 0
         const int64_t nv = sub ? (tier_ == 0 ? n_tier1_ : n_dvocab_) : n_vocab_;
         // The head, its argmax and the argmax's probability in one launch (the probability's sum in
-        // another order: last bits)
+        // another order: last bits).  A batched draft's rows each take the one-row head kernels.
+        if (rows_mode_ && T > 1) {
+            const size_t xb = native_q8_1_bytes((int) N, 1);
+            bool all = true;
+            for (int t = 0; t < T && all; ++t) {
+                const uint8_t* xr = xq_ + (size_t) t * xb;
+                if (sub && proxy_ != nullptr && nv == n_tier1_)
+                    all = head_->type() == 13
+                              ? basalt::kernels::q5k_proxy_top1(proxy_, dhead_, xr, (int) nv, n_tier1_, dvocab_, out_ids_ + t,
+                                                                probs_ + t, proxy_scratch_, cs)
+                          : head_->type() == GGML_Q8_0
+                              ? basalt::kernels::q80_proxy_top1(proxy_, head_->weights(), xr, (int) nv, n_tier1_, dvocab_,
+                                                                out_ids_ + t, probs_ + t, proxy_scratch_, cs, true)
+                              : basalt::kernels::q6k_proxy_top1(proxy_, rows_mapped_ ? head_->weights() : (const void*) dhead_,
+                                                                xr, (int) nv, n_tier1_, dvocab_, out_ids_ + t, probs_ + t,
+                                                                proxy_scratch_, cs, rows_mapped_);
+                else if (head_->type() == 13 && top_scratch_ != nullptr)
+                    all = q5k_head_top1(sub ? dhead_ : head_->weights(), xr, head_logits_ + (size_t) t * (size_t) nv, (int) N,
+                                        (int) nv, sub ? dvocab_ : nullptr, out_ids_ + t, probs_ + t, top_scratch_, cs);
+                else
+                    all = false;
+            }
+            if (all) return true;
+            err = "mtp: a batched draft needs the one-row head kernels";
+            return false;
+        }
         if (T == 1 && sub && proxy_ != nullptr && nv == n_tier1_ && diag_ == nullptr &&
             (head_->type() == 13
                  ? basalt::kernels::q5k_proxy_top1(proxy_, dhead_, xq_, (int) nv, n_tier1_, dvocab_, out_ids_, probs_,
