@@ -448,6 +448,7 @@ bool FileExpertSource::copy_blob(int64_t layer, int64_t expert, uint8_t* dst) {
     }
     const auto t0 = std::chrono::steady_clock::now();
     if (!copy_from_files(layer, expert, dst)) return false;
+    if (file_resident(layer, expert)) return true;
     file_us_.fetch_add((uint64_t) std::chrono::duration<double, std::micro>(std::chrono::steady_clock::now() - t0).count(),
                        std::memory_order_relaxed);
     file_read_bytes_.fetch_add(bytes, std::memory_order_relaxed);
@@ -461,6 +462,7 @@ bool FileExpertSource::file_extent(int64_t layer, int64_t expert, int& fd, uint6
     // a blob held in RAM (the complement, or a staged exchange) is not read from the file
     if (complement_ready_ && (complement_offsets_[index] != kNoComplement || (!override_.empty() && override_[index] != nullptr)))
         return false;
+    if (file_resident(layer, expert)) return false;
     fd = fd_;
     offset = file_off_ + (uint64_t) (b - base_);
     return true;
@@ -1353,15 +1355,21 @@ const uint8_t* FileExpertSource::blob(int64_t layer, int64_t expert) {
     }
     if (from_files) {
         result = mapped_blob(layer, expert);
-        if (result != nullptr)
-            file_read_bytes_.fetch_add(layer_blob_bytes_[(size_t) layer], std::memory_order_relaxed);
-        if (complement_ready_ && result != nullptr) file_reads_.fetch_add(1, std::memory_order_relaxed);
+        if (result != nullptr) {
+            if (file_resident(layer, expert)) ram_reads_.fetch_add(1, std::memory_order_relaxed);
+            else {
+                file_read_bytes_.fetch_add(layer_blob_bytes_[(size_t) layer], std::memory_order_relaxed);
+                if (complement_ready_) file_reads_.fetch_add(1, std::memory_order_relaxed);
+            }
+        }
     }
     if (result != nullptr) ++reads_;
     return result;
 }
 
 const uint8_t* FileExpertSource::resident_blob(int64_t layer, int64_t expert) const {
+    // CUDA uses the registered view. CPU readers and cache refills use the original view.
+    if (file_resident(layer, expert)) return mapped_blob(layer, expert);
     if (!complement_ready_ || layer < 0 || expert < 0 || layer >= n_layers_ || expert >= n_expert_) return nullptr;
     const size_t index = (size_t) layer * (size_t) n_expert_ + (size_t) expert;
     if (complement_offsets_[index] != kNoComplement)

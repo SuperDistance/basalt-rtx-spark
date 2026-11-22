@@ -219,6 +219,7 @@ struct Prefill::Run::Chunk::Experts::Group {
     const size_t mmq_db = use_mmq ? mmq::matrix_bytes(mmq_dt, N, 640) : 0;
     int stage_next = 0;
     std::vector<int> stage_of, job_of;
+    std::vector<const uint8_t*> mapped_of;
     Chunk::StagerDone stager_done{nullptr};
     // In the streamed walk an MMQ group is gathered in ONE launch, after ONE wait on its last
     // streamed copy (the copy stream is in order), and its ring slots are released by ONE event.  A

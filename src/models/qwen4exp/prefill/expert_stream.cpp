@@ -36,11 +36,18 @@ bool Prefill::Run::Chunk::Experts::Group::start_staging() {
     // the unpinned ones are copied to pinned buffers by the stager's threads, in this order
     job_of.assign(order.size(), -1);
     if (!stream_all) {
+        const bool direct = run.direct_ram_experts && m.src && use_mmq && lay.native && !fp4_l;
+        if (direct) mapped_of.assign(order.size(), nullptr);
+        const bool ahead = ahead_n > 0 && m.ahead_layer[l & 1] == l;
         std::vector<Stager::Job> js;
         for (size_t j = 0; j < order.size(); ++j) {
             const int32_t e = order[j];
             if (m.host_res && m.cache && m.host_res[(size_t) l * m.g->n_expert + e] >= 0) continue;
             if (other_card(e) != nullptr) continue;
+            if (direct && !(ahead && m.ahead_slot[l & 1][(size_t) e] >= 0)) {
+                mapped_of[j] = m.src->device_alias(l, e);
+                if (mapped_of[j] != nullptr) continue;
+            }
             if (m.src->pinned(l, e)) continue;
             job_of[j] = (int) js.size();
             const uint8_t* b = m.src->blob(l, e);
@@ -98,25 +105,17 @@ bool Prefill::Run::Chunk::Experts::Group::walk() {
     if (cpu_maybe) cudaEventRecord(m.cpu_gev[0], m.cs);
     if (!stream_all) {
         size_t staged = 0;
-        // Gather directly from mapped pinned weights on UMA. Keep the existing cache and run-ahead hits.
-        const bool direct = run.direct_ram_experts && m.src && use_mmq && lay.native && !fp4_l;
-        std::vector<const uint8_t*> mapped(direct ? order.size() : 0, nullptr);
-        const bool ahead = ahead_n > 0 && m.ahead_layer[l & 1] == l;
+        const bool direct = !mapped_of.empty();
         // staged this far ahead, a slot is copied into again only after the group that read it
         const size_t lookahead = STAGE - MMQ_GROUP - 1;
         for (size_t j = 0; j < order.size(); ++j) {
             while (staged < order.size() && staged <= j + lookahead) {
-                const int32_t e = order[staged];
-                if (direct && !(m.host_res && m.cache && m.host_res[(size_t) l * m.g->n_expert + e] >= 0) &&
-                    !(ahead && m.ahead_slot[l & 1][(size_t) e] >= 0) && m.src->pinned(l, e)) {
-                    mapped[staged] = m.src->device_alias(l, e);
-                }
-                if ((!direct || !mapped[staged]) && !stage_one(staged)) return false;
+                if ((!direct || !mapped_of[staged]) && !stage_one(staged)) return false;
                 ++staged;
             }
             const int32_t e = order[j];
-            if (direct && mapped[j]) {
-                if (!compute(j, mapped[j], -1)) return false;
+            if (direct && mapped_of[j]) {
+                if (!compute(j, mapped_of[j], -1)) return false;
                 ++run.direct_ram_groups;
             } else if (stage_of[j] < 0) {
                 ++owner.stats_.experts_resident;

@@ -79,7 +79,7 @@ int dispatch(Context& context) {
     // reads those from the SSD).  Called once the tiers are final.
     basalt::program::ExpertSpill tier_spill;   // the experts only the file holds, once the tiers are final
     auto report_expert_tiers = [&]() {
-        uint64_t b_vram = 0, b_peer = 0, b_ram = 0, b_top = 0, b_file = 0;
+        uint64_t b_vram = 0, b_peer = 0, b_ram = 0, b_top = 0, b_mapped = 0, b_file = 0;
         int64_t n_file = 0;
         const bool ram_ok = srcp == &src && src.complement_ready();
         // the arena holds every expert in RAM (opening it fails when it cannot), so nothing it serves is file-backed
@@ -96,6 +96,7 @@ int dispatch(Context& context) {
                 else if (on_peer) b_peer += blob;
                 else if (arena_ok) b_ram += blob;
                 else if (ram_ok && src.has_resident(l, e)) (src.resident_in_top_up(l, e) ? b_top : b_ram) += blob;
+                else if (srcp == &src && src.file_resident(l, e)) b_mapped += blob;
                 else {
                     b_file += blob;
                     ++n_file;
@@ -103,21 +104,23 @@ int dispatch(Context& context) {
             }
         }
         tier_spill = {n_file, g.n_layers * g.n_expert, b_file};
-        const double total = (double) (b_vram + b_peer + b_ram + b_top + b_file);
+        const uint64_t ram = b_ram + b_top + b_mapped;
+        const double total = (double) (b_vram + b_peer + ram + b_file);
         if (total <= 0.0) return;
         if (o.serve && !multi_gpu && !peer.valid() && xpeers.empty() && basalt::core::device_memory_model().integrated)
             std::printf("INFO uma_experts_gpu_bytes=%llu uma_experts_ram_bytes=%llu uma_experts_file_bytes=%llu\n",
-                        (unsigned long long) b_vram, (unsigned long long) (b_ram + b_top), (unsigned long long) b_file);
-        basalt::core::draft_cum_cpu_mb() = (float) ((double) (b_ram + b_top) / (double) (g.n_layers * g.n_expert) / 1e6);
+                        (unsigned long long) b_vram, (unsigned long long) ram, (unsigned long long) b_file);
+        basalt::core::draft_cum_cpu_mb() = (float) ((double) ram / (double) (g.n_layers * g.n_expert) / 1e6);
         constexpr double kGiB = 1073741824.0;
         auto pct = [&](uint64_t b) { return 100.0 * (double) b / total; };
         // RAM is the loaded copy (the bytes the loader reports); the top-up added after the load is shown beside it
-        char top[48] = "";
+        char top[48] = "", mapped[48] = "";
         if (b_top > 0) std::snprintf(top, sizeof top, " + %.1f GiB topped up", (double) b_top / kGiB);
+        if (b_mapped > 0) std::snprintf(mapped, sizeof mapped, " + %.1f GiB mapped", (double) b_mapped / kGiB);
         basalt::log::info("basalt generate", "experts live in VRAM %.1f GiB (%.0f%%), peer GPU %.1f GiB (%.0f%%), RAM "
-                             "%.1f GiB%s (%.0f%%), file (SSD) %.1f GiB (%.0f%%); %.1f GiB in all",
+                     "%.1f GiB%s%s (%.0f%%), file (SSD) %.1f GiB (%.0f%%); %.1f GiB in all",
                      (double) b_vram / kGiB, pct(b_vram), (double) b_peer / kGiB, pct(b_peer), (double) b_ram / kGiB, top,
-                     pct(b_ram + b_top), (double) b_file / kGiB, pct(b_file), total / kGiB);
+                     mapped, pct(ram), (double) b_file / kGiB, pct(b_file), total / kGiB);
         std::string levers = ", or a smaller quant";
         if (!o.resident_cpu_experts) levers += ", --resident-experts";
         if (o.peer_device < 1) levers += ", --gpu 0,1";

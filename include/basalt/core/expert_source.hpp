@@ -277,6 +277,7 @@ public:
     uint64_t pin_file_experts(const std::vector<std::pair<int32_t, int32_t>>& rank,
                              const std::function<bool(int32_t, int32_t)>& skip, uint64_t bytes);
     void drop_file_pins();
+    bool file_resident(int64_t layer, int64_t expert) const { return file_device_alias(layer, expert) != nullptr; }
     /// The bytes of a planned copy its step registers with the driver once its reads have landed (0 when there is none
     /// or it is registered): a tier sized before then leaves their mapping free (pin_mapping_bytes).
     uint64_t pin_pending() const;
