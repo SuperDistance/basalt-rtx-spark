@@ -353,6 +353,7 @@ private:
     int64_t bt_miss0{};
     int64_t bt_hits0{};
     int64_t bt_pcie0{};
+    int64_t bt_offload0{};
     int64_t bt_windows{};
     int64_t bt_rows{};
     int64_t bt_tokens{};

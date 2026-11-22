@@ -545,7 +545,8 @@ int main(int argc, char** argv) {
         fmt[0] = {12, 7}; fmt[1] = {12, 8}; fmt[2] = {13, 8}; fmt[3] = {8, 8}; fmt[4] = {14, 8};
         fmt[5] = {16, 6}; fmt[6] = {22, 6}; fmt[7] = {18, 6}; fmt[8] = {23, 6};
         fmt[9] = {21, 8}; fmt[10] = {23, 8};
-        auto_layers = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10}; stress_n = 0;
+        fmt[11] = {18, 20}; fmt[12] = {22, 20};
+        auto_layers = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12}; stress_n = 0;
     }
     for (int l = 0; !synth && l < 64; ++l) {
         const basalt::GgufFile& gguf = *gguf_p;
@@ -1282,6 +1283,32 @@ int main(int argc, char** argv) {
                 for (size_t i = 0; i < ba.size(); ++i) ndt += std::memcmp(&ba[i], &bb[i], 4) != 0;
                 std::snprintf(what, sizeof what, "staged tail T=%d", T);
                 report(what, l, ndt, ba.size());
+                K::dec_moe_stage(rs, nullptr, 0, (int64_t) L.bytes, 1, s0);
+                ck(cudaMemsetAsync(d_pb, 0xff, (size_t) K::kDmCap * H * 4, s0), "memset");
+                K::native_expert_grouped(L, d_plan->sptr, d_plan->sstart, d_plan->scounts, d_plan->sdst, d_plan->stok, n,
+                                         n, d_xq2, dv[0].scr, d_pb, s0, 4);
+                ck(cudaStreamSynchronize(s0), "direct mapped experts");
+                const auto direct = down(d_pb, (size_t) n * H);
+                K::DmPlan D;
+                ck(cudaMemcpy(&D, d_plan, sizeof D, cudaMemcpyDeviceToHost), "direct plan");
+                size_t bad_ptr = D.scounts[0] != S.scounts[0] || D.scounts[1] != S.scounts[1];
+                for (int j = 0; j < S.scounts[0] && j < K::kDmStageMax; ++j) {
+                    const int i = S.sdst[S.sstart[j]];
+                    if (i >= 0 && i < n) bad_ptr += D.sptr[j] != src[(size_t) ids[i]];
+                    else ++bad_ptr;
+                }
+                std::snprintf(what, sizeof what, "direct mapped plan and rows T=%d", T);
+                report(what, l, bad_ptr + ndiff_rows(pa, direct, srows), srows.size() * H + S.scounts[0]);
+                if (bench && !staged.empty()) {
+                    const double us = time_us(s0, 100, [&] {
+                        K::dec_moe_stage(rs, nullptr, 0, (int64_t) L.bytes, 1, s0);
+                        K::native_expert_grouped(L, d_plan->sptr, d_plan->sstart, d_plan->scounts, d_plan->sdst,
+                                                 d_plan->stok, n, n, d_xq2, dv[0].scr, d_pb, s0, 4);
+                    });
+                    const double mb = (double) staged.size() * (double) L.bytes / 1e6;
+                    std::printf("  bench: direct mapped plan + compute T=%d, %d blobs: %.1f us, %.1f GB/s\n",
+                                T, (int) staged.size(), us, mb * 1e3 / us);
+                }
                 if (K::dec_moe_glue_ok(L)) {   // the ring's kinds made inside the glue launch split the same way
                     std::vector<unsigned long long> pt(NE);
                     for (int e = 0; e < NE; ++e)

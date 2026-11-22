@@ -16,8 +16,9 @@ void dec_moe_route(const DmRouteArgs& a, void* stream) {
 }
 
 void dec_moe_stage(const DmRouteArgs& a, uint8_t* staging, int64_t stride, int64_t blob_bytes, int blocks, void* stream) {
-    if (a.n_tok * a.k > kDmCap || a.stage_src == nullptr || a.stage_k == nullptr || blob_bytes % 16 != 0 ||
-        stride % 128 != 0 || stride < dec_moe_stage_stride(blob_bytes) || blocks < 1) {
+    const bool invalid_buffer = staging != nullptr && (blob_bytes % 16 != 0 || stride % 128 != 0 ||
+                                                       stride < dec_moe_stage_stride(blob_bytes));
+    if (a.n_tok * a.k > kDmCap || a.stage_src == nullptr || a.stage_k == nullptr || invalid_buffer || blocks < 1) {
         basalt::log::error("basalt", "dec_moe_stage: %d entries, blob %lld, stride %lld", a.n_tok * a.k,
                            (long long) blob_bytes, (long long) stride);
         std::exit(1);

@@ -353,7 +353,7 @@ bool Verifier::WindowRecorder::pre(int64_t l) {
             cudaEventRecord(v_.dm_->st_fork, cs);
             cudaStreamWaitEvent(v_.dm_->st_s, v_.dm_->st_fork, 0);
             PdlScope pst(false);
-            dec_moe_stage(ra, v_.staging_, v_.dm_->stage_stride,
+            dec_moe_stage(ra, v_.dm_->stage_stride > 0 ? v_.staging_ : nullptr, v_.dm_->stage_stride,
                           (int64_t) basalt::kernels::cpu::expert_layout().blob_bytes(l), v_.dm_->stage_blocks, v_.dm_->st_s);
             cudaEventRecord(v_.dm_->st_join, v_.dm_->st_s);
         }

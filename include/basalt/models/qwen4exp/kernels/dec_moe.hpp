@@ -102,6 +102,7 @@ void dec_moe_route(const DmRouteArgs& a, void* stream);
 /// The staged share of one layer: the same split the ring's kinds make (a.stage_src, a.stage_k, a.res0, a.ids),
 /// the staged blobs copied from host RAM into `staging` (slot q at q * stride, whole 128-byte lines, the blob at its
 /// source's offset within its first line), and their groups into a.plan's staged lists.
+/// With null staging, the groups point directly to their mapped host addresses.
 void dec_moe_stage(const DmRouteArgs& a, uint8_t* staging, int64_t stride, int64_t blob_bytes, int blocks, void* stream);
 /// Bytes a staging slot needs for blobs of `blob_bytes`: whole 128-byte lines from an address 16-byte aligned.
 inline int64_t dec_moe_stage_stride(int64_t blob_bytes) { return (blob_bytes + 127 + 127) / 128 * 128; }

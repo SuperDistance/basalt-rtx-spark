@@ -197,12 +197,14 @@ __global__ void __launch_bounds__(kDmThreads) dm_stage_kernel(DmRouteArgs a, uin
             p->stok[s_pos[tid]] = tid / a.k;
         }
         if (tid <= ng) p->sstart[tid] = s_start[tid];
-        if (tid < ng) p->sptr[tid] = (unsigned long long) (staging + (long long) tid * stride) + (s_src[tid] & 127ull);
+        if (tid < ng) p->sptr[tid] = staging == nullptr ? s_src[tid] :
+            (unsigned long long) (staging + (long long) tid * stride) + (s_src[tid] & 127ull);
         if (tid == 0) {
             p->scounts[0] = ng;
             p->scounts[1] = s_ne;
         }
     }
+    if (staging == nullptr) return;
     const long long step = (long long) gridDim.x * kDmThreads;
     for (int g = 0; g < ng; ++g) {
         const unsigned long long src = s_src[g];

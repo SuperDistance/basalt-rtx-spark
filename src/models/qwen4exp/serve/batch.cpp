@@ -233,6 +233,7 @@ bool QfnRuntime::batch_step() {
         bt_start = Clock::now();
         bt_wait0 = ver.ms_wait; bt_pool0 = ver.ms_pool;
         bt_miss0 = drive.d.multi_misses; bt_hits0 = drive.d.cache_hits; bt_pcie0 = drive.d.pcie_experts;
+        bt_offload0 = drive.d.offload_entries;
     }
     const Clock::time_point w0 = Clock::now();
     if (!ver.run_slot_segs(rows, lens, S, tok, pos, win_pool_fn, win_pool_user, outb, err) || drive.d.failed) {
@@ -433,6 +434,9 @@ bool QfnRuntime::batch_step() {
                      (ver.ms_wait - bt_wait0) / w, (ver.ms_pool - bt_pool0) / w, bt_commit / w, bt_emit / w,
                      (drive.d.multi_misses - bt_miss0) / (w * L), (drive.d.cache_hits - bt_hits0) / (w * L),
                      (drive.d.pcie_experts - bt_pcie0) / (w * L), 1000.0 * bt_rows / std::max(wall, 1e-9), wall);
+        if (basalt::core::exp_flag("n1x_direct_experts") > 0)
+            basalt::log::info("basalt batch", "GPU expert entries outside the device cache: %lld",
+                              (long long) (drive.d.offload_entries - bt_offload0));
         if (drive.d.count_cpu_group_sizes) {
             std::string counts;
             for (size_t i = 1; i < drive.d.cpu_group_sizes.size(); ++i)
