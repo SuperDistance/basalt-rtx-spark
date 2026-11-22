@@ -122,7 +122,7 @@ def timings(run, samples):
             "p95_ms": statistics.quantiles(elapsed, n=20, method="inclusive")[18], "samples": samples}
 
 
-def gpu_comparison(path, matrices, module, data, reference):
+def gpu_comparison(path, matrices, module, data, reference, burst_sizes):
     lib = ctypes.CDLL(str(path))
     lib.n1x_expert_gpu_create.argtypes = [ctypes.POINTER(ctypes.c_void_p), ctypes.c_void_p]
     lib.n1x_expert_gpu_destroy.argtypes = [ctypes.c_void_p]
@@ -174,8 +174,44 @@ def gpu_comparison(path, matrices, module, data, reference):
         error = relative_rms(output.astype(np.float32), reference)
         if not error < 0.01:
             raise RuntimeError(f"GPU output failed validation (relative RMS {error:.6g})")
-        return {"relative_rms_error": error, "gpu_submit_wait": timings(gpu_run, 64),
-                "same_context_gpu_and_dla_submit_wait": timings(both_run, 64)}
+        result = {"relative_rms_error": error, "gpu_submit_wait": timings(gpu_run, 64),
+                  "same_context_gpu_and_dla_submit_wait": timings(both_run, 64)}
+        def submit_gpu_burst(jobs):
+            for _ in range(jobs):
+                gpu_submit()
+
+        def gpu_only(jobs):
+            submit_gpu_burst(jobs)
+            cuda.sync(stream)
+
+        def sequential(jobs):
+            gpu_only(jobs)
+            module.run()
+
+        def overlap(jobs, dla_first):
+            if dla_first:
+                module.submit()
+            submit_gpu_burst(jobs)
+            if not dla_first:
+                module.submit()
+            cuda.sync(stream)
+            module.wait()
+
+        bursts = []
+        for count in burst_sizes:
+            bursts.append({"gpu_jobs": count, "gpu_only": timings(lambda: gpu_only(count), 64),
+                           "gpu_one_extra": timings(lambda: gpu_only(count + 1), 64),
+                           "sequential": timings(lambda: sequential(count), 64),
+                           "dla_first": timings(lambda: overlap(count, True), 64),
+                           "gpu_first": timings(lambda: overlap(count, False), 64)})
+        if bursts:
+            result["gpu_bursts_with_one_dla_job"] = bursts
+            overlapped = np.frombuffer(cuda.from_device(y, data.nbytes), np.float16).reshape(EMBEDDING, -1).T
+            np.testing.assert_array_equal(overlapped, output)
+            dla_output = module.read().reshape(EMBEDDING, -1).T.astype(np.float32)
+            if not relative_rms(dla_output, reference) < 0.01:
+                raise RuntimeError("DLA output failed validation after overlap")
+        return result
 
 
 def measure(args, npu_dla):
@@ -226,7 +262,8 @@ def measure(args, npu_dla):
                     result["dla_host_roundtrip"] = timings(roundtrip, 64)
                     if args.gpu_library:
                         try:
-                            result["gpu"] = gpu_comparison(args.gpu_library, matrices, module, data, reference)
+                            result["gpu"] = gpu_comparison(args.gpu_library, matrices, module, data, reference,
+                                                           args.gpu_burst or [])
                         except (RuntimeError, OSError) as exc:
                             result["gpu_error"] = str(exc)
                 finally:
@@ -253,7 +290,10 @@ def main():
     parser.add_argument("--layer", type=int, default=0)
     parser.add_argument("--expert", type=int, default=0)
     parser.add_argument("--gpu-library", type=Path, help="DLL built from n1x_expert_gpu_probe.cu for a cuBLAS comparison")
+    parser.add_argument("--gpu-burst", type=int, nargs="+", help="Number of queued GPU expert launches per DLA job")
     args = parser.parse_args()
+    if args.gpu_burst and (not args.gpu_library or any(n < 1 for n in args.gpu_burst)):
+        parser.error("--gpu-burst takes positive sizes and requires --gpu-library")
     dll_dirs = [args.cudla_bin, *args.dll_dir]
     dll_handles = [os.add_dll_directory(str(path)) for path in dll_dirs]
     os.environ["PATH"] = os.pathsep.join([*(str(path) for path in dll_dirs), os.environ["PATH"]])
