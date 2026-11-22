@@ -9,7 +9,7 @@ The local fork tracks `yanmindi/basalt-arm-sm121` at `2ec7a844f9d83cda0fa579801f
 | RTX Spark N1X | 300 GB/s |
 | DGX Spark GB10 | 273 GB/s |
 
-N1X has 9.9% more theoretical memory bandwidth. This is a useful target for kernels limited by sustained memory reads. Serving throughput also depends on inference kernels, speculative acceptance, prefix reuse, memory placement, the operating system, and sustained power. [NVIDIA N1X guide](https://docs.nvidia.com/rtx-spark/rtx-spark-porting-guide/latest/overview.html) · [NVIDIA DGX Spark guide](https://docs.nvidia.com/dgx/dgx-spark-porting-guide/latest/dgx-spark-porting-guide.pdf)
+N1X has 9.9% more theoretical memory bandwidth. This is a useful target for kernels limited by sustained memory reads. Serving throughput also depends on inference kernels, speculative acceptance, prefix reuse, memory placement, the operating system, and sustained power. [NVIDIA N1X guide](https://docs.nvidia.com/rtx-spark/rtx-spark-porting-guide/latest/overview.html) · [NVIDIA DGX Spark guide](https://docs.nvidia.com/dgx/dgx-spark/hardware.html)
 
 | Public reference | Single request | Concurrent |
 | --- | ---: | ---: |
@@ -19,6 +19,8 @@ N1X has 9.9% more theoretical memory bandwidth. This is a useful target for kern
 | One GB10, Flash-Next vLLM V2/b12x | 60.4 tok/s at defaults | 136.7 tok/s at C8 |
 
 These results use different prompts, decode settings, speculative drafters, and measurement boundaries. The Flash-Next GB10 source also reports 192.0 tok/s at C8 with greedy coding prompts and thinking disabled. The N1X port documents an additional mixed decode run at about 116 tok/s. Use the published results as reference points. [N1X Basalt results](https://github.com/yanmindi/basalt-arm-sm121/blob/n1x/docs/arm64.md) · [27B GB10 results](https://github.com/kosztyua/Qwen3.8-27B-DGX-Spark#benchmarks) · [Flash-Next GB10 results](https://github.com/ursuciprian/qwen3.8-flash-next-1x-dgx-spark#performance)
+
+An Ubuntu 26.04 N1X vLLM deployment reports about 60 tok/s for Flash-Next and a 445-to-146-second weight-load improvement from pinning the loader to the fast cores. Its Linux allocator and cache workarounds are specific to that stack. CPU placement during loading and model repack peak memory are useful measurements on Windows too. [N1X Linux serving report](https://github.com/LeonMarzollDev/local-llm-rtx-spark#the-fixes-that-matter-on-unified-memory)
 
 A paired comparison needs one unit of each machine, identical Basalt revision and weights where available, matching prompt and output lengths, sampling and speculation, KV format, context and prefix-cache policy. Track median and p95 time to first token, end-to-end and decode-only aggregate output tokens per second, per-request throughput, and memory placement at C1/C2/C4/C8. Record power source, power mode and temperature. The initial local idle sweep uses a 32,768-token context budget, int8 KV, eight slots and at most 160 output tokens per request, with prompt caches disabled.
 
@@ -32,7 +34,7 @@ The CUDA guide describes different L2 behavior for CUDA host allocations and sui
 
 ## CPU experts and quantization
 
-An affinity-pinned `SMMLA` probe executed on each of the 20 cores. Basalt detects Arm I8MM and its current ARM NVFP4/Q8_0 dot product uses SDOT. A useful follow-up is an I8MM tile for multiple activation and output rows from the same expert, with scalar or SDOT tails. Compare output parity, small-expert-batch runtime, and end-to-end prefill overlap across the CPU clusters. Avoid spending GPU bandwidth on activations for CPU work if measured gather cost and overlap favor a smaller transfer.
+An affinity-pinned `SMMLA` probe executed on each of the 20 cores. Basalt detects Arm I8MM and its current ARM NVFP4/Q8_0 dot product uses SDOT. A two-activation, two-output-row I8MM probe matched the existing SDOT results bit for bit across 1,024 rows at widths 512, 2,048 and 3,072. The probe is independent of the engine. Time small expert batches next, then compare end-to-end prefill overlap across the CPU clusters. Avoid spending GPU bandwidth on activations for CPU work if measured gather cost and overlap favor a smaller transfer.
 
 Radiance IQR-V4 is a reference for selecting per-band precision by measured quality loss, including the output head. Basalt already ships mixed precision and separate FP8 and NVFP4 head measurements. A new head experiment should retain the existing weights as a control, gate on KLD and top-1 agreement against the higher-precision reference, and time the fused kernels at C1 and C8. [Radiance IQR-V4 report](https://radiance.stilldeadco.de/whitepapers/iqr-v4.pdf) · [Basalt 27B precision](https://github.com/jesdga95/basalt/blob/main/docs/precision/qwen38-27b.md)
 
