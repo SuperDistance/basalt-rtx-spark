@@ -27,8 +27,8 @@ static void ggml_vec_dot_nvfp4_q8_0(int n, float * GGML_RESTRICT s, size_t bs, c
     assert(n % QK_NVFP4 == 0);
     static_assert(QK_NVFP4 == 2 * QK8_0, "an NVFP4 block spans two Q8_0 blocks");
 
-    const block_nvfp4 * GGML_RESTRICT x = vx;
-    const block_q8_0  * GGML_RESTRICT y = vy;
+    const block_nvfp4 * GGML_RESTRICT x = (const block_nvfp4*) vx;
+    const block_q8_0  * GGML_RESTRICT y = (const block_q8_0*) vy;
     const int nb = n / QK_NVFP4;
 
     const int8x16_t values = vld1q_s8(kvalues_fp4);
