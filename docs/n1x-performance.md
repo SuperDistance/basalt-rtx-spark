@@ -58,6 +58,22 @@ A local test opened a 256 MiB read-only region of the 27B model using a Win32 fi
 
 The CUDA guide describes different L2 behavior for CUDA host allocations and suitably aligned registered memory. The opt-in `--exp n1x_file_gpu_mib=1024` registered 1,021.9 MiB of file-backed expert pages and initialized the verifier's GPU staging path. It registers a separate read-only virtual view so the normal CUDA host-to-device refill can still use the original file view. Registering the original view caused a CUDA invalid-argument error during a prompt cache-slot refill. With the separate view and early registration, the engine completed a warm-up and both eight-request waves. That run used 32 output tokens and measured 5.85 output tokens/s, with p95 first-token latency of 40.22 seconds. The 96-output-token control serves as a routing comparison. A matched run with staged-expert counts is needed to measure the performance effect of staging.
 
+### Direct GPU reads from mapped system memory
+
+An opt-in path gives the CUDA grouped expert kernel addresses of selected mapped experts. It supports different expert sizes across layers and bypasses the copy to device scratch. The parity test used Flash-Next geometry, random NVFP4, IQ3_XXS and IQ2_S weights (the latter two with IQ4_NL down projections), and one-, three- and eight-row windows. The direct addresses and output matched the existing staged CUDA path bit for bit in every exercised case. At eight rows, the direct plan plus compute ran in 133–160 µs, about 64–104 GB/s of selected weights. Staging then computing those groups separately took 177–286 µs in the same test, before any overlap with other streams. The ARM64 Release rebuild of `dec_moe.cu` took 206 seconds under a six-job build.
+
+The serving comparison used Flash-Next UD-IQ3_XXS, eight 4,096-token slots, int8 KV, about 717 input and 160 output tokens, and 16 requests per restart. The laptop was on AC with Windows Balanced, and NVML reported no power-limit value. Windows expanded its pagefile after the first control. These are the three runs at the resulting common placement of 15,014 cache slots (28.5 GiB GPU cache, 18.3 GiB RAM, zero file-backed experts at startup).
+
+| Decode path | Output tok/s at C8 | p95 TTFT | Decode window time, two waves | CPU experts, two waves |
+| --- | ---: | ---: | ---: | ---: |
+| Direct, run 1 | 55.73 | 12.22 s | 68.17 / 68.77 ms | 4.31 / 2.68 ms |
+| Direct, run 2 | 53.11 | 12.81 s | 73.23 / 70.90 ms | 6.81 / 2.07 ms |
+| Control | 54.01 | 12.02 s | 69.96 / 76.60 ms | 11.40 / 5.23 ms |
+
+The direct arms dispatched 21,739 routed entries from outside the device cache. They reduced CPU expert latency, and total throughput was within the spread of repeated runs. The path remains experimental. A control with a smaller 11,089-slot cache stopped during warm-up at a cuBLAS prefill call with status 14. The higher-cache runs and the initial 11,848-slot control completed. The cause of the smaller-cache failure is unverified.
+
+On a single integrated GPU, the Experts card reports where the routed weights were placed at load. The same byte counts are in `/metrics`. A fresh automatic load with eight configured slots reported 21.2 GiB in the GPU cache, 25.6 GiB in RAM and zero file-backed experts. The three byte counts summed exactly to the pack's 50,292,326,400-byte routed-expert section. The load and a generation request completed under the laptop's existing reservation.
+
 ## CPU experts and quantization
 
 An affinity-pinned `SMMLA` probe executed on each of the 20 cores. Basalt detects Arm I8MM and its current ARM NVFP4/Q8_0 dot product uses SDOT. A two-activation, two-output-row I8MM probe matched the existing SDOT results bit for bit across 1,024 rows at widths 512, 2,048 and 3,072. The paired dot kernels ran 2.29?2.83? faster in the synthetic microbenchmark. The engine enables the gate/up and down variants through `--exp n1x_i8mm=1`. Native wrapper parity passed 40 cases covering odd token and row counts and both SwiGLU modes. Serving gains still depend on the fraction of experts that run on the CPU. Avoid spending GPU bandwidth on activations for CPU work if measured gather cost and overlap favor a smaller transfer.
