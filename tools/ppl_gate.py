@@ -84,7 +84,8 @@ def gpu_count() -> int:
         out = subprocess.run(["nvidia-smi", "--list-gpus"], capture_output=True, text=True, timeout=10).stdout
     except (OSError, subprocess.SubprocessError):
         return 0
-    return sum(1 for line in out.splitlines() if line.startswith("GPU "))
+    # the N1X's NPU is listed too ("GPU 1: NVIDIA NPU (UUID: DLA-...)"); it is no CUDA device, as gpu_select.cpp skips it
+    return sum(1 for line in out.splitlines() if line.startswith("GPU ") and "(UUID: DLA-" not in line)
 
 
 def set_args(args: list[str], extra: list[str]) -> list[str]:
