@@ -1,6 +1,7 @@
 // src/models/qwen4exp/serve/memory.cpp - memory operations for the persistent engine.
 #include "basalt/models/qwen4exp/shared_names.hpp"
 #include "basalt/core/device_memory.hpp"
+#include "basalt/core/diag.hpp"
 #include "qfn_state.hpp"
 
 #include "basalt/core/host_plan.hpp"
@@ -239,6 +240,15 @@ int QfnRuntime::init_memory() {
                          (double) add / 1073741824.0, (long long) n_top,
                          (double) (src.resident_bytes() + add) / 1073741824.0);
         }
+    }
+    const double file_pin_mib = basalt::core::exp_flag("n1x_file_gpu_mib");
+    if (o.batch > 0 && srcp == &src && !multi_gpu && !peer.valid() && xpeers.empty() &&
+        file_pin_mib >= 1.0 && file_pin_mib < (double) (UINT64_MAX >> 20)) {
+        const uint64_t pinned = src.pin_file_experts(profile, [&](int32_t layer, int32_t expert) {
+            return host_res[(size_t) layer * g.n_expert + (size_t) expert] >= 0;
+        }, (uint64_t) file_pin_mib << 20);
+        basalt::log::info("basalt serve", "GPU staging: %.1f MiB of read-only model pages registered",
+                          (double) pinned / 1048576.0);
     }
     report_expert_tiers();
     // from here the RAM guard watches: below its floor the engine sheds and new requests wait, and a running

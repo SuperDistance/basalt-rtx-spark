@@ -1,6 +1,7 @@
 // src/core/expert_source.cpp - the adapter.  See the header for the three clauses of the contract.
 #include "basalt/core/expert_source.hpp"
 #include "basalt/core/diag.hpp"
+#include "basalt/core/device_memory.hpp"
 #include "basalt/core/load_progress.hpp"
 #include "basalt/core/peer_experts.hpp"
 #include "basalt/kernels/cpu/expert_layout.hpp"
@@ -280,6 +281,7 @@ bool FileExpertSource::open(const FileRange& experts, int64_t n_layers, int64_t 
 
 void FileExpertSource::close() {
     repin_join();
+    drop_file_pins();
     if (complement_arena_ != nullptr) {
         if (complement_allocation_.allocation_pinned()) complement_allocation_.reset();
         else if (complement_pinned_ && !complement_partial_) (void) cudaFreeHost(complement_arena_);
@@ -1532,8 +1534,87 @@ bool FileExpertSource::repin_finish(std::string& err) {
     return true;
 }
 
+uint64_t FileExpertSource::pin_file_experts(const std::vector<std::pair<int32_t, int32_t>>& rank,
+                                            const std::function<bool(int32_t, int32_t)>& skip, uint64_t budget) {
+    if constexpr (!platform::kBoundHostRegistration) return 0;
+    if (base_ == nullptr || !file_pins_.empty() || budget == 0 || !device_memory_model().integrated) return 0;
+    int device = -1, supported = 0;
+    if (cudaGetDevice(&device) != cudaSuccess ||
+        cudaDeviceGetAttribute(&supported, cudaDevAttrHostRegisterReadOnlySupported, device) != cudaSuccess ||
+        supported == 0) {
+        (void) cudaGetLastError();
+        return 0;
+    }
+    platform::HostMemory memory;
+    uint64_t allowance = 0;
+    std::string why;
+    if (!platform::host_available_memory(memory) || !host_pin_budget(allowance, why)) return 0;
+    const uint64_t reserve = plan_reserve(platform::ram_reserve());
+    budget = std::min({budget, allowance, ram_tier_room(memory.available, reserve, true)});
+    if (pin_tracking_bytes(budget) > commit_room(reserve)) return 0;
+    const uint64_t page = platform::system_page_size();
+    if (page == 0 || reinterpret_cast<uintptr_t>(base_) % page != 0 || budget < page) return 0;
+
+    file_pins_.reserve(std::min<uint64_t>(rank.size(), budget / page));
+    uint64_t registered = 0;
+    for (const auto& [layer, expert] : rank) {
+        if (budget - registered < page) break;
+        const uint8_t* blob = mapped_blob(layer, expert);
+        if (blob == nullptr || skip(layer, expert) || has_resident(layer, expert)) continue;
+        const uint64_t off = (uint64_t) (blob - base_);
+        const uint64_t begin = off - off % page;
+        uint64_t end = off + layer_blob_bytes_[(size_t) layer];
+        if (end % page != 0) {
+            const uint64_t pad = page - end % page;
+            if (pad > mapped_bytes_ - end) continue;
+            end += pad;
+        }
+        if (end - begin > budget - registered) continue;
+        auto at = std::lower_bound(file_pins_.begin(), file_pins_.end(), begin,
+                                   [](const FilePin& pin, uint64_t value) { return pin.begin < value; });
+        if ((at != file_pins_.end() && at->begin < end) ||
+            (at != file_pins_.begin() && (at - 1)->end > begin)) continue;
+
+        auto* host = const_cast<uint8_t*>(base_ + begin);
+        if (cudaHostRegister(host, (size_t) (end - begin), cudaHostRegisterMapped | cudaHostRegisterReadOnly) != cudaSuccess) {
+            (void) cudaGetLastError();
+            break;
+        }
+        void* alias = nullptr;
+        if (cudaHostGetDevicePointer(&alias, host, 0) != cudaSuccess || alias == nullptr) {
+            (void) cudaHostUnregister(host);
+            (void) cudaGetLastError();
+            break;
+        }
+        file_pins_.insert(at, {begin, end, static_cast<const uint8_t*>(alias)});
+        registered += end - begin;
+    }
+    if (registered > 0) ++places_gen_;
+    return registered;
+}
+
+void FileExpertSource::drop_file_pins() {
+    if (file_pins_.empty()) return;
+    for (const FilePin& pin : file_pins_) (void) cudaHostUnregister(const_cast<uint8_t*>(base_ + pin.begin));
+    (void) cudaGetLastError();
+    file_pins_.clear();
+    ++places_gen_;
+}
+
+const uint8_t* FileExpertSource::file_device_alias(int64_t layer, int64_t expert) const {
+    if (file_pins_.empty()) return nullptr;
+    const uint8_t* blob = mapped_blob(layer, expert);
+    if (blob == nullptr) return nullptr;
+    const uint64_t off = (uint64_t) (blob - base_);
+    const auto at = std::upper_bound(file_pins_.begin(), file_pins_.end(), off,
+                                      [](uint64_t value, const FilePin& pin) { return value < pin.begin; });
+    if (at == file_pins_.begin()) return nullptr;
+    const FilePin& pin = *(at - 1);
+    return off + layer_blob_bytes_[(size_t) layer] <= pin.end ? pin.device + (off - pin.begin) : nullptr;
+}
+
 const uint8_t* FileExpertSource::device_alias(int64_t layer, int64_t expert) const {
-    if (!pinned(layer, expert)) return nullptr;
+    if (!pinned(layer, expert)) return file_device_alias(layer, expert);
     const size_t index = (size_t) layer * (size_t) n_expert_ + (size_t) expert;
     const uint64_t off = complement_offsets_[index];
     if (off < complement_bytes_ && complement_device_ == nullptr) return nullptr;
@@ -1547,7 +1628,7 @@ const uint8_t* FileExpertSource::device_alias(int64_t layer, int64_t expert) con
 }
 
 bool FileExpertSource::pcie_layer(int64_t layer) const {
-    if (complement_ready_ && complement_pinned_ && complement_device_ != nullptr)
+    if ((complement_ready_ && complement_pinned_ && complement_device_ != nullptr) || !file_pins_.empty())
         return layer >= 0 && layer < n_layers_;
     return device_alias(layer, 0) != nullptr;
 }

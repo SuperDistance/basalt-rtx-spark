@@ -272,6 +272,11 @@ public:
         uint64_t headroom_bytes = 8ull << 30, uint64_t budget_bytes = 0,
         const std::vector<std::pair<int32_t, int32_t>>* rank = nullptr);
     bool finish_complement(bool unbuffered, std::string& err);
+    /// Register read-only model pages for GPU staging without allocating a second host copy.
+    /// Call before capture or between requests. The return value is the number of bytes registered.
+    uint64_t pin_file_experts(const std::vector<std::pair<int32_t, int32_t>>& rank,
+                             const std::function<bool(int32_t, int32_t)>& skip, uint64_t bytes);
+    void drop_file_pins();
     /// The bytes of a planned copy its step registers with the driver once its reads have landed (0 when there is none
     /// or it is registered): a tier sized before then leaves their mapping free (pin_mapping_bytes).
     uint64_t pin_pending() const;
@@ -477,6 +482,9 @@ private:
     uint64_t xstage_blob_ = 0;
     int64_t exchanges_ = 0;
     uint64_t places_gen_ = 0;   ///< places_generation
+    struct FilePin { uint64_t begin, end; const uint8_t* device; };
+    std::vector<FilePin> file_pins_;   ///< ordered, non-overlapping intervals in the mapped view
+    const uint8_t* file_device_alias(int64_t layer, int64_t expert) const;
     int64_t spares_want_ = 0;
     std::vector<std::pair<uint64_t, uint64_t>> spare_free_;   // (offset, bytes) of free places
     std::atomic<int64_t> file_reads_{0};

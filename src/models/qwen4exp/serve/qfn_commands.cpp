@@ -86,6 +86,7 @@ void QfnRuntime::sleep_command(bool down, std::string& verr) {
         basalt::log::info("basalt serve", "WAKE: the RAM copy registered again beside the caches' refill "
                           "in %.0f ms", std::chrono::duration<double, std::milli>(Clock::now() - tp).count());
     }
+    if (down && verr.empty()) src.drop_file_pins();
     if (down && verr.empty() && src.complement_ready()) {
         const auto tu = Clock::now();
         if (src.unpin_complement(uerr))
