@@ -40,6 +40,7 @@ struct Options : CommonOptions {
     uint64_t resident_headroom = 8ull << 30;
     bool resident_soft = false;
     bool resident_cpu_explicit = false;   // --resident-cpu-experts given by itself (not only implied)
+    bool map_expert_complement = false;   // the automatic GPU budget leaves room for read-only expert registration
     int64_t peer_slots = 0;
     int peer_adapt_swaps = -1;
     /// The peer's experts are held only on the peer, not also in the RAM complement (needs --resident-experts).

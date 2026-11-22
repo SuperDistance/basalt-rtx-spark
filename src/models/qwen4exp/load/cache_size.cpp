@@ -128,7 +128,7 @@ int cache_size(Context& context) {
         if (gpu_first)
             basalt::log::info("basalt generate", "commit-limited UMA: sizing the GPU cache before resident experts");
         if (gpu_first && o.peer_device < 1 && o.peer_devices.empty() &&
-            basalt::core::exp_flag("n1x_file_gpu_mib") == -1.0) {
+            basalt::core::exp_flag("n1x_file_gpu_mib", -1.0) == -1.0) {
             int device = -1, read_only = 0;
             basalt::platform::HostMemory host;
             uint64_t pin_room = 0;
@@ -150,7 +150,13 @@ int cache_size(Context& context) {
                 if (mapped_room > 0 && expert_total_bytes > gpu_budget) {
                     const uint64_t cache_budget = basalt::core::gpu_budget_with_mapped_experts(
                         expert_total_bytes, device_budget, commit_budget, mapped_room, private_payload, private_commit);
-                    if (cache_budget / cache_slot_bytes >= minimum_cache_slots && cache_budget < gpu_budget) {
+                    const uint64_t outside_gpu = expert_total_bytes - cache_budget;
+                    const uint64_t outside_private = outside_gpu - std::min(outside_gpu, private_payload);
+                    const bool full_complement = outside_private <= mapped_room;
+                    const bool mapping_requested = basalt::core::exp_flag("n1x_file_gpu_mib") == -1.0;
+                    if (cache_budget / cache_slot_bytes >= minimum_cache_slots && cache_budget < gpu_budget &&
+                        (full_complement || mapping_requested)) {
+                        o.map_expert_complement = true;
                         o.resident_budget = private_payload;
                         late_b += (int64_t) (gpu_budget - cache_budget);
                         basalt::log::info("basalt generate", "commit-limited UMA: leaving %.2f GiB of commit for the "

@@ -179,7 +179,7 @@ Flow QfnRuntime::run_request() {
 int QfnRuntime::init_before_input() {
     if (const int code = init_prompt()) return code;
     // The verifier sizes its staging buffers during initialization, based on the expert aliases it can use.
-    const double file_pin_mib = basalt::core::exp_flag("n1x_file_gpu_mib");
+    const double file_pin_mib = basalt::core::exp_flag("n1x_file_gpu_mib", o.map_expert_complement ? -1.0 : 0.0);
     uint64_t file_pin_budget = 0;
     if (file_pin_mib == -1.0) file_pin_budget = UINT64_MAX;
     else if (file_pin_mib >= 1.0 && file_pin_mib < (double) (UINT64_MAX >> 20))
