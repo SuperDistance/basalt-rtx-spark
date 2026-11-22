@@ -48,7 +48,8 @@ class Checkpoint:
             raise S.ConvertError(f"{cfg} not found")
         self.config = json.loads(cfg.read_text(encoding="utf-8"))
         self.text = self.config.get("text_config", self.config)
-        self.files = sorted(self.dir.glob("*.safetensors"))
+        # shards beside config.json, or in a tensors/ folder (nvidia/Qwen3.8-Flash-Next-FP4-Local)
+        self.files = sorted(self.dir.glob("*.safetensors")) + sorted(self.dir.glob("tensors/*.safetensors"))
         self.shards = [p for p in self.files if re.fullmatch(r"model-\d+-of-\d+\.safetensors", p.name)]
         if not self.shards:
             raise S.ConvertError(f"{self.dir}: no model-NNNNN-of-NNNNN.safetensors shards")
@@ -108,15 +109,48 @@ def nvfp4_rows(codes: np.ndarray, scales: np.ndarray) -> np.ndarray:
     return out.reshape(-1)
 
 
+def csf_scales(fixed: np.ndarray, exceptions: np.ndarray, rows: int, cols: int) -> np.ndarray:
+    """The UE4M3 block scales [rows, cols] of a `weight_scale_encoding: csf` pair, bit for bit. `fixed` [rows/16,
+    16 + 8 cols] uint8: per 16 rows, each row's base byte, then the rows' 4-bit codes (scale - base, column 2i in the
+    low nibble of byte i); `exceptions` uint32: (scale byte << 24) | flat position, for the scales outside base..base+15."""
+    if rows % 16 or cols % 2 or fixed.shape != (rows // 16, 16 + 8 * cols):
+        raise S.ConvertError(f"a CSF scale stream of shape {list(fixed.shape)} for [{rows}, {cols}] scales")
+    bases = fixed[:, :16].reshape(rows).astype(np.uint16)
+    packed = fixed[:, 16:].reshape(rows, cols // 2)
+    out = np.empty((rows, cols), np.uint16)
+    out[:, 0::2] = packed & 15
+    out[:, 1::2] = packed >> 4
+    out += bases[:, None]
+    if (bases > 240).any():
+        raise S.ConvertError("a CSF row base above 240")
+    pos, val = exceptions & 0xFFFFFF, exceptions >> 24
+    if pos.size and (int(pos.max()) >= rows * cols or (np.diff(pos.astype(np.int64)) <= 0).any()):
+        raise S.ConvertError("CSF exception positions out of range or out of order")
+    flat = out.reshape(-1)
+    flat[pos] = val
+    return out.astype(np.uint8)
+
+
+def _scale_rows(spec) -> np.ndarray:
+    """A projection's [rows, cols/16] UE4M3 scales: stored plainly (path, offset, shape) or as a CSF pair."""
+    if spec[0] == "csf":
+        _, (fp, fo, fshape), (xp, xo, xn), (rows, cols) = spec
+        fixed = np.fromfile(fp, dtype=np.uint8, count=fshape[0] * fshape[1], offset=fo).reshape(fshape)
+        exc = np.fromfile(xp, dtype="<u4", count=xn, offset=xo)
+        return csf_scales(fixed, exc, rows, cols)
+    sp, so, sshape = spec
+    return np.fromfile(sp, dtype=np.uint8, count=sshape[0] * sshape[1], offset=so).reshape(sshape)
+
+
 def _expert_job(args):
     """Blobs of experts [s, s + n) of one layer: [gate | up | down] blocks, and for NVFP4 the FP32 scale tail."""
     entries, n = args[0], args[1]
     out = []
     for e in range(n):
         parts, tail = [], []
-        for (wp, wo, wshape), (sp, so, sshape), (tp, to) in entries[e]:
+        for (wp, wo, wshape), sspec, (tp, to) in entries[e]:
             w = np.fromfile(wp, dtype=np.uint8, count=wshape[0] * wshape[1], offset=wo).reshape(wshape)
-            sc = np.fromfile(sp, dtype=np.uint8, count=sshape[0] * sshape[1], offset=so).reshape(sshape)
+            sc = _scale_rows(sspec)
             if (sc & 0x80).any() or (sc == 0x7F).any():
                 return f"a UE4M3 scale with the sign bit set or NaN at {wp.name}+{wo}"
             tail.append(np.fromfile(tp, dtype="<f4", count=1, offset=to)[0])
@@ -147,7 +181,9 @@ class CheckpointExperts:
         shapes = {"gate_proj": (ff, h), "up_proj": (ff, h), "down_proj": (h, ff)}
         self.blob = 2 * ff * S.nvfp4_row_bytes(h) + h * S.nvfp4_row_bytes(ff) + S.NVFP4_TAIL
         self.gu_type = self.d_type = NVFP4
-        known = {f"{r}.{k}" for r in self.ROLES for k in ("weight", "weight_scale", "weight_scale_2", "input_scale")}
+        known = {f"{r}.{k}" for r in self.ROLES for k in ("weight", "weight_scale", "weight_scale_2", "input_scale",
+                                                            "weight_scale.nvfp4_csf_fixed",
+                                                            "weight_scale.nvfp4_csf_exceptions")}
         for k in ck.t:
             m = re.fullmatch(r"model\.language_model\.layers\.(\d+)\.mlp\.experts\.(\d+)\.(.+)", k)
             if m and (int(m.group(1)) >= self.n_layers or int(m.group(2)) >= self.n_expert or m.group(3) not in known):
@@ -162,10 +198,19 @@ class CheckpointExperts:
                     p = f"model.language_model.layers.{l}.mlp.experts.{e}.{r}."
                     rows, cols = shapes[r]
                     ck.need(p + "weight", "U8", (rows, cols // 2))
-                    ck.need(p + "weight_scale", "F8_E4M3", (rows, cols // 16))
                     ck.need(p + "weight_scale_2", "F32", ())
-                    w, s, t = (ck.t[p + k] for k in ("weight", "weight_scale", "weight_scale_2"))
-                    ex.append(((w[0], w[1], w[3]), (s[0], s[1], s[3]), (t[0], t[1])))
+                    w, t = ck.t[p + "weight"], ck.t[p + "weight_scale_2"]
+                    if p + "weight_scale" in ck.t or p + "weight_scale.nvfp4_csf_fixed" not in ck.t:
+                        ck.need(p + "weight_scale", "F8_E4M3", (rows, cols // 16))
+                        s = ck.t[p + "weight_scale"]
+                        sspec = (s[0], s[1], s[3])
+                    else:   # weight_scale_encoding csf: the scales come back bit for bit (csf_scales)
+                        sc = cols // 16
+                        ck.need(p + "weight_scale.nvfp4_csf_fixed", "U8", (rows // 16, 16 + 8 * sc))
+                        ck.need(p + "weight_scale.nvfp4_csf_exceptions", "U32")
+                        f, x = ck.t[p + "weight_scale.nvfp4_csf_fixed"], ck.t[p + "weight_scale.nvfp4_csf_exceptions"]
+                        sspec = ("csf", (f[0], f[1], f[3]), (x[0], x[1], x[4] // 4), (rows, sc))
+                    ex.append(((w[0], w[1], w[3]), sspec, (t[0], t[1])))
                 layer.append(ex)
             self.entries.append(layer)
         self.layout = [(l, self.gu_type, self.d_type, l * self.blob * self.n_expert, self.blob)

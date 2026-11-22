@@ -104,6 +104,73 @@ class Nvfp4RepackTest(unittest.TestCase):
             self.assertIsInstance(C._expert_job(([ent], 1)), str)
 
 
+def csf_encode(raw: np.ndarray):
+    """The reference `csf` encoder (vLLM's test): row base = row minimum capped at 240, codes outside 0..15 as
+    exceptions (scale byte << 24 | flat position)."""
+    rows, cols = raw.shape
+    r = raw.astype(np.int64)
+    bases = np.minimum(r.min(axis=1, keepdims=True), 240)
+    codes = r - bases
+    out = (codes < 0) | (codes > 15)
+    codes = np.where(out, 0, codes)
+    packed = (codes[:, 0::2] | (codes[:, 1::2] << 4)).astype(np.uint8)
+    fixed = np.concatenate((bases.astype(np.uint8).reshape(rows // 16, 16), packed.reshape(rows // 16, -1)), axis=1)
+    pos = np.flatnonzero(out.reshape(-1))
+    return fixed, ((r.reshape(-1)[pos] << 24) | pos).astype("<u4")
+
+
+class CsfScaleTest(unittest.TestCase):
+    def raw(self, shape):
+        rng = np.random.default_rng(0)
+        raw = rng.integers(0x30, 0x40, size=shape, dtype=np.uint8)
+        raw.reshape(-1)[rng.permutation(raw.size)[:64]] = 0x7E   # bytes outside a row's 16-wide window
+        return raw
+
+    def test_decodes_bit_for_bit(self):
+        for shape in ((640, 160), (2560, 40)):
+            raw = self.raw(shape)
+            fixed, exc = csf_encode(raw)
+            self.assertGreaterEqual(exc.size, 64)
+            np.testing.assert_array_equal(C.csf_scales(fixed, exc, *shape), raw)
+
+    def test_bad_streams_are_refused(self):
+        raw = np.full((16, 4), 0x38, np.uint8)
+        fixed, _ = csf_encode(raw)
+        for base, words in ((0xFF, []), (0x38, [5, 3]), (0x38, [3, 3]), (0x38, [64])):
+            f = fixed.copy()
+            f[0, 0] = base
+            with self.assertRaises(S.ConvertError):
+                C.csf_scales(f, np.array(words, "<u4"), 16, 4)
+
+    def test_expert_blob_from_csf_matches_plain_scales(self):
+        rng = np.random.default_rng(2)
+        h, ff = 128, 64
+        with tempfile.TemporaryDirectory() as tmp:
+            p = Path(tmp) / "x.safetensors"
+            tens, plain = {}, []
+            shapes = {"gate_proj": (ff, h), "up_proj": (ff, h), "down_proj": (h, ff)}
+            for i, (r, (rows, cols)) in enumerate(shapes.items()):
+                w = rng.integers(0, 256, size=(rows, cols // 2), dtype=np.uint8)
+                s = self.raw((rows, cols // 16))
+                fixed, exc = csf_encode(s)
+                tens[f"{r}.weight"] = ("U8", w.shape, w.tobytes())
+                tens[f"{r}.weight_scale.nvfp4_csf_fixed"] = ("U8", fixed.shape, fixed.tobytes())
+                tens[f"{r}.weight_scale.nvfp4_csf_exceptions"] = ("U32", exc.shape, exc.tobytes())
+                tens[f"{r}.weight_scale_2"] = ("F32", (), np.float32(0.5 + i).tobytes())
+                plain.append(C.nvfp4_rows(w, s).tobytes())
+            write_safetensors(p, tens)
+            head, base = S.read_safetensors_header(p)
+            off = lambda k: base + head[k]["data_offsets"][0]  # noqa: E731
+            ent = []
+            for r, (rows, cols) in shapes.items():
+                f, x = f"{r}.weight_scale.nvfp4_csf_fixed", f"{r}.weight_scale.nvfp4_csf_exceptions"
+                ent.append(((p, off(f"{r}.weight"), [rows, cols // 2]),
+                            ("csf", (p, off(f), head[f]["shape"]), (p, off(x), head[x]["shape"][0]), (rows, cols // 16)),
+                            (p, off(f"{r}.weight_scale_2"))))
+            blob = C._expert_job(([ent], 1))
+            self.assertEqual(blob, b"".join(plain) + np.array([0.5, 1.5, 2.5, 0], "<f4").tobytes())
+
+
 GDN = 2 * S.GDN_K_HEADS * S.GDN_HEAD + S.GDN_V_HEADS * S.GDN_HEAD      # q, k, then the value channels
 
 
