@@ -71,22 +71,19 @@ a "cublas64_13.dll was not found" dialog, which waits for a click while ctest wa
 
 ## The integrated GPU
 
-The GPU has no memory of its own: the firmware gives it a carve-out of the machine's RAM (96 GB of 128 on the N1X). Measured on the
-N1X under Windows, and handled in `core/device_memory` and `core/device_copy`:
+The GPU shares the machine's physical RAM. Firmware establishes a dedicated GPU segment, and Windows reports the
+actual segment size. Basalt reads the available GPU memory and system commit budget at startup.
 
 - **Free memory.** `cudaMemGetInfo` reports the carve-out plus a shared segment (110.5 GiB on the N1X), and its free figure misses
   memory mapped through the virtual-memory API, which is how the expert cache and the KV arena are made. Every sizing decision now
   reads `core::device_mem_info`: on a discrete card exactly `cudaMemGetInfo`; on an integrated GPU the carve-out as the total, and
   as used the larger of what every process has written (NVML) and what the others held at the first reading plus what this process
   holds now (DXGI on Windows).
-- **The Windows commit limit.** Windows charges an integrated GPU's memory to the commit limit (RAM plus page file) when it is
-  allocated, before a byte is written. The engine keeps the commit headroom less its reserve (`--ram-reserve-mib` plus the 2 GiB
-  for what loads after the plan) free, in the device reading and for the page-locked RAM copy, and says so once in the log when the
-  commit limit binds before the GPU's memory does. The first load of the Flash-Next NVFP4 pack without this took the commit charge to
-  97.3 of 98.5 GiB. **On a 128 GB N1X, give Windows a page file of at least about 72 GiB** (custom size, 81,920 to 98,304 MB
-  here): with the system-managed 68 GiB the guard kept 229 experts on the SSD and dropped the RAM copy of the prompt path's lent
-  slots (refilled from the SSD in 0.9 s per request instead of 8 ms); with 80 GiB every expert sits on the GPU and the peak commit
-  charge is 87.4 of 110.5 GiB.
+- **The Windows commit limit.** Integrated GPU allocations draw from the system commit budget. Basalt keeps headroom for
+  serving buffers and the OS. When commit is the tighter limit, Flash-Next's automatic single-GPU placement sizes the GPU
+  cache first. It keeps the hottest remaining experts that fit the RAM and commit budgets and reads the rest through the
+  model's file mapping. The GPU reservation can stay at its current setting. Available commit can vary with the
+  system-managed pagefile and other programs, so the amount of model data kept resident can change between launches.
 - **Uploads from pageable memory land late.** A synchronous `cudaMemcpy` from pageable memory to the device returns before the
   bytes are visible to a kernel on another stream (seen on Linux and Windows). `core::device_copy` waits for the default stream after
   such a copy on an integrated GPU; every synchronous copy in the engine goes through it. On a discrete card it is `cudaMemcpy`.
