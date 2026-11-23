@@ -26,5 +26,26 @@ basalt-rtx-spark ran from 11:23 to 11:55, then 2ec7a84 from 12:18 to 12:56, each
 | Prefill at 2K / 8K / 16K / 32K / 64K (tok/s) | 983 / 1,506 / 2,055 / 1,951 / 2,095 | 1,724 / 2,077 / 2,149 / 2,295 / 2,342 |
 | GPU while busy: mean power, clock, temperature | 40.8 W, 2,072 MHz, 76 C | 42.3 W, 2,063 MHz, 77 C |
 
+### Single-stream decode by scenario
+
+![Single-stream decode by scenario](../../img/paired-decode.svg)
+
+| Scenario | Basalt + Arm64 port `2ec7a84` | basalt-rtx-spark `25551ed` |
+| --- | ---: | ---: |
+| chat | 77.1 | 91.1 |
+| code | 92.0 | 106.8 |
+| file_edit | 87.4 | 107.1 |
+| json | 114.8 | 111.2 |
+| math | 102.2 | 110.4 |
+| prose | 69.9 | 80.0 |
+| reasoning | 72.7 | 83.7 |
+| summarization | 89.3 | 97.3 |
+| **weighted** | **87.5** | **97.9** |
+
+`json` is within both runs' spread (interquartile range 23-26 tok/s); every other scenario is faster here.
+
+![Aggregate output by concurrency](../../img/paired-concurrency.svg)
+![Prefill by prompt depth](../../img/paired-prefill.svg)
+
 Files: `basalt-rtx-spark.json`, `basalt-arm-sm121-2ec7a84.json` (BetterBench), and their `.gpu.csv` logs (every 5 s).
 The first JSON's notes name the build by its development commit, `004d287`; its code is `25551ed` here.

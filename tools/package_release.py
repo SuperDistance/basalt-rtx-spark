@@ -1,11 +1,14 @@
 #!/usr/bin/env python3
-"""Packs a built tree into the release archive: basalt-<tag>-<platform>.tar.gz (linux-*) or .zip (windows-*).
+r"""Packs a built tree into the release archive: basalt-<tag>-<platform>.tar.gz (linux-*) or .zip (windows-*).
 
 Run from a tree that has been built (the executables are in bin/). The archive holds one top-level directory with the
 executables, the server and the Python files it imports, the expert profiles and bench fixtures, the requirements,
-the licences and the docs. No CUDA libraries and no Python environment are packed.
+the licences and the docs. No Python environment is packed, and no CUDA libraries unless `--cuda` names a toolkit:
+then the cuBLAS DLLs the engine loads go into bin/ beside it (Windows looks there first) with NVIDIA's licence in
+licenses/. windows-arm64 also gets setup.cmd, start.cmd and a basalt_config.json from tools/release/windows-arm64/.
 
     python tools/package_release.py --tag v0.3.1 --platform linux-x64 [--root DIR] [--out DIR]
+    python tools/package_release.py --tag v0.4.1-rtx-spark.1 --platform windows-arm64 --cuda C:\cuda-13.5
 
 Prints the archive's path.
 """
@@ -24,6 +27,21 @@ FILES = ("requirements.txt", "LICENSE", "THIRD_PARTY_LICENSES", "README.md")
 TREES = ("serve", "data/profiles", "data/bench", "docs")
 SKIP_DIRS = {"__pycache__", "tests", "img", "community", "assets"}   # docs/img, docs/community, docs/assets are web-only
 SKIP_SUFFIXES = (".pyc",)
+CUDA_DLLS = ("cublas64_13.dll", "cublasLt64_13.dll")   # what basalt.exe loads (cudart is static); in the toolkit's bin\arm64 or bin
+ARM64_EXTRAS = ("setup.cmd", "start.cmd", "basalt_config.json")   # tools/release/windows-arm64/, at the top directory
+
+
+def cuda_members(cuda: Path) -> list[tuple[Path, str, bool]]:
+    out: list[tuple[Path, str, bool]] = []
+    for name in CUDA_DLLS:
+        src = next((p for p in (cuda / "bin" / "arm64" / name, cuda / "bin" / name) if p.is_file()), None)
+        if src is None:
+            sys.exit(f"package_release: {name} is not in {cuda}\\bin\\arm64 or {cuda}\\bin")
+        out.append((src, f"bin/{name}", False))
+    if not (cuda / "LICENSE").is_file():
+        sys.exit(f"package_release: {cuda / 'LICENSE'} (NVIDIA's licence for the redistributed DLLs) is missing")
+    out.append((cuda / "LICENSE", "licenses/NVIDIA-CUDA-EULA.txt", False))
+    return out
 
 
 def members(root: Path, windows: bool) -> list[tuple[Path, str, bool]]:
@@ -56,9 +74,10 @@ def members(root: Path, windows: bool) -> list[tuple[Path, str, bool]]:
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     ap.add_argument("--tag", required=True, help="the release tag, v<major>.<minor>.<patch>")
-    ap.add_argument("--platform", required=True, choices=("linux-x64", "windows-x64"))
+    ap.add_argument("--platform", required=True, choices=("linux-x64", "windows-x64", "windows-arm64"))
     ap.add_argument("--root", type=Path, default=Path(__file__).resolve().parents[1], help="the built tree")
     ap.add_argument("--out", type=Path, default=Path("dist"))
+    ap.add_argument("--cuda", type=Path, help="a CUDA 13 toolkit whose cuBLAS DLLs go into bin/ (Windows only)")
     a = ap.parse_args()
     if not re.fullmatch(r"v\d+\.\d+\.\d+(-[0-9A-Za-z.]+)?", a.tag):
         sys.exit(f"package_release: tag {a.tag!r} is not of the form v0.3.1")
@@ -71,6 +90,16 @@ def main() -> int:
     a.out.mkdir(parents=True, exist_ok=True)
     path = a.out / (top + (".zip" if windows else ".tar.gz"))
     files = members(a.root.resolve(), windows)
+    if a.cuda is not None:
+        if not windows:
+            sys.exit("package_release: --cuda packs Windows DLLs; a Linux archive names the toolkit's libraries instead")
+        files += cuda_members(a.cuda.resolve())
+    if a.platform == "windows-arm64":
+        extras = a.root.resolve() / "tools" / "release" / "windows-arm64"
+        for name in ARM64_EXTRAS:
+            if not (extras / name).is_file():
+                sys.exit(f"package_release: {extras / name} is missing")
+            files.append((extras / name, name, False))
     if windows:
         with zipfile.ZipFile(path, "w", zipfile.ZIP_DEFLATED) as z:
             for src, rel, _ in files:

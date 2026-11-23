@@ -115,9 +115,18 @@ BetterBench 0.6.1, the same laptop, model pack and settings, run back to back (t
 | First token at 4 streams, p50 | 727 ms | **430 ms** | 1.7x faster |
 | Prefill at 2K / 8K / 64K tokens (tok/s) | 983 / 1,506 / 2,095 | **1,724 / 2,077 / 2,342** | +75% / +38% / +12% |
 
+![Single-stream decode by scenario](benchmarks/img/paired-decode.svg)
+
+| Single-stream decode (tok/s) | chat | code | file_edit | json | math | prose | reasoning | summarization |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| Basalt + Arm64 port | 77.1 | 92.0 | 87.4 | 114.8 | 102.2 | 69.9 | 72.7 | 89.3 |
+| **basalt-rtx-spark** | **91.1** | **106.8** | **107.1** | **111.2** | **110.4** | **80.0** | **83.7** | **97.3** |
+
 Against vLLM for RTX Spark (FP4-Local, MTP 7) on the same laptop and benchmark, in an earlier run of both without the
 power budget held up, single-stream decode was 60% faster (88.2 against 55.1 tok/s); vLLM led on short-prompt first
-token, at three and four streams, and on prefill ([details](docs/n1x-vs-vllm.md)).
+token, at three and four streams, and on prefill ([details](benchmarks/results/2026-11-22-hp-omnibook-x-n1x-128gb-vllm)).
+
+![Single-stream decode by scenario, against vLLM](benchmarks/img/vllm-decode.svg)
 
 **Have an RTX Spark (or a DGX Spark)?** Run the [benchmark](benchmarks) and send your numbers.
 

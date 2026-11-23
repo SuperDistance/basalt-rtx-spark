@@ -2,3 +2,5 @@
 tests/data/native_experts/** -text
 # the table is checked byte for byte (tools/check_benchmarks.py), so it stays LF on every checkout
 docs/community/benchmarks.json text eol=lf
+# cmd.exe misreads labels in LF files: batch files keep CRLF on every checkout
+*.cmd text eol=crlf
