@@ -56,5 +56,5 @@ decline, depending on when the profile was last written.
 
 CPU load appears to draw on the same budget. In an alternating A/B of the n-gram table's buffered reads, which kept most CPU
 cores busy during a prompt, against its unbuffered copy, the buffered arms' GPU drew 19-41 W and the unbuffered arms'
-25-47 W over the same prompts ([performance notes](n1x-performance.md#the-n-gram-tables-own-copy)). Builds and other
+25-47 W over the same prompts ([prompt path](n1x-prompt-path.md#the-n-gram-tables-own-copy)). Builds and other
 CPU-heavy work beside a benchmark likely lower its numbers.
