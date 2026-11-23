@@ -81,7 +81,11 @@ frames decode on the CPU.
   Qwen and DeepSeek's resident RAM tiers share CUDA host VMM when supported, with ordinary registration as the fallback.
   Allocation-backed pins stay in RAM across SLEEP/WAKE; the expert caches can still return their VRAM.
 - Large pages need "Lock pages in memory" (Administrators). Without it the engine uses 4 KiB pages and says so at start.
-- No shared arena files and no cgroup limits. `--ple-io direct` reads through the file cache.
+- No shared arena files and no cgroup limits.
+- NTFS reads a mapped file's unbuffered reads one at a time, and its cached random reads cost a CPU core each, so `--ple-io direct`
+  reads the n-gram table from its own copy beside the model (the model file's name plus `.ple`). The copy is written once at start when the volume
+  keeps 16 GiB free after it (about 30 s for a 29 GB table), and compared against the model on every start. Without room the
+  table is read through the file cache, with a warning.
 - `basalt serve` runs the Python server as a child.
 - A display-attached GPU can hit the driver's timeout (TDR). Raise `TdrDelay` under `HKLM\SYSTEM\CurrentControlSet\Control\GraphicsDrivers`.
 - A card that drives the desktop has VRAM that moves between starts, so greedy output can differ run to run. Pin `expert-cache` and raise

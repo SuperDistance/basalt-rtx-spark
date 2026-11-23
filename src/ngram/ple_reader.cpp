@@ -1,9 +1,13 @@
 // src/ngram/ple_reader.cpp - see include/basalt/ngram/ple_reader.hpp.
 #include "basalt/ngram/ple_reader.hpp"
+#include "basalt/core/load_progress.hpp"
+#include "basalt/log.hpp"
+#include "basalt/platform/file.hpp"
 
 #include <algorithm>
 #include <chrono>
 #include <condition_variable>
+#include <cstdio>
 #include <cstring>
 #include <deque>
 #include <exception>
@@ -27,6 +31,95 @@ double ReaderStats::percentile(double q) const {
 }
 
 namespace {
+
+// THE TABLE'S OWN COPY. Where the reads of a file that is also mapped go through the file cache (DirectFile's
+// `mapped_elsewhere`), every row read costs the cache manager a miss and few stay in flight. The table is then
+// read from a copy of its bytes alone, written once beside the model, which nothing maps, so its reads bypass the
+// cache and fill the queue. The copy is checked against the model on every open; one that differs is rewritten.
+constexpr uint64_t COPY_CHUNK = 64ull << 20;
+constexpr uint64_t COPY_RESERVE = 16ull << 30;   // free space the copy leaves on its volume
+constexpr int COPY_CHECKS = 32;                  // pages compared against the model on open
+
+uint64_t round_page(uint64_t b) { return (b + PAGE - 1) / PAGE * PAGE; }
+
+/// Whether the copy at `copy` holds the `bytes` at `offset` of `src`: its size, its first and last page and pages
+/// spread over the table.
+bool copy_matches(const std::string& src, uint64_t offset, uint64_t bytes, const std::string& copy) {
+    uint64_t size = 0;
+    if (!platform::file_size(copy, size) || size != round_page(bytes)) return false;
+    const int a = platform::open_fd_utf8(src), b = platform::open_fd_utf8(copy);
+    bool ok = a >= 0 && b >= 0;
+    std::vector<uint8_t> pa(PAGE), pb(PAGE);
+    const uint64_t pages = round_page(bytes) / PAGE;
+    uint64_t x = 0x9E3779B97F4A7C15ull ^ bytes;
+    for (int i = 0; ok && i < COPY_CHECKS; ++i) {
+        x ^= x << 13;
+        x ^= x >> 7;
+        x ^= x << 17;
+        const uint64_t page = i == 0 ? 0 : i == 1 ? pages - 1 : x % pages;
+        const uint64_t at = page * PAGE, n = std::min<uint64_t>(PAGE, bytes - at);
+        ok = platform::pread_all(a, pa.data(), n, offset + at) && platform::pread_all(b, pb.data(), n, at) &&
+             std::memcmp(pa.data(), pb.data(), (size_t) n) == 0;
+    }
+    if (a >= 0) platform::close_fd(a);
+    if (b >= 0) platform::close_fd(b);
+    return ok;
+}
+
+/// Writes the `bytes` at `offset` of `src` to `copy`, zero-padded to whole pages, through a part file that is
+/// renamed into place when complete.
+bool write_copy(const std::string& src, uint64_t offset, uint64_t bytes, const std::string& copy, std::string& why) {
+    const std::string part = copy + ".part";
+    if (!platform::remove_file(part)) { why = "cannot replace " + part; return false; }
+    const int in = platform::open_fd_utf8(src);
+    int out = platform::open_write_unbuffered(part);
+    if (out < 0) out = platform::open_write_utf8(part);
+    uint8_t* buf = (uint8_t*) DirectFile::alloc_aligned(COPY_CHUNK);
+    bool ok = in >= 0 && out >= 0 && buf != nullptr;
+    if (!ok) why = "cannot open " + part;
+    const uint64_t total = round_page(bytes);
+    basalt::core::LoadProgress prog("ngram", total);
+    for (uint64_t at = 0; ok && at < total; at += COPY_CHUNK) {
+        const uint64_t n = std::min(COPY_CHUNK, total - at), have = std::min(n, bytes - std::min(bytes, at));
+        if (have < n) std::memset(buf + have, 0, (size_t) (n - have));
+        ok = platform::pread_all(in, buf, have, offset + at) && platform::pwrite_all(out, buf, n, at);
+        if (!ok) why = "cannot write " + part;
+        prog.add(n);
+    }
+    prog.finish();
+    if (in >= 0) platform::close_fd(in);
+    if (out >= 0) ok = platform::sync_fd(out) && ok;
+    if (out >= 0) platform::close_fd(out);
+    DirectFile::free_aligned(buf);
+    if (ok && !platform::rename_replace(part, copy)) { why = "cannot rename " + part; ok = false; }
+    if (!ok) platform::remove_file(part);
+    return ok;
+}
+
+/// The path of a checked copy of the table, written now when there is none and the volume has room; "" with the
+/// reason in `why` otherwise.
+std::string table_copy(const std::string& src, uint64_t offset, uint64_t bytes, std::string& why) {
+    const std::string copy = src + ".ple";
+    uint64_t size = 0;
+    if (platform::file_size(copy, size)) {
+        if (copy_matches(src, offset, bytes, copy)) return copy;
+        if (!platform::remove_file(copy)) { why = "cannot replace " + copy + ", which differs from the model"; return {}; }
+    }
+    const size_t slash = copy.find_last_of("/\\");
+    const uint64_t room = platform::disk_free_bytes(slash == std::string::npos ? "." : copy.substr(0, slash + 1));
+    if (room < round_page(bytes) + COPY_RESERVE) {
+        char b[160];
+        std::snprintf(b, sizeof b, "no room for a %.1f GiB copy beside the model (%.1f GiB free)",
+                      (double) round_page(bytes) / (1ull << 30), (double) room / (1ull << 30));
+        why = b;
+        return {};
+    }
+    basalt::log::info("basalt ple", "writing the table's own copy %s (%.1f GiB, once)", copy.c_str(),
+                      (double) round_page(bytes) / (1ull << 30));
+    if (!write_copy(src, offset, bytes, copy, why)) return {};
+    if (!copy_matches(src, offset, bytes, copy)) { why = copy + " differs from the model after writing"; return {}; }
+    return copy;
+}
 
 constexpr size_t LATENCY_RING = 65536;
 constexpr uint32_t WAYS = 8;
@@ -333,6 +426,20 @@ bool PleReader::open(const std::string& path, uint64_t table_offset, uint64_t n_
         err = "PleReader: the table extends past the end of " + path;
         close();
         return false;
+    }
+    if (!impl_->file.bypasses_cache()) {
+        std::string why, e;
+        const std::string copy = table_copy(path, table_offset, n_rows * (uint64_t) row_bytes, why);
+        impl_->file.close();
+        if (!copy.empty() && impl_->file.open(copy, e, 0, /*mapped_elsewhere=*/false) && impl_->file.bypasses_cache()) {
+            basalt::log::info("basalt ple", "table read from its own copy %s", copy.c_str());
+            table_offset = 0;
+        } else {
+            impl_->file.close();
+            if (why.empty()) why = copy.empty() ? "no copy" : "its copy is not read around the file cache";
+            basalt::log::warn("basalt ple", "table read through the file cache: %s", why.c_str());
+            if (!impl_->file.open(path, err, 0, /*mapped_elsewhere=*/true)) return false;
+        }
     }
     impl_->table_offset = table_offset;
     impl_->n_rows = n_rows;

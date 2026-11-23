@@ -192,7 +192,25 @@ int selftest(const std::string& dir, uint32_t rb) {
         rd.reset_stats();
         CHECK(rd.snapshot().keepalive_reads == 0 && rd.snapshot().keepalive_us_max == 0, "reset_stats kept keep-alive counts");
     }
+    // Where the reader keeps the table's own copy: a copy that differs from the model is rewritten on open.
+    const std::string copy = path + ".ple";
+    if (std::filesystem::exists(copy)) {
+        {
+            std::fstream f(copy, std::ios::binary | std::ios::in | std::ios::out);
+            const char junk[4] = {1, 2, 3, 4};
+            f.seekp(0);
+            f.write(junk, sizeof junk);
+        }
+        ng::PleReader rd;
+        std::string err;
+        CHECK(rd.open(path, HEADER, N, 8, 0, err, rb), "open over a differing copy: %s", err.c_str());
+        std::vector<uint32_t> rows = {0, 1, 2, N - 1};
+        check_rows(rd, rows, N, rb, "rewritten copy");
+        rd.close();
+        std::filesystem::remove(copy);
+    }
     std::filesystem::remove(path);
+    std::filesystem::remove(path + ".ple");
     std::printf("ple_reader selftest (row_bytes=%u): %s\n", rb, g_fail ? "FAILED" : "OK");
     return g_fail ? 1 : 0;
 }
@@ -441,6 +459,7 @@ int warm_rows_check(const std::string& dir) {
     mm.close();
     direct.close();
     std::filesystem::remove(path);
+    std::filesystem::remove(path + ".ple");
     std::printf("PleTable::warm_rows: %s\n", g_fail ? "FAILED" : "OK");
     return g_fail ? 1 : 0;
 }
