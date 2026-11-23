@@ -2,6 +2,7 @@
 #include "basalt/models/qwen4exp/prefill/prefill.hpp"
 #include "basalt/models/qwen4exp/decode/mtp.hpp"
 #include "basalt/core/progress.hpp"
+#include "basalt/core/device_memory.hpp"
 #include "basalt/core/on_device.hpp"
 #include "basalt/kernels/cpu/expert_layout.hpp"
 #include "basalt/models/qwen4exp/geometry.hpp"
@@ -26,6 +27,17 @@ bool Prefill::Run::Chunk::native_fused_layer(int64_t l) const {
 bool Prefill::Run::Chunk::direct_walk_layer(int64_t l) const {
     return stream_all && run.direct_ram_experts && lay0.native && mmq_plan().any && mmq_plan().layer[(size_t) l] &&
            !native_fused_layer(l);
+}
+
+// Run::execute's direct_ram_experts and start_stream's per-expert test, for a caller sizing the ring before a read
+bool Prefill::reads_in_place(int64_t l, int32_t e) const {
+    const Impl& m = *impl_;
+    const auto& lay = basalt::kernels::cpu::expert_layout();
+    if (!core::device_memory_model().integrated || stage_lb_ != 0 || next_ != nullptr || m.ring_peer || m.remote_res ||
+        m.pp || m.src == nullptr || !lay.native || !mmq_plan().any || !mmq_plan().layer[(size_t) l])
+        return false;
+    const uint8_t* alias = m.src->device_alias(l, e);
+    return alias != nullptr && reinterpret_cast<uintptr_t>(alias) % 16 == 0;
 }
 
 const uint8_t* Prefill::Run::Chunk::mapped_fused_blob(int64_t l, int32_t e) const {

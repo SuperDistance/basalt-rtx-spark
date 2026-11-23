@@ -172,6 +172,22 @@ bool QfnRequest::lend(int64_t tokens, std::string& e, int64_t chunk, int64_t hea
         e = "prefill: cannot lend buffers for an empty request segment";
         return false;
     }
+    // A read on one card that will find every expert it lacks - the ones the cache does not hold and the ones the
+    // loan takes - readable where it lies in RAM stages nothing, so the full ring would only take cache slots
+    // (~380 experts the read then reads over the RAM link, and the refill copies back after it, ~11 ms): it lends
+    // with the ring a read beside decoding slots has.  The ring is a staging buffer: the same bytes, the same results.
+    if (!beside && runtime_.pf_parts.size() == 1 && runtime_.pf_parts[0].first >= 0 && runtime_.pf_parts[0].sp != nullptr) {
+        PfPart& p = runtime_.pf_parts[0];
+        basalt::prefill::Prefill::set_ring_depth(runtime_.kRingDecoding);
+        const int32_t first = std::max<int32_t>(p.first, (int32_t) (p.cache->slots() - runtime_.part_slots(p, want)));
+        bool in_place = true;
+        for (int64_t l = p.lb; l < p.le && in_place; ++l)
+            for (int32_t ex = 0; ex < (int32_t) runtime_.g.n_expert; ++ex) {
+                const int32_t r = runtime_.host_res[(size_t) (l * runtime_.g.n_expert + ex)];
+                if ((r < 0 || r >= first) && !p.sp->reads_in_place(l, ex)) { in_place = false; break; }
+            }
+        if (!in_place) basalt::prefill::Prefill::set_ring_depth(1 << 20);
+    }
     bool any = false;
     const int ring_now = (int) basalt::prefill::Prefill::ring_slots_for(want);
     for (PfPart& p : runtime_.pf_parts) {

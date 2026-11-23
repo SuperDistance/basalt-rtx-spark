@@ -102,6 +102,10 @@ public:
     static void set_ring_depth(int slots);
     /// The ring depth of the current layout.
     int ring_depth() const;
+    /// Whether a chunk of stream_all_min() tokens or more reads expert `e` of layer `l` where it lies in RAM (an
+    /// integrated GPU, one stage, a layer on the native MMQ or fused kernels, an aligned alias) instead of staging a
+    /// copy of it through the ring when the cache does not hold it.
+    bool reads_in_place(int64_t l, int32_t e) const;
     static double pinned_share();
 
     /// Device bytes `init` needs for a chunk of `chunk` tokens (what a borrowed region must hold).
