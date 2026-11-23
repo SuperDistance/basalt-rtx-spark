@@ -31,7 +31,12 @@ for the RTX Spark:
 
 ## Install
 
-You need the hardware and software in [Hardware](#hardware). Then, from a Developer PowerShell for Visual Studio:
+**Prebuilt (easiest).** Download `basalt-...-windows-arm64.zip` from [Releases](https://github.com/SuperDistance/basalt-rtx-spark/releases),
+unzip it, run `setup.cmd` (it makes the Python environment and offers to download the model), then `start.cmd`. The
+CUDA libraries the engine needs are in the zip; a current NVIDIA driver is enough.
+
+**From source.** You need the hardware and software in [Hardware](#hardware). Then, from a Developer PowerShell for
+Visual Studio:
 
 **1. Get the CUDA toolkit and the source**
 
