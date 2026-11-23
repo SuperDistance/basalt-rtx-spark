@@ -5,8 +5,88 @@
 #include "qfn_state.hpp"
 
 #include "basalt/core/host_plan.hpp"
+#include "basalt/kernels/dequant_bf16.hpp"
+#include "basalt/models/qwen4exp/decode/layout.hpp"
+#include "basalt/models/qwen4exp/prefill/gemm.hpp"
 
 namespace basalt::models::qwen4exp::serve {
+
+// THE DENSE PROJECTIONS' FP16 COPIES. The prompt path multiplies every native dense projection (GDN, QSA, shared
+// expert) in FP16, dequantizing its blocks into the scratch first, for every chunk: at a short chunk that traffic is
+// most of the projection's time. When the VRAM left after loading holds the copies with every session's KV at full
+// context and a margin besides, they are made once and the products read them instead (Gemm::native: the same
+// products, so the same bits). A VRAM give-back drops them first; they come back when the room does.
+void QfnRuntime::dense_f16_build() {
+    if (dense_f16 != nullptr || multi_gpu || !stages.empty() || o.prefill_chunk <= 0 || kv_floor <= 0) return;
+    static const char* const kNames[] = {"attn_qkv.weight", "attn_gate.weight", "ssm_out.weight", "attn_q.weight",
+                                         "attn_k.weight", "attn_v.weight", "attn_output.weight", "ffn_gate_shexp.weight",
+                                         "ffn_up_shexp.weight", "ffn_down_shexp.weight"};
+    std::vector<const basalt::core::WeightRef*> refs;
+    uint64_t total = 0;
+    for (int64_t l = 0; l < g.n_layers; ++l) {
+        const basalt::core::LayerView v(wt, l);
+        for (const char* name : kNames) {
+            const basalt::core::WeightRef* r = v.get(name);
+            if (r == nullptr || r->native_data == nullptr || r->native_type < 0) continue;
+            refs.push_back(r);
+            total += ((uint64_t) r->ne0 * (uint64_t) r->ne1 * 2 + 255) / 256 * 256;
+        }
+    }
+    if (refs.empty()) return;
+    // every session's KV at full context, the reserve and 2 GiB stay free besides the copies
+    std::vector<basalt::core::SessionState*> sess = {&ss};
+    for (size_t b = 0; !bslot_ss.empty() && b < bslot_ss[0].size(); ++b)
+        if (bslot_ss[0][b].get() != &ss) sess.push_back(bslot_ss[0][b].get());
+    int64_t kv_full = 0;
+    for (const basalt::core::SessionState* s : sess) kv_full += (int64_t) basalt::core::session_kv_grow_bytes(*s, s->max_cells);
+    size_t free_b = 0, total_b = 0;
+    basalt::core::device_mem_info(&free_b, &total_b);
+    const int64_t keep = ((int64_t) o.vram_reserve_mib << 20) + kv_full + (2ll << 30);
+    if ((int64_t) free_b - keep < (int64_t) total) {
+        if (dense_f16_retry) return;
+        basalt::log::info("basalt prefill", "dense projections dequantized per chunk: their FP16 copies (%.2f GiB) do "
+                          "not fit beside the KV at full context (%.2f GiB of %.2f GiB free)",
+                          (double) total / 1073741824.0, (double) kv_full / 1073741824.0, (double) free_b / 1073741824.0);
+        return;
+    }
+    void* base = nullptr;
+    if (cudaMalloc(&base, total) != cudaSuccess) {
+        (void) cudaGetLastError();
+        if (dense_f16_retry) return;
+        basalt::log::info("basalt prefill", "dense projections dequantized per chunk: %.2f GiB for their FP16 copies "
+                          "could not be had", (double) total / 1073741824.0);
+        return;
+    }
+    std::vector<std::pair<const void*, const uint16_t*>> copies;
+    uint64_t at = 0;
+    for (const basalt::core::WeightRef* r : refs) {
+        uint16_t* dst = (uint16_t*) ((uint8_t*) base + at);
+        basalt::kernels::dequant_f16(r->native_type, r->native_data, 0, r->ne1, r->ne0, dst, nullptr);
+        copies.emplace_back(r->native_data, dst);
+        at += ((uint64_t) r->ne0 * (uint64_t) r->ne1 * 2 + 255) / 256 * 256;
+    }
+    if (cudaDeviceSynchronize() != cudaSuccess) {
+        (void) cudaGetLastError();
+        cudaFree(base);
+        basalt::log::warn("basalt prefill", "the dense projections' FP16 copies failed; dequantized per chunk");
+        return;
+    }
+    basalt::prefill::Gemm::set_f16_copies(copies);
+    dense_f16 = base;
+    dense_f16_retry = false;
+    basalt::log::info("basalt prefill", "dense projections: %zu FP16 copies in VRAM (%.2f GiB), not dequantized per chunk",
+                      copies.size(), (double) total / 1073741824.0);
+}
+
+void QfnRuntime::dense_f16_drop() {
+    if (dense_f16 == nullptr) return;
+    basalt::prefill::Gemm::set_f16_copies({});
+    (void) cudaDeviceSynchronize();
+    cudaFree(dense_f16);
+    dense_f16 = nullptr;
+    dense_f16_retry = true;
+    basalt::log::info("basalt prefill", "dense projections' FP16 copies dropped; dequantized per chunk");
+}
 
 // the prompt path's loan with `live` slots: its chunk as large as fits, and the first slot it covers
 int32_t QfnRuntime::loan_plan(int64_t live, int64_t& chunk) {
@@ -114,7 +194,12 @@ bool QfnRuntime::vram_command(const std::string& cmd, std::string& e, bool for_s
     const auto t0 = Clock::now();
     size_t free_b = 0, total_b = 0;
     basalt::core::device_mem_info(&free_b, &total_b);
-    const int64_t want_free = (int64_t) reserve << 20, mapped = xcache.mapped_bytes();
+    const int64_t want_free = (int64_t) reserve << 20;
+    if ((int64_t) free_b < want_free && dense_f16 != nullptr) {   // the copies go before any expert does
+        dense_f16_drop();
+        basalt::core::device_mem_info(&free_b, &total_b);
+    }
+    const int64_t mapped = xcache.mapped_bytes();
     const int64_t before = xcache.slots();
     // what stays at least: the prompt path's smallest loan (256 tokens) and the 128 slots it must leave
     const int64_t floor_slots = std::min<int64_t>(xcache.full_slots(),

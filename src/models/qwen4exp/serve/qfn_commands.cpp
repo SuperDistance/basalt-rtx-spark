@@ -115,6 +115,7 @@ void QfnRuntime::between_requests(const std::string& line) {
         Clock::now() - profile_saved_at >= std::chrono::duration<double>(o.expert_profile_save_min * 60.0))
         save_profile("periodic");
     if (ba_job) { ba_thr.join(); ba_job = false; }   // (a request runs the same copy steps itself)
+    if (dense_f16_retry) dense_f16_build();          // copies dropped for a VRAM give-back, once they fit again
 }
 
 void QfnRuntime::after_input_start() { sp.should_stop = [&] { return halted(); }; }

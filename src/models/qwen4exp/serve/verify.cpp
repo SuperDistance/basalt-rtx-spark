@@ -204,6 +204,8 @@ int QfnRuntime::capture_windows() {
     res_at_start = host_res;
     peer_at_start = peer.valid() ? peer.residency() : std::vector<int32_t>();
     prof_rank_start = prof_rank;
+    // the dense projections' FP16 copies where the VRAM holds them beside the KV at full context
+    dense_f16_build();
     // the elastic KV's ceiling with everything loaded; the server's copy follows it from here
     kv_ceiling_note();
     if (kv_ceiling_sent >= 0) {

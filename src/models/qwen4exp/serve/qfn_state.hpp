@@ -314,6 +314,8 @@ private:
     static constexpr int64_t kPeerTakeCells = 32768;   // a fit backing this many new cells hands its experts to the peer
     int64_t kv_moves{};
     int64_t kv_ceiling_sent = -1;   // the elastic KV's ceiling the server was last told (INFO elastic_kv_ceiling)
+    void* dense_f16 = nullptr;      // the prompt path's dense projections as FP16 copies (dense_f16_build)
+    bool dense_f16_retry = false;   // dropped for a VRAM give-back: made again between requests once they fit
     bool kv_short{};
     bool kv_keep_routed{};   // an admission while slots decode: a shrink keeps their routed experts
     // a solo request's fits before its prompt read leave their handoffs to the peer to that read: (peer slot, its
@@ -409,6 +411,8 @@ private:
     int64_t cache_floor_slots();
     int64_t kv_ceiling();
     void kv_ceiling_note() override;
+    void dense_f16_build();
+    void dense_f16_drop();
     bool move_routed_below(int64_t first, const char* why, std::string& e,
                            const std::vector<serve_loans::LentEntry>* lent_out = nullptr);
     bool kv_drain(std::string& e);

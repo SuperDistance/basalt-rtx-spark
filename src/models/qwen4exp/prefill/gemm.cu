@@ -16,6 +16,8 @@
 #include <cstdlib>
 #include <cstring>
 #include <memory>
+#include <mutex>
+#include <unordered_map>
 #include "basalt/log.hpp"
 
 
@@ -175,8 +177,26 @@ void Gemm::f16(const uint16_t* X, const uint16_t* W, float* Y, int64_t T, int64_
        "cublasGemmEx f16");
 }
 
+namespace {
+std::mutex g_f16_mu;
+std::unordered_map<const void*, const uint16_t*> g_f16;
+const uint16_t* f16_copy_of(const void* blocks) {
+    std::lock_guard<std::mutex> lk(g_f16_mu);
+    const auto it = g_f16.find(blocks);
+    return it == g_f16.end() ? nullptr : it->second;
+}
+}  // namespace
+
+void Gemm::set_f16_copies(const std::vector<std::pair<const void*, const uint16_t*>>& copies) {
+    std::lock_guard<std::mutex> lk(g_f16_mu);
+    g_f16.clear();
+    for (const auto& [blocks, copy] : copies) g_f16[blocks] = copy;
+}
+
 void Gemm::native(const uint16_t* X, int ggml_type, const void* W_blocks, float* Y, int64_t T, int64_t N, int64_t K,
                   int64_t ldy, float beta) {
+    // with a copy, the products below are the same calls on the same FP16 rows, without dequantizing them first
+    const uint16_t* copy = f16_copy_of(W_blocks);
     if (N * K > scratch_elems_) {
         // Too large for the scratch at once: in row slices.
         const int64_t rows = scratch_elems_ / K;
@@ -184,13 +204,17 @@ void Gemm::native(const uint16_t* X, int ggml_type, const void* W_blocks, float*
         if (ldy <= 0) ldy = N;
         for (int64_t r0 = 0; r0 < N; r0 += rows) {
             const int64_t n = (N - r0 < rows) ? N - r0 : rows;
+            if (copy != nullptr) {
+                f16(X, copy + r0 * K, Y + r0, T, n, K, ldy, beta);
+                continue;
+            }
             basalt::kernels::dequant_f16(ggml_type, W_blocks, r0, n, K, scratch_, stream_);
             f16(X, scratch_, Y + r0, T, n, K, ldy, beta);
         }
         return;
     }
-    basalt::kernels::dequant_f16(ggml_type, W_blocks, 0, N, K, scratch_, stream_);
-    f16(X, scratch_, Y, T, N, K, ldy, beta);
+    if (copy == nullptr) basalt::kernels::dequant_f16(ggml_type, W_blocks, 0, N, K, scratch_, stream_);
+    f16(X, copy != nullptr ? copy : scratch_, Y, T, N, K, ldy, beta);
 }
 
 }  // namespace basalt::prefill
