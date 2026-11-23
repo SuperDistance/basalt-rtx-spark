@@ -86,6 +86,7 @@ bool Verifier::capture_commit_batch(int R, std::string& err) {
         copy_i32_from_mapped(commitb_, m_commitb_, (int64_t) slots_.size() * CB, cs_);
         copy_i32_from_mapped((int32_t*) segb_, (const int32_t*) m_segb_, (int64_t) R * 8, cs_);
         copy_i32_from_mapped((int32_t*) d_qrows_, (const int32_t*) m_qseg_, (int64_t) (kQsaSegMaxRows + 8) * 4, cs_);
+        copy_i32_from_mapped(deferb_, m_deferb_, R, cs_);
         int64_t qsa_index = 0, gdn_index = 0;
         for (int64_t l = 0; l < lb_; ++l) (is_qsa_layer(g, l) ? qsa_index : gdn_index) += 1;
         {   // every segment's GDN layers in one launch (the keep counts come from the table)
@@ -96,7 +97,16 @@ bool Verifier::capture_commit_batch(int R, std::string& err) {
             ga.h_stride = (size_t) MT * C; ga.gb_stride = (size_t) MT * HV;
             ga.C = (int) C; ga.h_k = (int) g.ssm_k_heads; ga.h_v = (int) HV; ga.n_rows = R;
             for (int64_t l = lb_; l < le_; ++l) ga.n_layers += is_qsa_layer(g, l) ? 0 : 1;
+            ga.defer = deferb_;
             gdn_commit_layers_seg(ga, cs_, kCommitBlocks);
+            // the window's rows for the deferred state rows (the next window's recurrence or flush_deferred replays them)
+            const size_t nG = (size_t) g.n_gdn_layers();
+            if (cudaMemcpyAsync(h_prev_, h_L_, nG * MT * C * sizeof(float), cudaMemcpyDeviceToDevice, cs_) != cudaSuccess ||
+                cudaMemcpyAsync(gate_prev_, gate_L_, nG * MT * HV * sizeof(float), cudaMemcpyDeviceToDevice, cs_) != cudaSuccess ||
+                cudaMemcpyAsync(beta_prev_, beta_L_, nG * MT * HV * sizeof(float), cudaMemcpyDeviceToDevice, cs_) != cudaSuccess) {
+                err = "verify: the deferred commit's row copy failed";
+                ok = false;
+            }
         }
         {   // every QSA layer's indexer tail restore and appends, per segment, in one launch
             QsaSegCommit qc;

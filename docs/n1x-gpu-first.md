@@ -271,8 +271,21 @@ then takes 4.6 ms on its own and the window time does not change. The commit mov
 and once out: 36 layers x 48 value heads x 128 x 128 FP32 = 113 MB per slot, about 906 MB at four slots. In
 `dec_commit_parity --bench` it runs at 194-214 GB/s for every grid width from 32 to 340 blocks per segment, the same as
 a chain of 4 MB device copies (about 207 GB/s), so the kernel is at the card's memory limit and block tuning cannot
-help. The lossless way left is to read the state once: fold the commit into the next window's GDN recurrence (same
-4 x 32 row-group layout), which saves about 450 MB per four-stream window, an estimated 3%.
+help. So the commit now reads the state once: a continuing slot's batch commit writes only its conv history and
+indexer, and its next window's recurrence replays the kept rows into the state first (the commit's sums in the
+commit's order, so the state is the same bits; `dec_gdn_parity` checks window outputs and states against the full
+commit) and writes it back, before its grid dependency wait. A slot that sits out a window, or any other launch on the
+stage, gets the plain state pass first. Same build otherwise, ABAB at four streams:
+
+| Arm | GPU W | ms per window | verify run | draft section | output tok/s |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| before | 55.1 | 52.26 | 44.32 | 7.81 | 109.3 |
+| fused | 51.2 | 49.94 | 46.14 | 3.67 | 116.5 |
+| before | 40.9 | 54.05 | 46.02 | 7.90 | 109.3 |
+| fused | 30.3 | 54.67 | 50.56 | 3.98 | 104.7 |
+
+The draft section halves in both pairs and the verify run takes about 1.8 ms more (the state's write). The second
+pair ran 10 W apart and does not compare. One-stream greedy text was identical in every arm.
 
 ## Images
 
@@ -298,7 +311,7 @@ bitwise-equal embeddings every vision mode gives today.
 - Matched C1-C4 runs of the current build against the port's method and a GB10 host.
 - The KLD gate for experts computed on the GPU instead of the CPU.
 - NVFP4 and IQ3 on equivalent placements, and Qwen3.8-27B.
-- The GDN commit folded into the next window's recurrence (state read once; about 3% at four streams, 1.5% alone).
+- The same deferred commit for one-stream windows (their lazy commit still reads the state a second time).
 - The hyper-connection reads (about 14% of a four-stream window under the profiler, which turns PDL off and so counts
   launch gaps into short stages) measured without the profiler.
 - A BF16 GDN state would halve the state traffic (about 6% at four streams) but changes the numbers: it needs the KLD gate.

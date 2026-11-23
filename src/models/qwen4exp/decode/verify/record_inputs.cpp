@@ -61,6 +61,7 @@ bool Verifier::WindowRecorder::inputs() {
     if (!v_.batch_rec_ && v_.head_from_d_ != nullptr) copy_i32_from_mapped(v_.head_from_d_, v_.m_head_from_, 1, cs);
     if (v_.batch_rec_) {   // the segment tables: which slot each row is
         copy_i32_from_mapped((int32_t*) v_.segb_, (const int32_t*) v_.m_segb_, (int64_t) T * 8, cs);
+        copy_i32_from_mapped(v_.prevb_, v_.m_prevb_, (int64_t) T * 2, cs);
         copy_i32_from_mapped((int32_t*) v_.d_qrows_, (const int32_t*) v_.m_qseg_, (int64_t) (kQsaSegMaxRows + 8) * 4, cs);
         if (ple_on) ple_hist_gather(v_.ple_work_, v_.d_ple_slots_, v_.segb_, HS, T, cs);
     }

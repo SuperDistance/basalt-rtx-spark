@@ -6,10 +6,12 @@
 #include "basalt/kernels/elementwise.hpp"
 #include "basalt/models/qwen4exp/kernels/native_qsa_indexer.hpp"
 #include "basalt/kernels/pdl.hpp"
+#include "basalt/log.hpp"
 #include "basalt/models/qwen4exp/kernels/ngram.hpp"
 #include "basalt/models/qwen4exp/kernels/qsa.hpp"
 #include "basalt/models/qwen4exp/kernels/verify_kernels.hpp"
 #include <algorithm>
+#include <cstdlib>
 #include <atomic>
 #include <exception>
 #include <string>
@@ -92,6 +94,45 @@ bool Verifier::commit_begun() const {
 void Verifier::order_after_commit(bool solo) {
     if (!solo) apply_lazy();
     if (commit_pending_) cudaStreamWaitEvent(cs_, commit_done_, 0);
+    std::string e;
+    if (!flush_deferred(e)) {
+        basalt::log::error("basalt verify", "%s", e.c_str());
+        std::exit(1);
+    }
+}
+
+// The GDN state rows the batch commits left to their slots' next windows and no window took: committed from the last
+// window's copy of its rows (the commit's own pass, state only; the conv history is already committed)
+bool Verifier::flush_deferred(std::string& err) {
+    int n = 0;
+    for (size_t i = 0; i < owed_keep_.size(); ++i) n += owed_keep_[i] > 0 ? 1 : 0;
+    if (n == 0) return true;
+    using namespace basalt::kernels;
+    const ModelGeometry& g = *g_;
+    const int64_t C = g.ssm_conv_channels, HV = g.ssm_v_heads, MT = max_t_;
+    const uint64_t gdn_floats = (uint64_t) g.ssm_state_size * g.ssm_v_heads * g.ssm_state_size +
+                                (uint64_t) g.ssm_conv_channels * (g.ssm_d_conv - 1);
+    int k = 0;
+    for (size_t i = 0; i < owed_keep_.size(); ++i) {
+        if (owed_keep_[i] <= 0) continue;
+        const SessionState& sx = *slots_[i];
+        SegRow& e = h_flushb_[k++];
+        e.gdn = (float*) ((uintptr_t) sx.gdn_state - (uintptr_t) sx.gdn_ord0 * gdn_floats * sizeof(float));
+        e.row0 = owed_row0_[i]; e.j = 0; e.n = owed_keep_[i]; e.n_keep = owed_keep_[i]; e.slot = (int32_t) i; e.pos = 0;
+        owed_keep_[i] = 0;
+    }
+    std::atomic_thread_fence(std::memory_order_seq_cst);
+    GdnCommitSeg ga;
+    ga.rows = m_flushb_; ga.state_off = 0; ga.state_stride = gdn_floats;
+    ga.h = h_prev_; ga.qkv = h_prev_; ga.gate = gate_prev_; ga.beta = beta_prev_;
+    ga.h_stride = (size_t) MT * C; ga.gb_stride = (size_t) MT * HV;
+    ga.C = (int) C; ga.h_k = (int) g.ssm_k_heads; ga.h_v = (int) HV; ga.n_rows = k; ga.conv_on = false;
+    ga.n_layers = (int) g.n_gdn_layers();
+    gdn_commit_layers_seg(ga, cs_, kCommitBlocks);
+    // the table is host memory the kernel reads: it is not rewritten before the kernel is done
+    const cudaError_t se = cudaStreamSynchronize(cs_);
+    if (se != cudaSuccess) { err = std::string("verify: the deferred GDN commit: ") + cudaGetErrorString(se); return false; }
+    return true;
 }
 
 // The commit on its own stream: the epoch's counters, the indexer and PLE commits, then the GDN items from `kCommitBlocks`

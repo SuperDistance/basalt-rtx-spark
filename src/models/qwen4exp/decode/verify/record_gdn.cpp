@@ -56,8 +56,16 @@ bool Verifier::WindowRecorder::gdn(int64_t l, const LayerView& v, bool read_q8, 
                          ((uintptr_t) wqkv->native_data & 15) == 0 && ((uintptr_t) wg->native_data & 15) == 0;
     const int gdnf = ((!v_.batch_rec_ || pair_ok) && N == 2560 && n <= kVerifyMaxT) ? dec_gdnf_mode() : 0;
     auto rec = [&](const DecRecArgs& ra) {
-        if (v_.batch_rec_) dec_gdn_rec_seg(ra, v_.segb_, (size_t) gi * gdn_floats, n, n, cs);
-        else dec_gdn_rec(ra, n, cs);
+        if (v_.batch_rec_) {   // each segment first replays the rows its last window's commit left to it
+            DecRecArgs rs = ra;
+            rs.prev_tab = v_.prevb_;
+            rs.prev_h = v_.h_prev_ + (size_t) gi * MT * C;
+            rs.prev_gate = v_.gate_prev_ + (size_t) gi * MT * HV;
+            rs.prev_beta = v_.beta_prev_ + (size_t) gi * MT * HV;
+            dec_gdn_rec_seg(rs, v_.segb_, (size_t) gi * gdn_floats, n, n, cs);
+        } else {
+            dec_gdn_rec(ra, n, cs);
+        }
     };
     const bool gdnf_fork = gdnf >= 2 && v_.sh_cs_ != nullptr && v_.ev_fork_ != nullptr && v_.ev_join_ != nullptr;
     auto gdnf_z_side = [&] {
@@ -153,6 +161,7 @@ bool Verifier::WindowRecorder::gdn(int64_t l, const LayerView& v, bool read_q8, 
         goto gdn_done;
     }
     }
+    if (v_.batch_rec_) v_.seg_rec_all_ = false;   // these kernels do not replay a deferred commit
     if (v_.batch_rec_) {   // each row from its segment's conv history, the slots read from the table
         gdn_conv_l2_seg(v_.segb_, (size_t) gi * gdn_floats + (size_t) g.ssm_state_size * g.ssm_v_heads * g.ssm_state_size,
                         qkv, (const float*) wc->data, hb, (int) C, (int) (2 * HK), EPS, n, cs);

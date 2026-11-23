@@ -88,6 +88,14 @@ bool Verifier::stage_batch(const int* slots, const int* lens, int S, int hbase, 
             SegRow& e = h_segb_[t];   // the state of layer 0 of the slot's session
             e.gdn = (float*) ((uintptr_t) sx.gdn_state - (uintptr_t) sx.gdn_ord0 * gdn_floats * sizeof(float));
             e.row0 = r0; e.j = j; e.n = n; e.n_keep = n; e.slot = slots[sg]; e.pos = (int32_t) pos;
+            // the rows the slot's last commit left to this window's recurrence (taken now; flush_deferred commits
+            // what no window takes)
+            int& owed = owed_keep_[(size_t) slots[sg]];
+            const bool take = j == 0 && seg_rec_all_ && owed > 0;
+            h_prevb_[2 * t] = take ? owed_row0_[(size_t) slots[sg]] : 0;
+            h_prevb_[2 * t + 1] = take ? owed : 0;
+            if (take) owed = 0;
+            h_deferb_[t] = 0;   // every row commits in full unless commit_slots_begin defers it
             last_rows_[t] = slots[sg];
             last_tokens_[t] = tokens[t];
             last_pos_b_[t] = pos;
@@ -250,6 +258,15 @@ bool Verifier::commit_slots(const int* n_keep, std::string& err) {
 }
 
 bool Verifier::commit_slots_begin(const int* n_keep, std::string& err) {
+    return commit_slots_begin(n_keep, nullptr, err);
+}
+
+bool Verifier::fused_commit_ok() const {
+    return next_ == nullptr && lb_ == 0 && le_ >= g_->n_layers && seg_rec_all_ && h_prev_ != nullptr &&
+           owed_keep_.size() == slots_.size();
+}
+
+bool Verifier::commit_slots_begin(const int* n_keep, const bool* defer, std::string& err) {
     const OnDevice on_device(device_);
     if (!last_batch_ || last_t_ < 1) { err = "verify: commit_slots without a batch window"; return false; }
     commit_t0_ = Clock::now();
@@ -266,10 +283,20 @@ bool Verifier::commit_slots_begin(const int* n_keep, std::string& err) {
             for (int j = k; j < n; ++j) c[2 + j] = -1;
         }
     }
+    // a continuing slot's state rows go to its next window (its conv history and indexer commit now)
+    const bool fuse = defer != nullptr && n_keep != nullptr && fused_commit_ok();
+    for (int sg = 0, r0 = 0; sg < last_nseg_; r0 += last_seg_len_[sg], ++sg)
+        for (int j = 0; j < last_seg_len_[sg]; ++j) h_deferb_[r0 + j] = fuse && defer[sg] ? 1 : 0;
     std::atomic_thread_fence(std::memory_order_seq_cst);
     order_after_commit();
     const cudaError_t le = cudaGraphLaunch(commit_bm_[last_t_], cs_);
     if (le != cudaSuccess) { err = std::string("verify: batch commit launch: ") + cudaGetErrorString(le); return false; }
+    if (fuse)
+        for (int sg = 0, r0 = 0; sg < last_nseg_; r0 += last_seg_len_[sg], ++sg)
+            if (defer[sg]) {
+                owed_keep_[(size_t) last_seg_slot_[sg]] = n_keep[sg];
+                owed_row0_[(size_t) last_seg_slot_[sg]] = r0;
+            }
     // (the PLE history the commit leaves is known from the tokens: it advances now, the graph runs beside the caller)
     if (ple_stage())
         for (int sg = 0, r0 = 0; sg < last_nseg_; r0 += last_seg_len_[sg], ++sg) {

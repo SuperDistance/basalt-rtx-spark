@@ -183,6 +183,53 @@ using DmRecClusterPtr = void*;
 using DmRecClusterPtr = cg::cluster_group*;
 #endif
 
+// The previous window's kept rows (a.prev_n of them, the batch commit's deferred part) replayed into this block's
+// state columns, with the commit's sums (gdn_commit.cuh commit_pre_run: the same fmaf chains and row-group order, so
+// the state is the commit's bit for bit), then written back.  The rows come from an earlier window, so this runs
+// before the grid dependency wait.  kn / red0 / red1 are shared scratch, free until the window's own rows.
+template<bool SUB>
+__device__ __forceinline__ void prev_replay(const DecRecArgs& a, float (&s)[RPG], int qh, int gh, int col, int rg, int lane,
+                                            int tid, size_t row_stride, float* kn, float (&red0)[RG][32],
+                                            float (&red1)[RG][32]) {
+    const int qk = S * a.h_k;
+    for (int t0 = 0; t0 < a.prev_n; t0 += 4) {
+        float kt[4], vt[4], gt[4], bt[4];
+#pragma unroll
+        for (int i = 0; i < 4; ++i) {   // four rows' inputs in flight at once
+            const int t = t0 + i;
+            const bool on = t < a.prev_n;
+            const float* ht = a.prev_h + (size_t) (on ? t : 0) * a.C;
+            kt[i] = on ? ht[qk + qh * S + tid] : 0.0f;
+            vt[i] = on ? ht[2 * qk + gh * S + col] : 0.0f;
+            gt[i] = on ? a.prev_gate[(size_t) t * a.h_v + gh] : 0.0f;
+            bt[i] = on ? a.prev_beta[(size_t) t * a.h_v + gh] : 0.0f;
+        }
+#pragma unroll
+        for (int i = 0; i < 4; ++i) {
+            const int t = t0 + i;
+            if (t >= a.prev_n) break;
+            rec_sync<SUB>();   // the previous row is done with kn
+            kn[tid] = kt[i];
+            rec_sync<SUB>();
+            const float g = __expf(gt[i]);
+            float kv = 0.0f;
+#pragma unroll
+            for (int r = 0; r < RPG; ++r) kv = fmaf(s[r], kn[rg * RPG + r], kv);
+            float (&red)[RG][32] = (t & 1) ? red1 : red0;
+            red[rg][lane] = kv;
+            rec_sync<SUB>();
+            const float kv_col = red[0][lane] + red[1][lane] + red[2][lane] + red[3][lane];
+            const float delta = (vt[i] - g * kv_col) * bt[i];
+#pragma unroll
+            for (int r = 0; r < RPG; ++r) s[r] = fmaf(g, s[r], kn[rg * RPG + r] * delta);
+        }
+    }
+    float* w = const_cast<float*>(a.state) + ((size_t) (rg * RPG) * a.h_v + gh) * S + col;
+#pragma unroll
+    for (int r = 0; r < RPG; ++r) w[r * row_stride] = s[r];
+    rec_sync<SUB>();   // kn and the sums are the window's again
+}
+
 // One block of a head's cluster.  `head` = the launch's value head (head_map), `rank` = its column group.  SPLIT: no cluster and no z; the
 // head's raw output goes to a.o for dec_gdn_rec_norm.  GIN (with SPLIT): the gates come computed, alpha of token t at
 // gin_a[t * h_v + gh] and beta at gin_b[t * h_v + gh] (dec_gdn_gates).
@@ -198,12 +245,13 @@ __device__ __forceinline__ void rec_block(const DecRecArgs& a, int T, int head, 
     const int qk = S * a.h_k;
     const int value_dim = S * hm.nvl;   // the card's z / output stride
     const int C = a.C, CL = hm.cl;
-    // ---- constants (the state too: the window does not write it)
+    // ---- constants (the state too: the window does not write it, past a segment's deferred commit rows)
     float s[RPG];
     const float* base = a.state + ((size_t) (rg * RPG) * a.h_v + gh) * S + col;
     const size_t row_stride = (size_t) a.h_v * S;
 #pragma unroll
     for (int r = 0; r < RPG; ++r) s[r] = base[r * row_stride];
+    if (a.prev_n > 0) prev_replay<SUB>(a, s, qh, gh, col, rg, lane, tid, row_stride, sm.kn[0], sm.red_kv, sm.red_o);
     const float* hist = a.state + (size_t) S * a.h_v * S;
     const int cq = qh * S + tid, ck = qk + qh * S + tid, cv = 2 * qk + gh * S + col;
     const int lcq = hm.lq * S + tid, lck = hm.nkl * S + hm.lq * S + tid, lcv = 2 * hm.nkl * S + head * S + col;
@@ -454,7 +502,15 @@ __global__ void __cluster_dims__(4, 1, 1) __launch_bounds__(S) rec_seg_kernel(co
     if (r.j != 0) return;
     __shared__ RecSmem<NJ, rec_rows(MAXT)> sm;
     cg::cluster_group cl = cg::this_cluster();
-    rec_block<MAXT, NJ, false>(seg_args(a0, r, state_off, dst, off_c, off_hv), r.n, blockIdx.x / 4, blockIdx.x % 4, sm, &cl);
+    DecRecArgs a = seg_args(a0, r, state_off, dst, off_c, off_hv);
+    if (a.prev_tab != nullptr) {   // the segment's deferred commit rows
+        const int p0 = a.prev_tab[2 * blockIdx.y], pn = a.prev_tab[2 * blockIdx.y + 1];
+        a.prev_n = pn;
+        a.prev_h += (size_t) p0 * a.C;
+        a.prev_gate += (size_t) p0 * a.h_v;
+        a.prev_beta += (size_t) p0 * a.h_v;
+    }
+    rec_block<MAXT, NJ, false>(a, r.n, blockIdx.x / 4, blockIdx.x % 4, sm, &cl);
 }
 
 // rec_split_kernel over a segmented window (rec_seg_kernel's rows), without clusters (a cluster launch keeps at most two

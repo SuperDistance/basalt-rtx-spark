@@ -81,6 +81,10 @@ struct GdnCommitSeg {
     size_t state_off = 0, state_stride = 0, h_stride = 0, gb_stride = 0;
     const float *h = nullptr, *qkv = nullptr, *gate = nullptr, *beta = nullptr;
     int C = 0, h_k = 0, h_v = 0, n_layers = 0, n_rows = 0;
+    // defer[y] != 0: row y's segment commits only its conv history (its state's rows are replayed by the next window's
+    // recurrence, DecRecArgs::prev_tab); conv_on = false: only the states (a deferred commit's own pass)
+    const int32_t* defer = nullptr;
+    bool conv_on = true;
 };
 void gdn_commit_layers_seg(const GdnCommitSeg& a, void* stream, int blocks = 32);
 /// The PLE history of each row's slot as data: `slots[slot]` is that slot's history (`n` floats).  Gather: work row t =

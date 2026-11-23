@@ -123,6 +123,28 @@ bool Verifier::init_slots(const std::vector<SessionState*>& slots, std::string& 
             dev += S;
         }
     }
+    {   // the deferred GDN state commit's rows and tables
+        const uint64_t nG = (uint64_t) g_->n_gdn_layers(), MT = (uint64_t) max_t_;
+        const uint64_t C = (uint64_t) g_->ssm_conv_channels, HV = (uint64_t) g_->ssm_v_heads;
+        const uint64_t hb = (nG * MT * C * 4 + 255) & ~255ull, gb = (nG * MT * HV * 4 + 255) & ~255ull;
+        void* p = nullptr;
+        if (cudaMalloc(&p, hb + 2 * gb + 2 * 256 + MT * 12) != cudaSuccess ||
+            !mapped((size_t) MT * 4, (void**) &h_deferb_, (void**) &m_deferb_) ||
+            !mapped((size_t) MT * 8, (void**) &h_prevb_, (void**) &m_prevb_) ||
+            !mapped((size_t) MT * sizeof(basalt::kernels::SegRow), (void**) &h_flushb_, (void**) &m_flushb_)) {
+            err = "verify: the deferred commit buffers do not fit";
+            return false;
+        }
+        h_prev_ = (float*) p;
+        gate_prev_ = (float*) ((uint8_t*) p + hb);
+        beta_prev_ = (float*) ((uint8_t*) p + hb + gb);
+        deferb_ = (int32_t*) ((uint8_t*) p + hb + 2 * gb);
+        prevb_ = (int32_t*) ((uint8_t*) p + hb + 2 * gb + ((MT * 4 + 255) & ~255ull));
+        std::fill_n(h_deferb_, (size_t) MT, 0);
+        std::fill_n(h_prevb_, (size_t) MT * 2, 0);
+        owed_keep_.assign(slots.size(), 0);
+        owed_row0_.assign(slots.size(), 0);
+    }
     slots_ = slots;
     batch_dm_ = dm_ != nullptr;
     slot_sp_.assign(slots.size(), sampling_);   // greedy until set_slot_sampling

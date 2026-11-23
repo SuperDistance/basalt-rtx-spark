@@ -485,7 +485,7 @@ __global__ void __launch_bounds__(32 * RG) gdn_commit_layers_seg_kernel(GdnCommi
     a.gate = s.gate + (size_t) r.row0 * s.h_v; a.beta = s.beta + (size_t) r.row0 * s.h_v;
     a.state_stride = s.state_stride; a.h_stride = s.h_stride; a.gb_stride = s.gb_stride;
     a.C = s.C; a.h_k = s.h_k; a.h_v = s.h_v; a.n_layers = s.n_layers;
-    commit_layers_body<kVerifyMaxT>(a, n, conv_blocks);
+    commit_layers_body<kVerifyMaxT>(a, n, conv_blocks, s.defer == nullptr || s.defer[blockIdx.y] == 0);
 }
 
 // n tokens from `state` (written back when `write`)
@@ -983,7 +983,7 @@ void gdn_step_norm_seg(const SegRow* rows, size_t state_off, const float* h, int
 
 void gdn_commit_layers_seg(const GdnCommitSeg& a, void* stream, int blocks) {
     if (a.n_layers <= 0 || a.n_rows <= 0) return;
-    const int conv_blocks = (a.C + 32 * RG - 1) / (32 * RG);
+    const int conv_blocks = a.conv_on ? (a.C + 32 * RG - 1) / (32 * RG) : 0;
     gdn_commit_layers_seg_kernel<<<dim3((unsigned) (blocks > 0 ? blocks : 1), (unsigned) a.n_rows), dim3(32, RG), 0,
                                    (cudaStream_t) stream>>>(a, conv_blocks);
     check("gdn_commit_layers_seg");

@@ -321,7 +321,18 @@ public:
     /// The same in two halves: `begin` stages the counts and launches the commit graph, `end` waits for it.  What
     /// does not read the committed state (the draft layer from the window's rows) can run between them.
     bool commit_slots_begin(const int* n_keep, std::string& err);
+    /// With `defer`: a segment s with defer[s] commits its conv history and indexer now and leaves its GDN state's rows
+    /// to its slot's next batch window, whose recurrence replays them first (the commit's sums, bitwise).  Its state is
+    /// owed until then: the next window it is not in, and any other launch on this stage, commits it first
+    /// (flush_deferred).  Ignored when the window's recurrence cannot replay (fused_commit_ok).
+    bool commit_slots_begin(const int* n_keep, const bool* defer, std::string& err);
     bool commit_slots_end(std::string& err);
+    /// Every slot's owed GDN state rows committed (on this stage's stream, before what follows it there): before a slot's
+    /// state is read or copied by anything but its next batch window.
+    bool flush_deferred(std::string& err);
+    /// Batch windows may defer their slots' GDN state commits (a single stage whose batch GDN layers all run the fused
+    /// segment recurrence).
+    bool fused_commit_ok() const;
 
     // ---- The stages of a layer split as a PIPELINE.  A batch window over the slot GROUP
     // [base, base + S) is launched on ONE stage with its commit right behind it on the stage's stream (a batch window
@@ -508,6 +519,15 @@ private:
     /// the commit, so the GDN kernels take slot identity as data.
     basalt::kernels::SegRow* h_segb_ = nullptr; basalt::kernels::SegRow* m_segb_ = nullptr;
     basalt::kernels::SegRow* segb_ = nullptr;
+    /// The deferred GDN state commit (commit_slots_begin with defer): the last window's rows (h / gate / beta of every
+    /// GDN layer, laid out as h_L_ / gate_L_ / beta_L_) copied by the commit graph; per window row the deferred flag
+    /// (staged with the commit) and [first row in the copy, rows owed] (staged with the window); per slot what it owes.
+    float *h_prev_ = nullptr, *gate_prev_ = nullptr, *beta_prev_ = nullptr;
+    int32_t* h_deferb_ = nullptr; int32_t* m_deferb_ = nullptr; int32_t* deferb_ = nullptr;
+    int32_t* h_prevb_ = nullptr; int32_t* m_prevb_ = nullptr; int32_t* prevb_ = nullptr;
+    basalt::kernels::SegRow* h_flushb_ = nullptr; basalt::kernels::SegRow* m_flushb_ = nullptr;
+    std::vector<int> owed_keep_, owed_row0_;   ///< per slot: rows owed (0: none) and their first row in h_prev_
+    bool seg_rec_all_ = true;   ///< every batch GDN layer recorded so far runs dec_gdn_rec_seg (it can replay)
     /// The QSA chain's segment tables (qsa_seg.hpp): one entry per row and per segment, staged with the segment table;
     /// the per-layer, per-slot pointers are uploaded once.
     basalt::kernels::QsaSeg* h_qseg_ = nullptr; basalt::kernels::QsaSeg* m_qseg_ = nullptr;

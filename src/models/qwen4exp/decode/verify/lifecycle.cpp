@@ -72,6 +72,10 @@ Verifier::~Verifier() {
     if (lp_buf_) cudaFree(lp_buf_);
     if (h_commitb_) cudaFreeHost(h_commitb_);
     if (h_segb_) cudaFreeHost(h_segb_);
+    if (h_prev_) cudaFree(h_prev_);
+    if (h_deferb_) cudaFreeHost(h_deferb_);
+    if (h_prevb_) cudaFreeHost(h_prevb_);
+    if (h_flushb_) cudaFreeHost(h_flushb_);
     if (h_qseg_) cudaFreeHost(h_qseg_);
     if (cs_) cudaStreamDestroy(cs_);
     if (cm_) cudaStreamDestroy(cm_);

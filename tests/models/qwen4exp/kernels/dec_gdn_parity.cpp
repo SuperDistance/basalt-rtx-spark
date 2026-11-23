@@ -14,7 +14,9 @@
 //
 // Segmented windows (part of the default run): conv_l2, the verify recurrence, dec_gdn_rec and the commit over a
 // device table of segments (1, 2, 5 or 8 segments, mixed tokens per segment, windows past kVerifyMaxT rows) against the
-// current kernels called once per segment (bitwise) and a CPU reference (tolerance).
+// current kernels called once per segment (bitwise) and a CPU reference (tolerance).  The deferred commit: the conv
+// history committed alone and the state's rows replayed by the next window's recurrence (or by the state-only pass),
+// against the full commit, bitwise.
 //
 // --bench: the reference and the three modes timed as CUDA graphs over enough layers' distinct weights that the L2
 // holds none of them, per stage and whole, in microseconds per layer and GB/s over the bytes each must move.
@@ -563,6 +565,127 @@ bool parity_seg(cudaStream_t s) {
     return ok;
 }
 
+// ---- the deferred commit: window 1, its commit, window 2 and its commit (the batch path's order) against window 1, a
+// commit of the conv history only, window 2 replaying window 1's kept rows first (DecRecArgs::prev_tab) and window 2's
+// commit: window 2's every output and the final states bit for bit; and the state-only pass (flush_deferred's) after
+// the conv-only commit equal to the full commit
+bool parity_deferred(cudaStream_t s) {
+    std::mt19937 rng(131);
+    bool ok = true;
+    const size_t SF = (size_t) S * HV * S + (size_t) C * 3;
+    Layer L = make_layer(14, 23, 14, rng);
+    constexpr int NL = 2;
+    const int layer = 1;
+    auto fbuf = [&](size_t n) { float* p; CK(cudaMalloc(&p, n * 4 + 64)); CK(cudaMemset(p, 0xff, n * 4)); return p; };
+    for (int trial = 0; trial < 4; ++trial)
+        for (int nseg : {1, 2, 5, 8}) {
+            std::vector<int> T1(nseg), K1(nseg), r1(nseg), T2(nseg), K2(nseg), r2(nseg);
+            int R1 = 0, R2 = 0, t1 = 1, t2 = 1;
+            for (int k = 0; k < nseg; ++k) {
+                T1[k] = 1 + (int) (rng() % kVerifyMaxT);
+                if (trial == 3) T1[k] = kVerifyMaxT;
+                K1[k] = 1 + (int) (rng() % T1[k]);
+                if (trial == 0) K1[k] = T1[k];
+                T2[k] = 1 + (int) (rng() % kVerifyMaxT);
+                K2[k] = 1 + (int) (rng() % T2[k]);
+                r1[k] = R1; R1 += T1[k]; t1 = std::max(t1, T1[k]);
+                r2[k] = R2; R2 += T2[k]; t2 = std::max(t2, T2[k]);
+            }
+            std::vector<std::vector<float>> st0(nseg);
+            std::vector<float*> sa(nseg), sb(nseg), sc(nseg);
+            for (int k = 0; k < nseg; ++k) {
+                st0[k] = randn(NL * SF, 0.1f, rng);
+                sa[k] = upload(st0[k]); sb[k] = upload(st0[k]); sc[k] = upload(st0[k]);
+            }
+            const std::vector<float> q1 = randn((size_t) R1 * C, 1.f, rng), z1 = randn((size_t) R1 * ZV, 1.f, rng),
+                                     x1 = randn((size_t) R1 * N, 1.f, rng), q2 = randn((size_t) R2 * C, 1.f, rng),
+                                     z2 = randn((size_t) R2 * ZV, 1.f, rng), x2 = randn((size_t) R2 * N, 1.f, rng);
+            float *d_q1 = upload(q1), *d_z1 = upload(z1), *d_x1 = upload(x1), *d_q2 = upload(q2), *d_z2 = upload(z2),
+                  *d_x2 = upload(x2);
+            auto table = [&](const std::vector<float*>& st, const std::vector<int>& T, const std::vector<int>& K,
+                             const std::vector<int>& r0, int R) {
+                std::vector<SegRow> rows(R);
+                for (int k = 0; k < nseg; ++k)
+                    for (int j = 0; j < T[k]; ++j) rows[r0[k] + j] = SegRow{st[k], r0[k], j, T[k], K[k], k, 100 + j};
+                return upload(rows);
+            };
+            struct Win { float *h, *g, *b, *y; void* yq; };
+            auto win = [&](int R) {
+                Win w{fbuf((size_t) R * C), fbuf((size_t) R * HV), fbuf((size_t) R * HV), fbuf((size_t) R * ZV), nullptr};
+                CK(cudaMalloc(&w.yq, (size_t) R * (ZV / 32) * 36 + 64));
+                CK(cudaMemset(w.yq, 0xff, (size_t) R * (ZV / 32) * 36));
+                return w;
+            };
+            Win a1 = win(R1), b1 = win(R1), a2 = win(R2), b2 = win(R2);
+            CK(cudaDeviceSynchronize());
+            auto rec = [&](SegRow* rows, int R, int tmax, const float* q, const float* z, const float* x, const Win& w,
+                           const int32_t* prev, const Win* pw) {
+                DecRecArgs a;
+                a.qkv = q; a.conv_w = L.conv_w; a.x = x; a.w_alpha = L.wa; a.w_beta = L.wb; a.dt = L.dt;
+                a.ssm_a = L.ssm_a; a.z = z; a.gamma = L.gamma; a.h = w.h; a.gate = w.g; a.beta = w.b; a.y = w.y;
+                a.yq = w.yq; a.C = C; a.n_embd = N; a.h_k = HK; a.h_v = HV; a.eps = EPS;
+                if (prev) { a.prev_tab = prev; a.prev_h = pw->h; a.prev_gate = pw->g; a.prev_beta = pw->b; }
+                dec_gdn_rec_seg(a, rows, layer * SF, R, tmax, s);
+            };
+            auto commit = [&](SegRow* rows, int R, const float* q, const Win& w, const int32_t* defer, bool conv_on) {
+                GdnCommitSeg c;
+                c.rows = rows; c.state_off = layer * SF; c.state_stride = SF; c.h_stride = (size_t) R * C;
+                c.gb_stride = (size_t) R * HV; c.h = w.h; c.qkv = q; c.gate = w.g; c.beta = w.b;
+                c.C = C; c.h_k = HK; c.h_v = HV; c.n_layers = 1; c.n_rows = R; c.defer = defer; c.conv_on = conv_on;
+                gdn_commit_layers_seg(c, s, 32);
+            };
+            SegRow *ra1 = table(sa, T1, K1, r1, R1), *rb1 = table(sb, T1, K1, r1, R1), *rc1 = table(sc, T1, K1, r1, R1);
+            SegRow *ra2 = table(sa, T2, K2, r2, R2), *rb2 = table(sb, T2, K2, r2, R2);
+            std::vector<int32_t> ones(R1, 1), prev(2 * R2, 0);
+            for (int k = 0; k < nseg; ++k) { prev[2 * r2[k]] = r1[k]; prev[2 * r2[k] + 1] = K1[k]; }
+            int32_t *d_ones = upload(ones), *d_prev = upload(prev);
+            // flush_deferred's table: one row per segment, its kept rows of window 1
+            std::vector<SegRow> fl(nseg);
+            for (int k = 0; k < nseg; ++k) fl[k] = SegRow{sc[k], r1[k], 0, K1[k], K1[k], k, 0};
+            SegRow* d_fl = upload(fl);
+            CK(cudaDeviceSynchronize());
+            // A: today's order
+            rec(ra1, R1, t1, d_q1, d_z1, d_x1, a1, nullptr, nullptr);
+            commit(ra1, R1, d_q1, a1, nullptr, true);
+            rec(ra2, R2, t2, d_q2, d_z2, d_x2, a2, nullptr, nullptr);
+            CK(cudaStreamSynchronize(s));
+            std::vector<std::vector<float>> mid(nseg);
+            for (int k = 0; k < nseg; ++k) mid[k] = down(sa[k], NL * SF);
+            commit(ra2, R2, d_q2, a2, nullptr, true);
+            // B: the conv history now, the state rows in window 2's recurrence
+            rec(rb1, R1, t1, d_q1, d_z1, d_x1, b1, nullptr, nullptr);
+            commit(rb1, R1, d_q1, b1, d_ones, true);
+            rec(rb2, R2, t2, d_q2, d_z2, d_x2, b2, d_prev, &b1);
+            commit(rb2, R2, d_q2, b2, nullptr, true);
+            // C: window 1's rows (B's), the conv-only commit, then the state-only pass
+            commit(rc1, R1, d_q1, b1, d_ones, true);
+            commit(d_fl, nseg, d_q1, b1, nullptr, false);
+            CK(cudaStreamSynchronize(s));
+            long long d = 0;
+            double ma = 0;
+            d += cmp_f("deferred h", a2.h, b2.h, (size_t) R2 * C, ma);
+            d += cmp_f("deferred gate", a2.g, b2.g, (size_t) R2 * HV, ma);
+            d += cmp_f("deferred beta", a2.b, b2.b, (size_t) R2 * HV, ma);
+            d += cmp_f("deferred y", a2.y, b2.y, (size_t) R2 * ZV, ma);
+            d += cmp_b("deferred yq", a2.yq, b2.yq, (size_t) R2 * (ZV / 32) * 36);
+            for (int k = 0; k < nseg; ++k) {
+                d += cmp_f("deferred state", sa[k], sb[k], NL * SF, ma);
+                const std::vector<float> c = down(sc[k], NL * SF);
+                if (std::memcmp(c.data(), mid[k].data(), NL * SF * 4) != 0) { std::printf("    flush state differs\n"); ++d; }
+            }
+            std::printf("deferred S=%d R1=%2d R2=%2d: %s\n", nseg, R1, R2, d == 0 ? "bitwise" : "DIFF");
+            ok = ok && d == 0;
+            for (int k = 0; k < nseg; ++k) { CK(cudaFree(sa[k])); CK(cudaFree(sb[k])); CK(cudaFree(sc[k])); }
+            for (const Win& w : {a1, b1, a2, b2}) {
+                CK(cudaFree(w.h)); CK(cudaFree(w.g)); CK(cudaFree(w.b)); CK(cudaFree(w.y)); CK(cudaFree(w.yq));
+            }
+            for (void* p : {(void*) d_q1, (void*) d_z1, (void*) d_x1, (void*) d_q2, (void*) d_z2, (void*) d_x2, (void*) ra1,
+                            (void*) rb1, (void*) rc1, (void*) ra2, (void*) rb2, (void*) d_ones, (void*) d_prev, (void*) d_fl})
+                CK(cudaFree(p));
+        }
+    return ok;
+}
+
 // ---- windows past Flash-Next's (up to kDecMaxT rows: a dense decode window): every row bitwise the same at any width (the
 // narrow and wide instantiations), the rows against the CPU, a wide commit equal to two narrow ones, a segment of kDecMaxT
 bool parity_wide(cudaStream_t s) {
@@ -872,7 +995,7 @@ int main(int argc, char** argv) {
     CK(cudaStreamCreateWithFlags(&g_side, cudaStreamNonBlocking));
     CK(cudaEventCreateWithFlags(&g_fork, cudaEventDisableTiming));
     CK(cudaEventCreateWithFlags(&g_join, cudaEventDisableTiming));
-    const bool ok = mode == "--bench-only" || (parity_gdnf(s) && parity_seg(s) && parity_wide(s) && parity_ple_hist(s));
+    const bool ok = mode == "--bench-only" || (parity_gdnf(s) && parity_seg(s) && parity_deferred(s) && parity_wide(s) && parity_ple_hist(s));
     if (mode != "--bench-only") std::printf("dec_gdn_parity: %s\n", ok ? "PASS (bitwise, columns independent of T)" : "FAIL");
     if (ok && (mode == "--bench" || mode == "--bench-only")) { bench_seg(s); bench(s); }
     return ok ? 0 : 1;

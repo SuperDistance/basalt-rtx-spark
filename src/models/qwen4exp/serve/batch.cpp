@@ -56,6 +56,8 @@ bool QfnRuntime::batch_step() {
             if (!ke.empty() && kv_short) {   // the expert cache's floor: this slot's reply ends here
                 BSlot& sl = bs[(size_t) b];
                 basalt::log::warn("basalt batch", "slot %d stopped at %lld cells: %s", b, (long long) at, ke.c_str());
+                std::string fe;   // its sessions keep its state: what its last commit left to a next window lands now
+                if (!ver.flush_deferred(fe)) { std::printf("ERR %s\n", fe.c_str()); return false; }
                 std::printf("BDONE %d %lld length %.1f %lld %lld %lld\n", b, (long long) sl.produced,
                             std::chrono::duration<double, std::milli>(Clock::now() - sl.t0).count(),
                             (long long) sl.drafts_accepted, (long long) sl.drafts_offered, (long long) sl.windows);
@@ -311,7 +313,10 @@ bool QfnRuntime::batch_step() {
                              (unsigned long long) row_hash(r0s[sg] + e));
     // the commit runs beside the drafts when nothing reads the committed state meanwhile
     const bool overlap = real && !bdigest;
-    if (!(overlap ? ver.commit_slots_begin(n_keep, err) : ver.commit_slots(n_keep, err))) {
+    // a continuing slot's GDN state rows are replayed by its next window's recurrence instead of a pass of their own
+    bool defer[MR] = {};
+    for (int sg = 0; sg < S; ++sg) defer[sg] = fin_of[sg] == nullptr;
+    if (!(overlap ? ver.commit_slots_begin(n_keep, defer, err) : ver.commit_slots(n_keep, err))) {
         std::printf("ERR %s\n", err.c_str());
         return false;
     }

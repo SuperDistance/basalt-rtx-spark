@@ -4,7 +4,9 @@
 //                    window from the untouched state, the gated RMS norm, and the q8_1 of its output
 //   gdn_commit_*     once acceptance is known: the first n_keep rows replayed into the state and conv history
 //
-// A window never writes the recurrent state, so a rejected draft never touches it and nothing is snapshotted.  Every
+// A window never writes the recurrent state from its own rows, so a rejected draft never touches it and nothing is
+// snapshotted.  A segmented window may first replay a segment's previous window's kept rows (`prev_tab`), the
+// commit's sums in the commit's order, and write that state back: the commit of those rows, folded into the read.  Every
 // value is the one the per-stage kernels produce (the same operations on the same values in the same order), so a
 // token's outputs do not depend on T or its column.  Needs thread-block clusters.
 //
@@ -52,6 +54,14 @@ struct DecRecArgs {
     // state_out (dec_gdn_rec, nk = 0): the state and conv history after all T rows, laid out as `state` (which is not
     // written) - the commit of all T rows, bitwise, without its pass
     float* state_out = nullptr;
+    // dec_gdn_rec_seg: with prev_tab, row y's entry [2 y] = the first row of the segment's previous window in
+    // prev_h / prev_gate / prev_beta (laid out as h / gate / beta), [2 y + 1] = how many of its rows to replay into the
+    // state (0: none) before this window's rows; the replayed state is written to `state`
+    const int32_t* prev_tab = nullptr;
+    const float* prev_h = nullptr;
+    const float* prev_gate = nullptr;
+    const float* prev_beta = nullptr;
+    int prev_n = 0;   // set per segment from prev_tab
     unsigned long long* stamps = nullptr;   // bench: 10 per-phase timestamps per block
     bool early_trigger = true;   // let the next kernel launch once the constants are loaded
     GdnGate gate_act = GdnGate::Sigmoid;

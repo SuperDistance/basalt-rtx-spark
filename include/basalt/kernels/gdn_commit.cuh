@@ -104,8 +104,17 @@ __device__ __forceinline__ void commit_pre_run(const GdnCommitLayers& a, int per
 }
 
 // The grid-stride items with the next state item's loads issued before the current item runs (n <= MAXT rows).
+// Without `state_on` only the conv history items run (the state's part is left to a later replay).
 template <int MAXT>
-__device__ __forceinline__ void commit_layers_body(const GdnCommitLayers& a, int n, int conv_blocks) {
+__device__ __forceinline__ void commit_layers_body(const GdnCommitLayers& a, int n, int conv_blocks, bool state_on = true) {
+    if (!state_on) {
+        for (int i = blockIdx.x; i < conv_blocks * a.n_layers; i += gridDim.x) {
+            const int l = i / conv_blocks, j = i - l * conv_blocks;
+            gdn_conv_commit_n(a.state + (size_t) l * a.state_stride + (size_t) S * a.h_v * S,
+                              a.qkv + (size_t) l * a.h_stride, a.C, n, j * 32 * RG + threadIdx.y * 32 + threadIdx.x);
+        }
+        return;
+    }
     const int per_state = a.h_v * (S / 32), per_layer = per_state + conv_blocks, total = per_layer * a.n_layers;
     const int step = gridDim.x;
     CommitPre<MAXT> cur, nxt;

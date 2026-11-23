@@ -124,6 +124,7 @@ bool Verifier::run_begin(int T, const int32_t* tokens, int64_t pos0, std::string
     if (ar_on() && h_plan_err_ != nullptr) *(volatile uint32_t*) h_plan_err_ = 0;
     // an async commit still running: the window's first node waits for it once the commit's begin kernel has run (the
     // device then knows the epoch); if that does not happen within moments, the window follows the commit on the device
+    if (!flush_deferred(err)) return false;   // a batch slot's owed state rows, before a solo window reads it
     if (!finisher_on() || (commit_pending_ && !commit_begun()))
         order_after_commit(true);
     if (after != nullptr) cudaStreamWaitEvent(cs_, after, 0);   // behind another verifier's work on the same state
