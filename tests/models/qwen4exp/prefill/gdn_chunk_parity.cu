@@ -338,8 +338,18 @@ int check(int64_t T, uint64_t seed, int mode = 0) {
         fails += !ok;
         return ok ? "" : " FAIL";
     };
-    std::printf("T=%-6lld %s gates: new vs old kernel: output rel RMS %.2e worst %.2e%s, state rel RMS %.2e worst %.2e%s\n",
-                (long long) T, mode ? "extreme" : "regular", ey.rms, ey.worst, verdict(ey), es.rms, es.worst, verdict(es));
+    // FNV-1a of the new kernel's output and state bits: equal across builds when a change is meant to keep them
+    uint64_t hash = 1469598103934665603ull;
+    for (const auto* v : {&yn, &sn})
+        for (const float x : *v) {
+            uint32_t bits;
+            std::memcpy(&bits, &x, 4);
+            for (int j = 0; j < 4; ++j) { hash ^= (bits >> (8 * j)) & 0xFF; hash *= 1099511628211ull; }
+        }
+    std::printf("T=%-6lld %s gates: new vs old kernel: output rel RMS %.2e worst %.2e%s, state rel RMS %.2e worst %.2e%s; "
+                "hash %016llx\n",
+                (long long) T, mode ? "extreme" : "regular", ey.rms, ey.worst, verdict(ey), es.rms, es.worst, verdict(es),
+                (unsigned long long) hash);
     // CPU reference for three heads (one per value-head group)
     const auto h = down(in.h, (size_t) T * C), gate = down(in.gate, (size_t) T * HV), beta = down(in.beta, (size_t) T * HV),
                st0 = down(in.state0, st_n);

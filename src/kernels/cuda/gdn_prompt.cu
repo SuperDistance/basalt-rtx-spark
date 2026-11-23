@@ -231,7 +231,6 @@ template <class In> struct alignas(256) Stage {
 };
 template <class In> struct ChunkShared {
     Stage<In> stage[2];
-    float snapshot[S * DV];   // the state at the chunk's start, [key][value]
     float delta[CK * DV];
 };
 
@@ -307,13 +306,7 @@ __device__ __forceinline__ void gdn_chunk(int bid, float* __restrict__ state, co
         if (chunk + 1 < chunks) cp_wait<1>();
         else cp_wait<0>();
         const int col = warp * 8 + t * 2;
-#pragma unroll
-        for (int m = 0; m < MT; ++m) {
-            const int key = m * 16 + g;
-            *reinterpret_cast<float2*>(sm.snapshot + value_index(key, col)) = make_float2(st[m][0], st[m][1]);
-            *reinterpret_cast<float2*>(sm.snapshot + value_index(key + 8, col)) = make_float2(st[m][2], st[m][3]);
-        }
-        __syncthreads();
+        __syncthreads();   // the stage's copies, visible to every thread
         const Stage<In>& sg = sm.stage[chunk & 1];
         const Control& p = sg.control;
         float hist[4] = {}, pred[4] = {};
@@ -324,11 +317,15 @@ __device__ __forceinline__ void gdn_chunk(int bid, float* __restrict__ state, co
             load_tf32_a(sg.qk.k, k, lane, ka0);
             load_tf32_a(sg.qk.k, k + 8, lane, ka1);
             load_bf16_a(sg.qk.q, k, lane, qa);
-            const int n = warp;
-            const float b0 = sm.snapshot[value_index(k + 2 * t, n * 8 + g)];
-            const float b1 = sm.snapshot[value_index(k + 2 * t + 1, n * 8 + g)];
-            const float b2 = sm.snapshot[value_index(k + 2 * t + 8, n * 8 + g)];
-            const float b3 = sm.snapshot[value_index(k + 2 * t + 9, n * 8 + g)];
+            // S[key][column g of this warp's 8] for keys k + 2t, + 1, + 8, + 9: held in st by this warp's lane
+            // (key row, column >> 1), element column & 1 (+2 past row 8), at the chunk's start - by shuffles
+            const int m = k / 16, sa = (2 * t) * 4 + (g >> 1), sb = (2 * t + 1) * 4 + (g >> 1);
+            const bool odd = (g & 1) != 0;
+            const float a0 = __shfl_sync(0xffffffffu, st[m][0], sa), a1 = __shfl_sync(0xffffffffu, st[m][1], sa);
+            const float c0 = __shfl_sync(0xffffffffu, st[m][0], sb), c1 = __shfl_sync(0xffffffffu, st[m][1], sb);
+            const float a2 = __shfl_sync(0xffffffffu, st[m][2], sa), a3 = __shfl_sync(0xffffffffu, st[m][3], sa);
+            const float c2 = __shfl_sync(0xffffffffu, st[m][2], sb), c3 = __shfl_sync(0xffffffffu, st[m][3], sb);
+            const float b0 = odd ? a1 : a0, b1 = odd ? c1 : c0, b2 = odd ? a3 : a2, b3 = odd ? c3 : c2;
             mma_tf32(pred, ka0[0], ka0[1], ka0[2], ka0[3], __float_as_uint(b0), __float_as_uint(b1));
             mma_tf32(pred, ka1[0], ka1[1], ka1[2], ka1[3], __float_as_uint(b2), __float_as_uint(b3));
             mma_bf16(hist, qa[0], qa[1], qa[2], qa[3], pack_bf16x2(b0, b1), pack_bf16x2(b2, b3));
