@@ -383,13 +383,14 @@ template <bool F16>
 struct Smem3 {
     static constexpr int STAGE = F16 ? F16_TILE_BYTES : STAGE_BYTES;
     alignas(16) unsigned char q[16 * QROW];
-    alignas(16) unsigned char stage[NWARP][2][STAGE];
+    // the int8 path stages one tile per warp (two blocks fit on an SM); the fp16 path's two regions are its K and V
+    alignas(16) unsigned char stage[NWARP][F16 ? 2 : 1][STAGE];
     float qmax[NWARP];
     float mw[NWARP][16];
     float lw[NWARP][16];
 };
 static_assert(NWARP * 12 * OSTRIDE * 4 <= NWARP * 2 * F16_TILE_BYTES, "merge rows overlay the stages");
-static_assert(NWARP * 12 * OSTRIDE * 4 <= NWARP * 2 * STAGE_BYTES, "merge rows overlay the stages");
+static_assert(12 * OSTRIDE * 4 <= NWARP * STAGE_BYTES, "merge rows overlay the stages");
 
 // 16-byte chunk c of row r lives at c ^ (r & 7): the rows one ldmatrix reads hit distinct banks.
 __device__ __forceinline__ int swz16(int row, int row_bytes, int chunk) {
@@ -590,14 +591,11 @@ __global__ void __launch_bounds__(THREADS, 2) prompt_attn_warp_kernel(const floa
             __syncwarp();
             k_s = stg;
             v_s = stg + F16_TILE_BYTES;
-        } else {
-            if (j + 1 < my_tiles) issue(cell_a, st ^ 1);
-            cp_async_commit();
-            cell_a = cell_b;
-            cell_b = j + 3 < my_tiles ? cell_of(warp + (j + 3) * NWARP) : -1;
-            cp_async_wait1();
+        } else {   // this tile's codes and scales are in; the next tile's go into the same buffer after the p.v
+            (void) st;
+            cp_async_wait0();
             __syncwarp();
-            k_s = stg + st * STAGE_BYTES;
+            k_s = stg;
             v_s = k_s + TILE * KROW;
             ksc = reinterpret_cast<const __half*>(v_s + TILE * KROW);
             vsc = ksc + TILE * 4;
@@ -754,6 +752,11 @@ __global__ void __launch_bounds__(THREADS, 2) prompt_attn_warp_kernel(const floa
                 }
             }
         }
+        __syncwarp();
+        if (j + 1 < my_tiles) issue(cell_a, 0);
+        cp_async_commit();
+        cell_a = cell_b;
+        cell_b = j + 3 < my_tiles ? cell_of(warp + (j + 3) * NWARP) : -1;
         }
         __syncwarp();
     }
@@ -781,12 +784,14 @@ __global__ void __launch_bounds__(THREADS, 2) prompt_attn_warp_kernel(const floa
         M1 = fmaxf(M1, S.mw[w][gid + 8]);
     }
     const float f0 = m0 == -INFINITY ? 0.0f : ex2(m0 - M0), f1 = m1 == -INFINITY ? 0.0f : ex2(m1 - M1);
+    // fp16 KV: every warp's rescaled rows side by side (they fit in its two stage regions), added in warp order below.
+    // int8 KV: one set of rows the warps add into in turn, warp order, so the same sums fit one stage region per warp.
     float* mrg = reinterpret_cast<float*>(&S.stage[0][0][0]);
+    if constexpr (F16) {
 #pragma unroll
-    for (int b = 0; b < 16; ++b) {
-        float* r0 = mrg + ((size_t) warp * G + gid) * OSTRIDE;
-        float* r1 = mrg + ((size_t) warp * G + gid + 8) * OSTRIDE;
-        if constexpr (F16) {   // o[b][h] holds dims 16 b + 8 h + 2 lid, +1
+        for (int b = 0; b < 16; ++b) {   // o[b][h] holds dims 16 b + 8 h + 2 lid, +1
+            float* r0 = mrg + ((size_t) warp * G + gid) * OSTRIDE;
+            float* r1 = mrg + ((size_t) warp * G + gid + 8) * OSTRIDE;
             const int d = 16 * b + 2 * lid;
             *reinterpret_cast<float2*>(r0 + d) = make_float2(o[b][0][0] * f0, o[b][0][1] * f0);
             *reinterpret_cast<float2*>(r0 + d + 8) = make_float2(o[b][1][0] * f0, o[b][1][1] * f0);
@@ -794,16 +799,32 @@ __global__ void __launch_bounds__(THREADS, 2) prompt_attn_warp_kernel(const floa
                 *reinterpret_cast<float2*>(r1 + d) = make_float2(o[b][0][2] * f1, o[b][0][3] * f1);
                 *reinterpret_cast<float2*>(r1 + d + 8) = make_float2(o[b][1][2] * f1, o[b][1][3] * f1);
             }
-        } else {   // dims 16 b + 4 lid .. + 3: the K code order interleaves the two halves
-            const int d = 16 * b + 4 * lid;
-            *reinterpret_cast<float4*>(r0 + d) =
-                make_float4(o[b][0][0] * f0, o[b][1][0] * f0, o[b][0][1] * f0, o[b][1][1] * f0);
-            if (gid + 8 < G)
-                *reinterpret_cast<float4*>(r1 + d) =
-                    make_float4(o[b][0][2] * f1, o[b][1][2] * f1, o[b][0][3] * f1, o[b][1][3] * f1);
+        }
+        __syncthreads();
+    } else {
+        auto add = [&](float* at, float v) { *at = (warp == 0 ? 0.0f : *at) + v; };
+        for (int w = 0; w < NWARP; ++w) {
+            if (warp == w) {
+#pragma unroll
+                for (int b = 0; b < 16; ++b) {   // dims 16 b + 4 lid .. + 3: the K code order interleaves the two halves
+                    float* r0 = mrg + (size_t) gid * OSTRIDE;
+                    float* r1 = mrg + (size_t) (gid + 8) * OSTRIDE;
+                    const int d = 16 * b + 4 * lid;
+                    add(r0 + d, o[b][0][0] * f0);
+                    add(r0 + d + 1, o[b][1][0] * f0);
+                    add(r0 + d + 2, o[b][0][1] * f0);
+                    add(r0 + d + 3, o[b][1][1] * f0);
+                    if (gid + 8 < G) {
+                        add(r1 + d, o[b][0][2] * f1);
+                        add(r1 + d + 1, o[b][1][2] * f1);
+                        add(r1 + d + 2, o[b][0][3] * f1);
+                        add(r1 + d + 3, o[b][1][3] * f1);
+                    }
+                }
+            }
+            __syncthreads();
         }
     }
-    __syncthreads();
     for (int i = t; i < G * HD / 4; i += THREADS) {
         const int r = i / (HD / 4), d = (i % (HD / 4)) * 4;
         float L = 0.0f;
@@ -815,8 +836,15 @@ __global__ void __launch_bounds__(THREADS, 2) prompt_attn_warp_kernel(const floa
         for (int w = 0; w < NWARP; ++w) {
             const float mw = S.mw[w][r];
             L += mw == -INFINITY ? 0.0f : S.lw[w][r] * ex2(mw - Mr);
-            const float4 v = *reinterpret_cast<const float4*>(mrg + ((size_t) w * G + r) * OSTRIDE + d);
-            acc.x += v.x; acc.y += v.y; acc.z += v.z; acc.w += v.w;
+        }
+        if constexpr (F16) {
+#pragma unroll
+            for (int w = 0; w < NWARP; ++w) {
+                const float4 v = *reinterpret_cast<const float4*>(mrg + ((size_t) w * G + r) * OSTRIDE + d);
+                acc.x += v.x; acc.y += v.y; acc.z += v.z; acc.w += v.w;
+            }
+        } else {
+            acc = *reinterpret_cast<const float4*>(mrg + (size_t) r * OSTRIDE + d);
         }
         const float inv = L > 0.0f ? 1.0f / L : 0.0f;
         *reinterpret_cast<float4*>(attn + (size_t) r * HD + d) =

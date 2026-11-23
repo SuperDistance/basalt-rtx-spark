@@ -243,12 +243,19 @@ int run(int fmt, int64_t ctx, int64_t nq, int reps) {   // fmt 1 int8, 0 fp16, 2
         same &= eq;
         cudaFree(d_sub);
     }
+    uint64_t hash = 1469598103934665603ull;   // FNV-1a of the new kernel's output bits: equal across builds when a
+    for (const float v : nw) {                 // change is meant to keep them
+        uint32_t bits;
+        std::memcpy(&bits, &v, 4);
+        for (int j = 0; j < 4; ++j) { hash ^= (bits >> (8 * j)) & 0xFF; hash *= 1099511628211ull; }
+    }
     const bool ok1 = fmt <= 1 ? err_new <= 1.5e-3 * ref_scale : err_new <= std::max(4.0 * err_old, 1e-6 * ref_scale);
     const bool ok2 = (fmt <= 1 ? diff <= 2e-3 * scale : diff <= 1e-4 * scale) && same;
     std::printf("%s %s ctx %lld, %lld queries: vs FP64 old %.3g new %.3g (output scale %.3g); new vs old %.3g (%.2g of "
-                "scale); batch-independent %s; %.3f -> %.3f ms per chunk (%.2fx)\n",
+                "scale); batch-independent %s; %.3f -> %.3f ms per chunk (%.2fx); hash %016llx\n",
                 ok1 && ok2 ? "PASS" : "FAIL", fmt == 2 ? "q4_0" : fmt == 1 ? "int8" : "fp16", (long long) ctx, (long long) nq, err_old,
-                err_new, ref_scale, diff, diff / scale, same ? "yes" : "NO", ms_old / reps, ms_new / reps, ms_old / ms_new);
+                err_new, ref_scale, diff, diff / scale, same ? "yes" : "NO", ms_old / reps, ms_new / reps, ms_old / ms_new,
+                (unsigned long long) hash);
     cudaFree((void*) d_ids); cudaFree((void*) d_steps); cudaFree((void*) d_q); cudaFree(d_old); cudaFree(d_new);
     cudaFree(scratch);
     cudaFree((void*) pl.k_q); cudaFree((void*) pl.v_q); cudaFree((void*) pl.k_scale); cudaFree((void*) pl.v_scale);
