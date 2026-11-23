@@ -2,7 +2,7 @@
 
 ### A 120B-class model at ~98 tokens/s on your RTX Spark laptop.
 
-Native on Windows on Arm. Lossless. Ready for your chat app and your coding agent.
+Native on Windows on Arm. Lossless speedups. Ready for your chat app and your coding agent.
 
 [Install](#install) · [Use it](#use-it-from-your-tools) · [Hardware](#hardware) · [Results](#results) · [Benchmarks](benchmarks) · [Docs](#documentation)
 
@@ -22,8 +22,10 @@ for the RTX Spark:
   placement that respects Windows commit, fast reads of the model's tables on NTFS, millisecond command handling).
 - **Made for unified memory.** It spreads the model across the GPU's share of memory and pinned system RAM by itself,
   at whatever split your laptop has, and the GPU reads RAM-resident experts in place instead of copying them.
-- **Lossless.** Every speedup keeps the output: the same greedy text as before it (checked by hashes), the KLD gate
-  against the BF16 model where rounding changes, and speculative decoding that keeps the sampling distribution.
+- **Lossless speedups.** Every speedup keeps the output: the same greedy text as before it (checked by hashes), the KLD
+  gate against the BF16 model where rounding changes, and speculative decoding that keeps the sampling distribution.
+  The quantization is a separate choice: the UD-IQ3_XXS pack measured here has a mean KLD of 0.118 against the BF16
+  model (88.7% top-1 agreement); NVIDIA's NVFP4 packs 0.06-0.09.
 - **Long context, many requests.** Four 262,144-token conversations at once, with an int8 KV cache that grows on demand.
 - **Drop-in API.** OpenAI- and Anthropic-compatible endpoints, so existing clients and agents work unchanged.
 
@@ -125,6 +127,9 @@ BetterBench 0.6.1, the same laptop, model pack and settings, run back to back (t
 Against vLLM for RTX Spark (FP4-Local, MTP 7) on the same laptop and benchmark, in an earlier run of both without the
 power budget held up, single-stream decode was 60% faster (88.2 against 55.1 tok/s); vLLM led on short-prompt first
 token, at three and four streams, and on prefill ([details](benchmarks/results/2026-11-22-hp-omnibook-x-n1x-128gb-vllm)).
+The two ran different quantizations: this fork the UD-IQ3_XXS pack, which reads fewer bytes per token but diverges more
+from the BF16 model (mean KLD 0.118 against 0.089 for FP4-Local on the same gate), vLLM NVIDIA's FP4-Local. A run of
+this fork on FP4-Local, the same weights, is next.
 
 ![Single-stream decode by scenario, against vLLM](benchmarks/img/vllm-decode.svg)
 

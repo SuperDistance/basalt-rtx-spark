@@ -10,7 +10,8 @@
 | When | vLLM 2026-11-22 21:46, basalt-rtx-spark 2026-11-23 04:43, each on a freshly started server |
 
 Each engine runs its own pack, the one it is built for, so this compares the two as a user would run them, not the
-same weights. Both runs sat on the same power floor after their first minutes, but they were not back to back.
+same weights: UD-IQ3_XXS reads fewer bytes per token than FP4-Local but diverges more from the BF16 model (mean KLD
+0.118 against 0.089 for FP4-Local, both on Basalt's 100-chunk gate). Both runs sat on the same power floor after their first minutes, but they were not back to back.
 
 ## Results
 
