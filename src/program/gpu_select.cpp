@@ -1,6 +1,8 @@
 // src/program/gpu_select.cpp - see gpu_select.hpp.
 #include "basalt/program/gpu_select.hpp"
 
+#include "basalt/core/cuda_cc.hpp"
+
 #include "basalt/log.hpp"
 #include "basalt/platform/dynlib.hpp"
 #include "basalt/platform/process.hpp"
@@ -93,7 +95,11 @@ NvmlCards read_nvml() {
                 char u[96] = {0};
                 if (uuid && uuid(h, u, sizeof u) == 0) id = u;
                 int ma = 0, mi = 0;
-                if (cc && cc(h, &ma, &mi) == 0) { c.cc_major = ma; c.cc_minor = mi; }
+                const int cc_rc = cc ? cc(h, &ma, &mi) : -1;
+                if (cc_rc == 0) { c.cc_major = ma; c.cc_minor = mi; }
+                // NVML_ERROR_NOT_SUPPORTED: a device the management library lists that is no CUDA device (the N1X's
+                // NPU). It is no card to choose from, and CUDA_VISIBLE_DEVICES does not number it.
+                if (cc_rc == 3) continue;
                 MemInfo m{};
                 if (mem && mem(h, &m) == 0) c.vram = m.total;
                 unsigned width = 0, mhz = 0;
@@ -136,15 +142,15 @@ bool parse_gpu_spec(const std::string& text, GpuSpec& out, std::string& err) {
 // The main GPU runs the model's decode kernels (NVFP4 tensor cores, Blackwell instructions) — sm_120 only.
 // A peer GPU runs only the expert tier's standard CUDA kernels (Q8_1/Q2_0 rows, shared-memory rings,
 // doorbells), which a build with -DPEER_ADA=ON also compiles for sm_89 (Ada).
-bool gpu_main_supported(const GpuCard& c) { return c.cc_major == 0 || (c.cc_major == 12 && c.cc_minor == 0); }
+bool gpu_main_supported(const GpuCard& c) { return c.cc_major == 0 || core::cuda_cc_is_ours(c.cc_major, c.cc_minor); }
 // sm_89 (Ada) is the one older architecture the peer kernels can be compiled for (when built with PEER_ADA);
 // a peer card of any other pre-Blackwell arch (or an sm_89 card without PEER_ADA) is rejected here
 // rather than failing later with 'no kernel image' at the first peer launch.
 bool gpu_peer_supported(const GpuCard& c) {
 #if defined(BASALT_PEER_ADA)
-    return c.cc_major == 0 || (c.cc_major == 12 && c.cc_minor == 0) || (c.cc_major == 8 && c.cc_minor == 9);
+    return c.cc_major == 0 || core::cuda_cc_is_ours(c.cc_major, c.cc_minor) || (c.cc_major == 8 && c.cc_minor == 9);
 #else
-    return c.cc_major == 0 || (c.cc_major == 12 && c.cc_minor == 0);
+    return c.cc_major == 0 || core::cuda_cc_is_ours(c.cc_major, c.cc_minor);
 #endif
 }
 
@@ -160,7 +166,7 @@ GpuChoice choose_gpus(const GpuSpec& spec, const std::vector<GpuCard>& visible, 
     const int n = (int) visible.size();
     auto unsupported_main = [&](int i) {
         return "gpu: " + gpu_label(visible, i) + " is sm_" + std::to_string(visible[(size_t) i].cc_major) +
-               std::to_string(visible[(size_t) i].cc_minor) + ", not sm_120";
+               std::to_string(visible[(size_t) i].cc_minor) + ", not " + core::cuda_cc_name();
     };
     if (spec.kind == GpuSpec::Kind::Auto) {
         if (!known) {
@@ -173,10 +179,10 @@ GpuChoice choose_gpus(const GpuSpec& spec, const std::vector<GpuCard>& visible, 
         for (int i = 0; i < n; ++i) {
             if (gpu_main_supported(visible[(size_t) i])) main_ok.push_back(i);
             else if (gpu_peer_supported(visible[(size_t) i])) peer_ok.push_back(i);
-            else c.notes.push_back("gpu auto: " + gpu_label(visible, i) + " skipped, not sm_120");
+            else c.notes.push_back("gpu auto: " + gpu_label(visible, i) + " skipped, not " + core::cuda_cc_name());
         }
         if (main_ok.empty()) {
-            c.error = n == 0 ? "gpu auto: no GPU is visible" : "gpu auto: no sm_120 GPU visible";
+            c.error = n == 0 ? "gpu auto: no GPU is visible" : "gpu auto: no " + core::cuda_cc_name() + " GPU visible";
             return c;
         }
         int best = main_ok[0];
@@ -192,7 +198,7 @@ GpuChoice choose_gpus(const GpuSpec& spec, const std::vector<GpuCard>& visible, 
         for (int i : peer_ok)
             c.cards.push_back(i);
         for (int i : peer_ok)
-            if (i != best) c.notes.push_back("gpu auto: " + gpu_label(visible, i) + " is not sm_120, using it as an expert-tier peer only");
+            if (i != best) c.notes.push_back("gpu auto: " + gpu_label(visible, i) + " is not " + core::cuda_cc_name() + ", using it as an expert-tier peer only");
         return c;
     }
     if (spec.kind == GpuSpec::Kind::Unset) {

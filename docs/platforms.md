@@ -3,6 +3,9 @@
 Linux x64 and Windows x64, NVIDIA Blackwell (sm_120). Linux is where the engine is tested and benchmarked. CI builds both and runs
 the CPU tests on each. The GPU tests and the quality gate need a card.
 
+Arm64 with compute capability 12.1 (the integrated GPU of the RTX Spark N1X and the DGX Spark) builds on Linux and Windows on
+Arm64: [Arm64](arm64.md). The rest of this page is about x64.
+
 The main card is always sm_120, with one exception in the multi-GPU tier: when built with `-DPEER_ADA=ON`, a second card of sm_89 (Ada) can hold and
 compute the expert tier ([GPUs](configuration/gpus.md#an-older-peer-card)); every other path and every other
 architecture is Blackwell-only.
@@ -29,7 +32,7 @@ cd basalt-vX.Y.Z-linux-x64                   # tar xzf the archive first; on Win
 python3 -m venv .venv && .venv/bin/pip install -r requirements.txt
 ```
 
-On Windows: `py -3 -m venv .venv` then `.venv\Scripts\pip install -r requirements.txt`. Then follow the README's quick start from the
+On Windows: `py -3 -m venv .venv` then `.venv\Scripts\pip install -r requirements.txt`. Then follow the [upstream README](../README.basalt.md)'s quick start from the
 model download on: `bin/basalt serve --config basalt_config.json`. `bin/basalt-bench` starts the `basalt` beside it and
 reads the archive's `data/bench`.
 

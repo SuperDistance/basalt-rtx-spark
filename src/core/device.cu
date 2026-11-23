@@ -1,5 +1,7 @@
 // src/core/device.cu - the CUDA side of the runtime core.
 #include "basalt/core/device.hpp"
+#include "basalt/core/device_memory.hpp"
+#include "basalt/core/cuda_cc.hpp"
 #include "basalt/platform/dynlib.hpp"
 
 #include <cuda_runtime.h>
@@ -112,7 +114,7 @@ bool device_memory(int ordinal, uint64_t& free_bytes, uint64_t& total_bytes, std
     size_t f = 0, t = 0;
     if (e == cudaSuccess) {
         call = "cudaMemGetInfo";
-        e = cudaMemGetInfo(&f, &t);
+        e = basalt::core::device_mem_info(&f, &t);
         if (ordinal >= 0 && ordinal != prev) cudaSetDevice(prev);
     }
     if (e != cudaSuccess) {
@@ -226,7 +228,7 @@ DeviceInfo device_info(int ordinal) {
     d.multi_processor_count = p.multiProcessorCount;
 
     size_t free_b = 0, total_b = 0;
-    check(cudaMemGetInfo(&free_b, &total_b), "cudaMemGetInfo");
+    check(basalt::core::device_mem_info(&free_b, &total_b), "cudaMemGetInfo");
     d.free_bytes = free_b;
     d.total_bytes = total_b;
 
@@ -235,9 +237,10 @@ DeviceInfo device_info(int ordinal) {
 
     // The binary holds code for one compute capability only; a card of another compute capability is refused here rather than failing
     // at its first kernel launch.
-    if (d.cc_major != 12 || d.cc_minor != 0) {
+    if (!cuda_cc_is_ours(d.cc_major, d.cc_minor)) {
         throw CudaError("device " + d.name + " reports compute capability " + std::to_string(d.cc_major) + "." +
-                            std::to_string(d.cc_minor) + "; basalt needs an NVIDIA GPU of compute capability 12.0",
+                            std::to_string(d.cc_minor) + "; this build needs an NVIDIA GPU of compute capability " +
+                            cuda_cc_dotted(),
                         -1);
     }
     return d;

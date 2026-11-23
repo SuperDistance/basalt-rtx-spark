@@ -12,6 +12,7 @@
 #include <mutex>
 #include <string>
 #include <thread>
+#include <vector>
 #if defined(_WIN32)
 #include "basalt/platform/win.hpp"
 #include <dxgi1_4.h>
@@ -145,23 +146,25 @@ uint64_t total_physical_memory() {
 
 #if defined(_WIN32)
 namespace {
-/// The two figures the sizing reads, from one query: available and total physical RAM in bytes. Both are 0 when the
-/// query fails, which the callers read as unknown rather than as none.
-void memory_status(uint64_t& avail, uint64_t& total) {
-    MEMORYSTATUSEX ms{};
-    ms.dwLength = sizeof ms;
-    if (!GlobalMemoryStatusEx(&ms)) { avail = 0; total = 0; return; }
-    avail = (uint64_t) ms.ullAvailPhys;
-    total = (uint64_t) ms.ullTotalPhys;
-}
-
 // The OS's own reading, before a container limit lowers it (available_memory).
 uint64_t os_available_memory() {
-    uint64_t avail = 0, total = 0;
-    memory_status(avail, total);
-    return avail;
+    MEMORYSTATUSEX ms{};
+    ms.dwLength = sizeof ms;
+    return GlobalMemoryStatusEx(&ms) ? (uint64_t) ms.ullAvailPhys : 0;
 }
 }  // namespace
+
+bool commit_headroom(uint64_t& available, uint64_t& limit) {
+    MEMORYSTATUSEX ms{};
+    ms.dwLength = sizeof ms;
+    if (!GlobalMemoryStatusEx(&ms) || ms.ullTotalPageFile == 0) {
+        available = limit = 0;
+        return false;
+    }
+    available = (uint64_t) ms.ullAvailPageFile;
+    limit = (uint64_t) ms.ullTotalPageFile;
+    return true;
+}
 #else
 namespace {
 // One "<key>: <n> kB" line of /proc/meminfo in bytes (0 when absent).
@@ -177,6 +180,11 @@ uint64_t meminfo_bytes(const char* key) {
 // The OS's own reading, before a container limit lowers it (available_memory).
 uint64_t os_available_memory() { return meminfo_bytes("MemAvailable"); }
 }  // namespace
+
+bool commit_headroom(uint64_t& available, uint64_t& limit) {   // Linux overcommits: no commit limit to keep under
+    available = limit = 0;
+    return false;
+}
 #endif
 
 namespace {
@@ -385,7 +393,10 @@ uint64_t ram_budget(bool* known) {
     if (known) *known = avail > 0;
     if (avail == 0) return UINT64_MAX;
     const uint64_t reserve = ram_reserve();
-    return avail > reserve ? avail - reserve : 0;
+    uint64_t budget = avail > reserve ? avail - reserve : 0;
+    // a page-locked or resident allocation is committed too: it leaves the reserve of the commit headroom as well
+    if (uint64_t c = 0, limit = 0; commit_headroom(c, limit)) budget = std::min(budget, c > reserve ? c - reserve : 0);
+    return budget;
 }
 
 namespace {
@@ -862,10 +873,89 @@ void free_region(void* p, uint64_t bytes) {
     VirtualFree(p, 0, MEM_RELEASE);
 }
 
+namespace {
+// The adapters asked about so far, kept for the process: creating a DXGI factory and walking it costs milliseconds.
+struct KnownAdapter {
+    char luid[8];
+    IDXGIAdapter3* adapter;
+    DXGI_ADAPTER_DESC1 desc;
+};
+std::mutex g_adapters_mu;
+std::vector<KnownAdapter> g_adapters;
+
+// The adapter of `luid` (g_adapters_mu held); null when DXGI lists none.
+const KnownAdapter* known_adapter(const char* luid) {
+    for (const KnownAdapter& k : g_adapters)
+        if (std::memcmp(k.luid, luid, 8) == 0) return &k;
+    IDXGIFactory1* factory = nullptr;
+    if (FAILED(CreateDXGIFactory1(__uuidof(IDXGIFactory1), (void**) &factory))) return nullptr;
+    const KnownAdapter* found = nullptr;
+    for (UINT i = 0; found == nullptr; ++i) {
+        IDXGIAdapter1* adapter = nullptr;
+        if (factory->EnumAdapters1(i, &adapter) != S_OK) break;
+        KnownAdapter k{};
+        if (SUCCEEDED(adapter->GetDesc1(&k.desc)) && std::memcmp(&k.desc.AdapterLuid, luid, 8) == 0 &&
+            SUCCEEDED(adapter->QueryInterface(__uuidof(IDXGIAdapter3), (void**) &k.adapter))) {
+            std::memcpy(k.luid, luid, 8);
+            g_adapters.push_back(k);   // the IDXGIAdapter3 reference is kept for the process
+            found = &g_adapters.back();
+        }
+        adapter->Release();
+    }
+    factory->Release();
+    return found;
+}
+}  // namespace
+
+bool adapter_memory(const char* luid, uint32_t node_mask, AdapterMemory& m) {
+    m = AdapterMemory{};
+    if (!luid || !node_mask) return false;
+    const std::lock_guard<std::mutex> lock(g_adapters_mu);
+    const KnownAdapter* k = known_adapter(luid);
+    if (k == nullptr) return false;
+    m.dedicated = k->desc.DedicatedVideoMemory;
+    m.shared = k->desc.SharedSystemMemory;
+    bool any = false;
+    for (UINT node = 0; node < 32; ++node) {
+        if (!(node_mask & (uint32_t(1) << node))) continue;
+        DXGI_QUERY_VIDEO_MEMORY_INFO local{}, nonlocal{};
+        if (FAILED(k->adapter->QueryVideoMemoryInfo(node, DXGI_MEMORY_SEGMENT_GROUP_LOCAL, &local))) continue;
+        (void) k->adapter->QueryVideoMemoryInfo(node, DXGI_MEMORY_SEGMENT_GROUP_NON_LOCAL, &nonlocal);
+        m.local_budget += local.Budget;
+        m.local_usage += local.CurrentUsage;
+        m.nonlocal_budget += nonlocal.Budget;
+        m.nonlocal_usage += nonlocal.CurrentUsage;
+        any = true;
+    }
+    return any;
+}
+
 bool pin_budget(uint64_t& limit, std::string& why, const char* luid, uint32_t node_mask, bool shared_mapping) {
     limit = 0;
     why.clear();
     if (!luid || !node_mask) return false;
+    {
+        // An integrated GPU has no non-local segment group (its budget is 0): page-locked host memory is charged to the
+        // local group, beside the device memory. What that group's budget holds past the dedicated carve-out is the
+        // system RAM the adapter may share, and that is the allowance. Its usage cannot be told from the device
+        // memory's in the group's one figure, so the caller's own count of what it has registered bounds the rest.
+        AdapterMemory a;
+        if (adapter_memory(luid, node_mask, a) && a.nonlocal_budget == 0 && a.local_budget > 0) {
+            const uint64_t past = a.local_budget > a.dedicated ? a.local_budget - a.dedicated : 0;
+            const uint64_t budget = std::min<uint64_t>(past, a.shared);
+            const uint64_t reserve = pin_reserve(budget);
+            limit = budget > reserve ? budget - reserve : 0;
+            char buf[224];
+            constexpr double GiB = 1073741824.0;
+            std::snprintf(buf, sizeof buf,
+                          "integrated GPU, DXGI local budget %.2f GiB of which %.2f GiB dedicated: %.2f GiB of system RAM, "
+                          "reserve %.2f GiB",
+                          (double) a.local_budget / GiB, (double) a.dedicated / GiB, (double) budget / GiB,
+                          (double) reserve / GiB);
+            why = buf;
+            return true;
+        }
+    }
     IDXGIFactory1* factory = nullptr;
     if (FAILED(CreateDXGIFactory1(__uuidof(IDXGIFactory1), (void**) &factory))) return false;
     bool found = false;
@@ -1071,6 +1161,10 @@ void free_region(void* p, uint64_t bytes) {
 }
 
 bool pin_budget(uint64_t&, std::string&, const char*, uint32_t, bool) { return false; }   // no OS-side budget below the driver's own limit
+bool adapter_memory(const char*, uint32_t, AdapterMemory& m) {   // no OS-side reading of an adapter's memory
+    m = AdapterMemory{};
+    return false;
+}
 #endif
 
 void* alloc_region(uint64_t bytes, RegionBacking& got, std::string& note, const std::string& shared_file,

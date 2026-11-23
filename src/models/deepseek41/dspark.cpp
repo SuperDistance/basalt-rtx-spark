@@ -4,6 +4,7 @@
 //
 // The stage structure follows llama.cpp's DeepSeek-V4.1 DSpark graph (MIT, Copyright (c) 2023-2026 The ggml authors).
 #include "models/deepseek41/dspark.hpp"
+#include "basalt/core/device_memory.hpp"
 
 #include "basalt/artifact/gguf_reader.hpp"
 #include "basalt/core/expert_cache.hpp"
@@ -180,14 +181,14 @@ struct DsparkDrafter::Impl {
 
     bool upload(const void* src, size_t bytes, void** dst, size_t pad = 0) {
         if (bytes == 0 || !alloc(dst, bytes + pad)) return false;
-        return cudaMemcpy(*dst, src, bytes, cudaMemcpyHostToDevice) == cudaSuccess;
+        return basalt::core::device_copy(*dst, src, bytes, cudaMemcpyHostToDevice) == cudaSuccess;
     }
 
     bool load(const core::FileRange& section, const std::string& ranking, int keep, std::string& err) {
         size_t free0 = 0, free1 = 0, total_b = 0;
-        cudaMemGetInfo(&free0, &total_b);
+        basalt::core::device_mem_info(&free0, &total_b);
         const bool ok = read(section, ranking, keep, err);
-        cudaMemGetInfo(&free1, &total_b);
+        basalt::core::device_mem_info(&free1, &total_b);
         bytes_taken = free0 > free1 ? (uint64_t) (free0 - free1) : 0;
         return ok;
     }
@@ -412,7 +413,7 @@ struct DsparkDrafter::Impl {
         {
             std::vector<float> rows((size_t) 4 * (kT - 1) * kN);
             for (size_t r = 0; r < (size_t) 4 * (kT - 1); ++r) std::memcpy(rows.data() + r * kN, mask_emb.data(), (size_t) kN * 4);
-            if (cudaMemcpy(x_mask, rows.data(), rows.size() * 4, cudaMemcpyHostToDevice) != cudaSuccess) {
+            if (basalt::core::device_copy(x_mask, rows.data(), rows.size() * 4, cudaMemcpyHostToDevice) != cudaSuccess) {
                 err = "dspark: cannot upload the mask rows";
                 return false;
             }
