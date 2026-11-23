@@ -1006,18 +1006,6 @@ __global__ void __launch_bounds__(THREADS, 1) hc_fused_kernel(const __grid_const
         cn_bars = cn_issue(a, item, tid, smem, dbars, tms);
         staged = true;
     }
-    if (tid == 0) {   // every matrix of the read into L2 at once (this CTA's share), before the wait: neither depends on it
-        const size_t sz[7] = {(size_t) LR * D, (size_t) LR * (D / 32) * 2, (size_t) D * LR, (size_t) D * 16 * 2,
-                              a.q_inject ? (size_t) HC * D : 0, a.q_inject ? (size_t) HC * (D / 32) * 2 : 0,
-                              a.w_router ? (size_t) NE * N * 2 : 0};
-        const void* pp[7] = {a.q_down, a.s_down, a.q_up, a.s_up, a.q_inject, a.s_inject, a.w_router};
-#pragma unroll
-        for (int r = 0; r < 7; ++r) {
-            if (pp[r] == nullptr || sz[r] < 16 || ((uintptr_t) pp[r] & 15) != 0) continue;
-            const size_t n16 = sz[r] / 16, lo16 = (size_t) b * n16 / nb, hi16 = (size_t) (b + 1) * n16 / nb;
-            if (hi16 > lo16) prefetch_l2((const char*) pp[r] + lo16 * 16, (hi16 - lo16) * 16);
-        }
-    }
     if (L.early) pdl_launch_dependents();
     pdl_wait();
     stamp<DBG>(dbg, b, 1, tid);
