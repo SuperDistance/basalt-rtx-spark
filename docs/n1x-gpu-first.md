@@ -242,6 +242,55 @@ unverified. For benchmarks this means: a short run measures the boost, a long on
 the two differ by up to half; log P-state, clock, power and both temperatures with every number (`spark monitor`,
 `nvidia-smi -lms 1000`).
 
+A later run of six back-to-back four-stream arms (about four minutes each) slid the same way: GPU power over the busy
+samples 58.7, 51.7, 42.4, 31.8, 27.0 and 27.6 W, clocks 2.31 GHz down to 1.62 GHz, with SparkHelper's monitor reporting
+"Reliability" as the reason in almost every busy sample from the third arm on. Back-to-back arms are biased against the
+later ones; compare kernels in isolation or alternate arms with power logged.
+
+## Where a four-stream window goes
+
+UD-IQ3_XXS, four greedy streams, about 7.7 verify rows per window. Profiled windows (per-stage GPU stamps) take 53-62 ms
+depending on the power state; at 53 ms:
+
+| Part | ms per window |
+| --- | ---: |
+| experts (VRAM hits) | ~21 |
+| hyper-connection reads + router | ~7.5 |
+| q8 + qkv / index projections | ~6.6 |
+| out projections | ~2.7 |
+| GDN recurrence | 2.5-3.6 |
+| shared expert + quant | ~2.1 |
+| head | ~1.0 |
+| launch and readback outside the stamps | 2.0-2.5 |
+| draft section (MTP draft beside the GDN commit) | 7.6-8 |
+
+The per-slot experts barely overlap (about 10 VRAM hits per row per layer), so each verify row costs roughly the same
+expert traffic. The draft section is slow because the drafter runs beside the GDN state commit and both are bound by
+memory: with the overlap turned off the catch-up drops from 4.2 to 0.27 ms and the draft to 3.6 ms, but the commit
+then takes 4.6 ms on its own and the window time does not change. The commit moves the GDN state of every slot once in
+and once out: 36 layers x 48 value heads x 128 x 128 FP32 = 113 MB per slot, about 906 MB at four slots. In
+`dec_commit_parity --bench` it runs at 194-214 GB/s for every grid width from 32 to 340 blocks per segment, the same as
+a chain of 4 MB device copies (about 207 GB/s), so the kernel is at the card's memory limit and block tuning cannot
+help. The lossless way left is to read the state once: fold the commit into the next window's GDN recurrence (same
+4 x 32 row-group layout), which saves about 450 MB per four-stream window, an estimated 3%.
+
+## Images
+
+`--vision dynamic` on UD-IQ3_XXS, fresh images (two runs each, GPU about 52 W):
+
+| Image tokens | Encode | Prompt | First tokens |
+| ---: | ---: | ---: | ---: |
+| 1,085 | 158 ms (301 ms cold) | 636-711 ms | 1.2-1.5 s |
+| 3,197 | 850-874 ms | 1.56 s | 2.95 s |
+| 4,157 | 1.21 s | 1.97-2.0 s | 3.8 s |
+
+Lending the expert-cache slots, staging the encoder weights and refilling the slots take about 40 ms together. The encoder
+is about 30% of a fresh image's first-token time; the image tokens' prompt is the rest. The NPU is no help here: the
+encode and the prompt run one after the other, the DLA (FP16, batch 1, limited transformer operations) would have to beat
+the GPU's 0.3 ms per image token to shorten a single image, overlap would only help several images in one request, and
+the DLA shares the memory bandwidth (a continuous DLA load cut serving throughput from 63.6 to 48.0 output tokens/s, -24.5%, in the earlier test). It would also break the
+bitwise-equal embeddings every vision mode gives today.
+
 ## Still open
 
 - The resident RAM copy holds 22 GiB of experts that are also on the GPU, for the slots elastic KV and prompt loans may
@@ -249,3 +298,7 @@ the two differ by up to half; log P-state, clock, power and both temperatures wi
 - Matched C1-C4 runs of the current build against the port's method and a GB10 host.
 - The KLD gate for experts computed on the GPU instead of the CPU.
 - NVFP4 and IQ3 on equivalent placements, and Qwen3.8-27B.
+- The GDN commit folded into the next window's recurrence (state read once; about 3% at four streams, 1.5% alone).
+- The hyper-connection reads (about 14% of a four-stream window under the profiler, which turns PDL off and so counts
+  launch gaps into short stages) measured without the profiler.
+- A BF16 GDN state would halve the state traffic (about 6% at four streams) but changes the numbers: it needs the KLD gate.
