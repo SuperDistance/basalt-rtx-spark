@@ -169,6 +169,26 @@ The `park-on-swap` model option keeps an idle Qwen3.8-27B engine alive while the
 
 One on-device smoke test served Qwen3.8-27B, switched to Flash-Next UD-IQ3_XXS, then served the same greedy 27B request again. The 27B response matched before and after, and `/v1/models` reported 17,181,966,336 parked weight bytes. The copy to RAM took 3.1 seconds and weight restore took 3.2 seconds. The return request took 8.25 seconds including Flash-Next shutdown, restore and generation, compared with 5.91 seconds for the initial 27B request on a warm filesystem cache. Flash-Next served with 45.6 GiB of file-backed experts while 27B was parked. Parking remains opt-in, and the serving benchmarks use a single loaded model.
 
+### The n-gram table's own copy
+
+Flash-Next reads 16 rows of its 28.8 GB n-gram table from the SSD for every prompt token. The expert source maps the model
+file, so Windows opens it through the file cache. That path ran about 100K row reads per second with a disk queue near 10
+and most CPU cores busy: a 6.8K-token prompt's first chunk waited 0.90 s on its rows (later chunks hide the wait behind
+the one before). The engine now reads an unbuffered copy of the table ([platforms](platforms.md#windows-limitations)).
+The wait fell to 0.31-0.36 s. An alternating A/B against the previous build at the 96 GB split, with GPU power drifting
+19-47 W, measured the following (means of four):
+
+| Prompt tokens | Read before (ms) | Read with the copy (ms) |
+| ---: | ---: | ---: |
+| 2K | 1,342 | 1,101 |
+| 6.8K | 4,405 | 3,308 |
+| 13.6K | 9,296 | 6,470 |
+
+At matched power (35-40 W) the 6.8K and 13.6K reads took 3,811 and 7,400 ms before and 3,413 and 6,521 ms after. The
+previous build's arms also drew less GPU power, consistent with its CPU-heavy reads taking from a shared budget. Decode
+(95.2 and 95.9 tok/s) and the greedy text are unchanged. A deeper queue (`--ple-inflight` 1024) or more issuing threads
+did not change the cached path.
+
 ## CPU experts and quantization
 
 An affinity-pinned `SMMLA` probe executed on each of the 20 cores. Basalt detects Arm I8MM and its current ARM NVFP4/Q8_0 dot product uses SDOT. A two-activation, two-output-row I8MM probe matched the existing SDOT results bit for bit across 1,024 rows at widths 512, 2,048 and 3,072. The paired dot kernels ran 2.29?2.83? faster in the synthetic microbenchmark. The engine enables the gate/up and down variants through `--exp n1x_i8mm=1`. Native wrapper parity passed 40 cases covering odd token and row counts and both SwiGLU modes. Serving gains still depend on the fraction of experts that run on the CPU. Avoid spending GPU bandwidth on activations for CPU work if measured gather cost and overlap favor a smaller transfer.
