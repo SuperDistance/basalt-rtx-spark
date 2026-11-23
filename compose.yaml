@@ -1,0 +1,27 @@
+# Serve basalt-rtx-spark in a container: `docker compose up -d`, then http://127.0.0.1:8080/ (docs/docker.md).
+#
+# ./docker-data holds basalt_config.json (start from docker/basalt_config.json) and the server's logs; ./models holds
+# the .basalt packs, writable: a pack's first start writes its n-gram table's copy beside it.
+services:
+  basalt:
+    build:
+      context: .
+      args:
+        BUILD_JOBS: ""             # e.g. "2" on a VM with little memory
+    image: basalt-rtx-spark:local
+    container_name: basalt
+    # the GPU through the NVIDIA runtime (Container Toolkit on Linux, Docker Desktop's WSL backend on Windows)
+    gpus: all
+    # page-locked expert and checkpoint memory, and the server's shared memory, as the Spark recipes run engines
+    ipc: host
+    ulimits:
+      memlock: -1
+      stack: 67108864
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./docker-data:/data
+      - ./models:/models
+    environment:
+      HF_HOME: /data/huggingface
+    restart: unless-stopped

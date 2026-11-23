@@ -1,0 +1,16 @@
+{
+  "version": 2,
+  "models": [
+    {
+      "model": "/models/Qwen3.8-FN-UD-IQ3_XXS.basalt",
+      "alias": "flash-next",
+      "kv": "int8",
+      "parallel": 4,
+      "max-context": 262144,
+      "slot-full-context": true,
+      "gpu": "0"
+    }
+  ],
+  "engine": { "spec": 8 },
+  "server": { "port": 8080 }
+}

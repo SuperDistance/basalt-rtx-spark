@@ -35,6 +35,10 @@ for the RTX Spark:
 unzip it, run `setup.cmd` (it makes the Python environment and offers to download the model), then `start.cmd`. The
 CUDA libraries the engine needs are in the zip; a current NVIDIA driver is enough.
 
+**Docker (Linux hosts: DGX Spark, RTX Spark under Linux).** `docker compose up -d` builds the image for the host's
+architecture (Arm64: sm_121) and serves with the Spark recipes' flags; the mounts and the unified-memory notes are in
+[docs/docker.md](docs/docker.md).
+
 **From source.** You need the hardware and software in [Hardware](#hardware). Then, from a Developer PowerShell for
 Visual Studio:
 

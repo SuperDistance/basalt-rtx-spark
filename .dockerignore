@@ -11,3 +11,4 @@ assets
 **/*.basalt
 **/*.tar.gz
 **/*.zip
+docker-data
