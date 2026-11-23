@@ -219,6 +219,7 @@ private:
     void drop_stale_reuse() override;
     bool release_room() override;
     bool checkpoint_mount(const ConvCheckpoint& c) override;
+    void chain_slot_checkpoint(const ConvCheckpoint& c) override;
     bool restore_begin() override;
     void slot_draft_out() override;
     Flow slot_bind() override;
