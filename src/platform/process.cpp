@@ -204,11 +204,28 @@ bool pipe_wait_readable(int fd, int timeout_ms) {
 #if defined(_WIN32)
     const HANDLE h = (HANDLE) _get_osfhandle(fd);
     if (h == INVALID_HANDLE_VALUE || GetFileType(h) != FILE_TYPE_PIPE) return true;
-    for (int waited = 0;; waited += 10) {
+    // An anonymous pipe cannot be waited on, so it is polled. A plain Sleep rounds up to the system timer's tick
+    // (15.6 ms by default), which each command of a request would wait out. Within a while of the last bytes (the
+    // rest of a request's commands) a high-resolution waitable timer polls every millisecond without raising the
+    // system's timer rate; an idle pipe is polled at the plain tick, which costs no CPU to speak of.
+    constexpr ULONGLONG kBurstMs = 2000;
+    thread_local const HANDLE tick = CreateWaitableTimerExW(nullptr, nullptr, CREATE_WAITABLE_TIMER_HIGH_RESOLUTION,
+                                                            TIMER_ALL_ACCESS);
+    thread_local ULONGLONG last_ready = 0;
+    const ULONGLONG until = GetTickCount64() + (ULONGLONG) (timeout_ms > 0 ? timeout_ms : 0);
+    for (;;) {
         DWORD avail = 0;
-        if (!PeekNamedPipe(h, nullptr, 0, nullptr, &avail, nullptr) || avail > 0) return true;   // data, or the writer is gone
-        if (waited >= timeout_ms) return false;
-        Sleep(10);
+        if (!PeekNamedPipe(h, nullptr, 0, nullptr, &avail, nullptr) || avail > 0) {   // data, or the writer is gone
+            last_ready = GetTickCount64();
+            return true;
+        }
+        const ULONGLONG now = GetTickCount64();
+        if (now >= until) return false;
+        LARGE_INTEGER due;
+        due.QuadPart = -10000;   // 1 ms, relative, in 100 ns units
+        if (now - last_ready >= kBurstMs || tick == nullptr || !SetWaitableTimer(tick, &due, 0, nullptr, nullptr, FALSE) ||
+            WaitForSingleObject(tick, INFINITE) != WAIT_OBJECT_0)
+            Sleep(10);
     }
 #else
     pollfd p{fd, POLLIN, 0};
