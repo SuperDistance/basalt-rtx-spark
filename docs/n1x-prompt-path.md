@@ -68,3 +68,13 @@ A/B, prompt read in ms:
 
 BF16 copies of the hyper-connection matrices (held as 8-bit copies) did not change the read time at any of these
 sizes and were left out.
+
+## The indexer's block scores
+
+QSA's indexer scores every key block for every prompt token with three TF32 products per FP32 product (3xTF32). At
+60K-68K context (8,192 queries, about 16K blocks each) one call took 18.7 ms. 16 key tiles per CTA instead of 4 load
+each query tile a quarter as often (16.4-16.7 ms); a warp per indexer head that keeps its queries' TF32 parts in
+registers, instead of every warp re-splitting all four heads from shared memory, fits three CTAs per SM instead of two
+(11.2-11.5 ms). Every score keeps its bits (`qsa_scores_tc_parity` hashes). The scores were about 300 ms of an
+8K-token turn at 60K context; the remaining long-context cost is the attention (about 300 ms, a block per query and
+KV head) and the top-k (about 50 ms, half the bandwidth floor of reading the scores back).
