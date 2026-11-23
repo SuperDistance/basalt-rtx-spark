@@ -160,9 +160,6 @@ protected:
     virtual void drop_stale_reuse() {}
     virtual bool release_room() = 0;
     virtual bool checkpoint_mount(const ConvCheckpoint& c) = 0;
-    /// A slot's checkpoint the sessions were just restored from, into the main session's chain: a copy here; a model
-    /// may take it from the restored sessions instead (the same bytes, off the device rather than host to host).
-    virtual void chain_slot_checkpoint(const ConvCheckpoint& c) { runtime_.checks.push_back(c); }
     virtual bool restore_begin() { return true; }
     virtual void slot_draft_out() {}
     virtual Flow slot_bind() { return Flow::proceed; }

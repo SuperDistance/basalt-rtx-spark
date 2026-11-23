@@ -25,24 +25,6 @@ bool QfnRequest::checkpoint_mount(const ConvCheckpoint& c) {
     return true;
 }
 
-// The checkpoint's running state is a GDN state of ~110 MiB: copied host to host it took ~30 ms of every first token
-// that continued a slot's turn.  The sessions hold the same bytes now (restored from it just before), so they are
-// saved from the device into a pooled page-locked block instead, at link speed.  A layer split's checkpoint, and a
-// failed save, are copied as before.
-void QfnRequest::chain_slot_checkpoint(const ConvCheckpoint& c) {
-    if (c.stage_parts.empty() && runtime_.stages.empty() && runtime_.gpu_sync_ok()) {
-        ConvCheckpoint k;
-        k.source = c.source;
-        k.ids = c.ids;
-        k.imgs = c.imgs;
-        if (checkpoint_save(k, *runtime_.rsp, runtime_.g)) {
-            runtime_.checks.push_back(std::move(k));
-            return;
-        }
-    }
-    runtime_.checks.push_back(c);
-}
-
 bool QfnRequest::restore_begin() {
     if (!runtime_.drive.d.usage.empty()) runtime_.sp.route_hist_reset();   // counts this request's prompt rows for the usage seed
     // the last request's final commit may still be running on the verifier's stream (set_commit_async):

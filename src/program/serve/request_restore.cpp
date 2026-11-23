@@ -296,7 +296,7 @@ Flow Request::restore() {
             }
             if (slot_ck != nullptr) {
                 runtime_.live = slot_ck->ids;
-                chain_slot_checkpoint(*slot_ck);   // the main session's chain has it now
+                runtime_.checks.push_back(*slot_ck);   // the main session's chain has it now
                 runtime_.checks.back().used = ++runtime_.check_clock;
             } else {
                 runtime_.live = runtime_.bs[(size_t) slot_source].ids;
