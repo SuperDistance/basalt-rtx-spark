@@ -3,6 +3,8 @@
 // did, and a block reads the columns' activations once into shared memory for all its rows instead of once per row.
 #pragma once
 
+#include "basalt/models/qwen4exp/kernels/draft_draw.hpp"
+
 #include <cstddef>
 #include <cstdint>
 
@@ -37,6 +39,7 @@ void q5k_proxy_pack(const void* q5k_rows, int64_t row0, int64_t n, void* proxy, 
 /// replaces those rows' approximate terms by their exact ones.  `scratch`: q5k_proxy_scratch_bytes(n_cap), zeroed once.
 size_t q5k_proxy_scratch_bytes(int64_t n_cap);
 bool q5k_proxy_top1(const void* proxy, const void* q5k_rows, const void* x_q8_1, int n_rows, int64_t n_cap,
-                    const int32_t* map, int* out_id, float* out_prob, void* scratch, void* stream);
+                    const int32_t* map, int* out_id, float* out_prob, void* scratch, void* stream,
+                    const DraftDrawArgs* dd = nullptr);
 
 }  // namespace basalt::kernels

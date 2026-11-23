@@ -207,6 +207,13 @@ public:
     /// On: a sampled window also leaves draft_prob(t), the probability row t's final distribution gives the window's
     /// token t + 1 (t < T - 1), for relaxed acceptance.  The picks are unchanged.  Off by default; set per request.
     void set_draft_probe(bool on) { draft_probe_ = on; if (next_) next_->set_draft_probe(on); }
+    /// Speculative sampling, the next solo window only: its drafts were drawn from the proposal q_ids/q_p (q_n entries
+    /// per draft, device pointers, draft j at j * q_n); the sampled path keeps draft j with min(1, p/q) and otherwise
+    /// draws from the residual.  Cleared by the launch; ignored on the greedy path.
+    void set_drawn(const int32_t* q_ids, const float* q_p, int q_n) {
+        drawn_ids_ = q_ids; drawn_p_ = q_p; drawn_n_ = q_n;
+        if (next_) next_->set_drawn(q_ids, q_p, q_n);
+    }
     /// Valid after a sampled run() with the probe on.
     float draft_prob(int t) const { return next_ ? next_->draft_prob(t) : ((volatile float*) h_qp_)[t]; }
     /// After a sampled run(): row t's kept list at [t * kTopIds, (t + 1) * kTopIds), best first, -1 after it.
@@ -530,6 +537,9 @@ private:
     int32_t* h_head_from_ = nullptr; int32_t* m_head_from_ = nullptr;
     bool head_sampling_ = true;          ///< set_head_sampling
     bool draft_probe_ = false;           ///< set_draft_probe
+    const int32_t* drawn_ids_ = nullptr; ///< set_drawn
+    const float* drawn_p_ = nullptr;
+    int drawn_n_ = 0;
     std::vector<float> logit_bias_host_;
     float* logit_bias_device_ = nullptr;
     float* row_bias_device_ = nullptr;   ///< resample_row's bias

@@ -23,10 +23,13 @@
 #include "basalt/models/qwen4exp/decode/session.hpp"
 #include "basalt/models/qwen4exp/kernels/qsa_seg.hpp"
 #include "basalt/kernels/sampler.hpp"
+#include "basalt/models/qwen4exp/kernels/draft_draw.hpp"
 
 #include <cuda_runtime.h>
 
 #include <array>
+#include <cstring>
+#include <atomic>
 #include <cstdint>
 #include <functional>
 #include <string>
@@ -88,6 +91,19 @@ public:
     /// The cumulative draft rule's threshold for the next draft() chain (default: the rule's own): the device stops the
     /// chain where the rule fails with it.
     void set_cum_th(float th) { cum_th_ = th; }
+    /// Speculative sampling: the next draft chains draw their tokens from the draft head's distribution under `d` (d.on 0:
+    /// the argmax pick).  Each step's proposal lands in draft_q_ids()/draft_q_p() (kDraftDrawQ entries per draft, draft j
+    /// at j * kDraftDrawQ; a step without the proxy head writes a one-hot proposal at its pick, which stays exact).  Read
+    /// by the GPU at each launch, so no graph is captured again.
+    void set_draw(const basalt::kernels::DraftDraw& d) {
+        if (h_draw_ != nullptr) {   // mapped memory the GPU reads at the next launch
+            std::memcpy((void*) h_draw_, &d, sizeof(d));
+            std::atomic_thread_fence(std::memory_order_seq_cst);
+        }
+    }
+    bool can_draw() const { return h_draw_ != nullptr; }
+    const int32_t* draft_q_ids() const { return m_qids_; }
+    const float* draft_q_p() const { return m_qp_; }
     /// The threshold the host waits by: draft() returns after the drafts this rule keeps while the device (a lower
     /// `set_cum_th`) goes on with the chain; `draft_more` collects those.  Negative: the same as set_cum_th's.
     void set_host_th(float th) { host_th_ = th; }
@@ -360,6 +376,10 @@ private:
     float host_th_ = -1.0f;  // < 0: cum_th_
     int chain_steps_ = 0;    ///< the steps the last draft() launched (its graph's)
     float *h_prob_ = nullptr, *m_prob_ = nullptr;   // each draft's probability under the draft layer
+    // speculative sampling: the request's draw (mapped) and each chain step's proposal (mapped, kDraftDrawQ per step)
+    basalt::kernels::DraftDraw *h_draw_ = nullptr, *m_draw_ = nullptr;
+    int32_t *h_qids_ = nullptr, *m_qids_ = nullptr;
+    float *h_qp_ = nullptr, *m_qp_ = nullptr;
     // batched drafts: the current step's draft and probability of each row (one row per sequence), polled by the host
     int32_t *h_bout_ = nullptr, *m_bout_ = nullptr;
     float *h_bprob_ = nullptr, *m_bprob_ = nullptr;

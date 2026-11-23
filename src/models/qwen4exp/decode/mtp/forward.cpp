@@ -359,21 +359,32 @@ bool MtpDrafter::record_forward(int T, int step_row0, cudaStream_t cs, std::stri
             err = "mtp: a batched draft needs the one-row head kernels";
             return false;
         }
+        // speculative sampling: a chain step's draw (read at launch) and its proposal slot; the argmax paths below
+        // write a one-hot proposal at their pick
+        basalt::kernels::DraftDrawArgs dda;
+        const bool draw_slot = T == 1 && h_draw_ != nullptr && step_row0 >= 0 && chain_j_ >= 0 && chain_j_ < kMtpChainMax;
+        if (draw_slot)
+            dda = {m_draw_, step_ + (size_t) step_row0 * 4, m_qids_ + (size_t) chain_j_ * basalt::kernels::kDraftDrawQ,
+                   m_qp_ + (size_t) chain_j_ * basalt::kernels::kDraftDrawQ};
+        const basalt::kernels::DraftDrawArgs* ddp = draw_slot ? &dda : nullptr;
+        auto onehot = [&]() { if (draw_slot) basalt::kernels::draft_q_onehot(out_ids_, dda, cs); };
         if (T == 1 && sub && proxy_ != nullptr && nv == n_tier1_ && diag_ == nullptr &&
             (head_->type() == 13
                  ? basalt::kernels::q5k_proxy_top1(proxy_, dhead_, xq_, (int) nv, n_tier1_, dvocab_, out_ids_, probs_,
-                                                   proxy_scratch_, cs)
+                                                   proxy_scratch_, cs, ddp)
              : head_->type() == GGML_Q8_0
                  ? basalt::kernels::q80_proxy_top1(proxy_, head_->weights(), xq_, (int) nv, n_tier1_, dvocab_, out_ids_,
-                                                   probs_, proxy_scratch_, cs, true)
+                                                   probs_, proxy_scratch_, cs, true, ddp)
                  : basalt::kernels::q6k_proxy_top1(proxy_, rows_mapped_ ? head_->weights() : (const void*) dhead_, xq_,
                                                    (int) nv, n_tier1_, dvocab_, out_ids_, probs_, proxy_scratch_, cs,
-                                                   rows_mapped_)))
+                                                   rows_mapped_, ddp)))
             return true;
         if (T == 1 && head_->type() == 13 && top_scratch_ != nullptr && diag_ == nullptr &&
             q5k_head_top1(sub ? dhead_ : head_->weights(), xq_, head_logits_, (int) N, (int) nv, sub ? dvocab_ : nullptr,
-                          out_ids_, probs_, top_scratch_, cs))
+                          out_ids_, probs_, top_scratch_, cs)) {
+            onehot();
             return true;
+        }
         if (rows_mapped_ && head_->type() == GGML_Q8_0)   // the subset's rows of the main head: the bits of a copy's rows
             q80_mmvq_rows(head_->weights(), dvocab_, xq_, head_logits_, (int) N, (int) nv, cs);
         else if (rows_mapped_)
@@ -391,14 +402,17 @@ bool MtpDrafter::record_forward(int T, int step_row0, cudaStream_t cs, std::stri
         if (diag_ != nullptr && T == 1)   // the step's logits to the host, for the draft-tree study
             cudaMemcpyAsync(diag_ + (size_t) chain_j_ * (size_t) diag_stride_, head_logits_, (size_t) nv * sizeof(float),
                             cudaMemcpyDeviceToHost, cs);
-        if (sample_greedy_top_prob(head_logits_, T, (int) nv, sub ? dvocab_ : nullptr, out_ids_, probs_, cs))
+        if (sample_greedy_top_prob(head_logits_, T, (int) nv, sub ? dvocab_ : nullptr, out_ids_, probs_, cs)) {
+            onehot();
             return true;
+        }
         SamplerParams sp;
         sp.greedy = true;
         sp.temperature = 0.0f;
         sample_tokens(head_logits_, T, (int) nv, nullptr, 0, sp, out_ids_, cs);
         row_top_prob(head_logits_, T, (int) nv, out_ids_, probs_, cs);
         if (sub) map_ids(out_ids_, dvocab_, T, cs);
+        onehot();
     } catch (const std::exception& e) {
         err = std::string("mtp: ") + e.what();
         return false;

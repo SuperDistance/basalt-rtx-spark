@@ -180,18 +180,44 @@ The expert layer in the test (512 experts, top 10, one run per build, the FP4 pa
 Served, a cold 716-token prompt reaches its first token in 0.66 s (MMQ 1.37 s, FP4 from 256 0.61 s). Chunks of 1,024
 tokens and more keep the FP4 path, which has not been gated on prompts that long.
 
+## Drawn MTP drafts (speculative sampling)
+
+A sampled Flash-Next request used to keep an MTP draft only where the target's own draw was the draft. Now a single
+request's draft chain draws each draft from the draft head (the 2-bit proxy's rows rescored exactly, cut by the
+request's top_k and top_p, softmax at its temperature, Philox's draft stream at the draft's cell) and hands the proposal
+to the sampler, which keeps a draft with min(1, p/q) and otherwise draws from max(p - q, 0): the reply has the model's
+distribution exactly. A step without the proxy writes a one-hot proposal at its argmax pick, also exact. Greedy and
+seeded requests, lookup windows and batch windows keep the old rule. `q6k_head_parity` checks the proposal against
+softmax(exact logit / T) (2e-7), its sum, membership and the draws' frequencies (within 2.1 sigma over 4,000 draws).
+
+Same build, UD-IQ3_XXS, 12 sampled requests per temperature (six prompts twice, 300 tokens, one at a time):
+
+| | tokens per window | drafts kept |
+| --- | ---: | ---: |
+| T 1.0, drawn | 2.570 | 68.3% |
+| T 1.0, argmax drafts | 2.468 | 66.6% |
+| T 0.7, drawn | 2.547 | 68.5% |
+| T 0.7, argmax drafts | 2.560 | 67.2% |
+
+Greedy text was identical in both arms. The gain at temperature 1.0 (+4%) is far below the +18% Radiance reports for
+its coupled sampling on Flash-Next; these prompts give peaked distributions, where the argmax draft already matches most
+draws.
+
 ## Stuck GPU clocks
 
 After a three-second Modern Standby entry from the power button, and a firmware thermal-profile test that ended within a
 minute of it, the GPU stayed in P8 at about 810 MHz and 6 W while 96% busy, across engine restarts. Decode fell to 22-32
 tok/s and a device-memory read probe to 53-58 GB/s (262-268 GB/s normally). A reboot cleared it.
 
-It happened again after an AC unplug and replug: about 800 MHz and 7 W at 64 °C under load, 19 tok/s, and this time it
-survived a warm reboot. Exiting SparkHelper from the tray cleared it at once (2,436 MHz, 50 W, 72 tok/s). The exit
-uncaps the GPU, returns the HP firmware fan mode to Adaptive and restores Windows power settings; which of the three held
-the clock is unverified. SparkHelper's tuning helper re-applies the profile, firmware fan mode included, at every logon
-and power-source change, which would explain surviving the reboot. The NVML "Reliability" clock-event reason (bit
-0x400) is set at full clocks too, so it says nothing here. Watch the GPU clock when decode drops for no reason.
+It happened again after an AC unplug and replug: about 800 MHz and 7 W at 64 °C under load, 19 tok/s, surviving a warm
+reboot, and cleared at once by exiting SparkHelper from the tray (2,436 MHz, 50 W, 72 tok/s). The cause is the HP
+firmware fan mode (BIOS WMI thermal profile, command 0x4C): with "Cool" or "Quiet" the GPU runs in P8 at 730-890 MHz and
+6-11 W under a steady CUDA load, against 1.6-2.3 GHz and 45-71 W with Adaptive, Performance or Balanced. A change takes
+effect within 2 s either way, and the embedded controller keeps the mode across a warm reboot. SparkHelper's
+Performance profile had been set to Cool, so each of its re-applies (boot, profile applies) clamped the GPU and each
+exit or restore (Adaptive) released it. SparkHelper 0.2.0-agent.2 labels Cool and Quiet as GPU power limits, asks before
+using them and warns when the GPU sits in P8 under load. One onset (at an AC replug) came before the Cool setting and is
+unexplained. Watch the GPU clock when decode drops for no reason, and check the fan mode first.
 
 ## GPU power that does not hold under serving
 

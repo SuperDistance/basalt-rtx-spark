@@ -127,6 +127,8 @@ private:
     // (split_price) beats the main card's alone; the chunk, its head chunk, the stage count and the cuts, or none
     struct SplitPlan { int64_t chunk = 0, head = 0; int stages = 0; std::vector<int> cuts; };
     bool relax_on{};
+    bool draw_req{};   // this request's MTP drafts are drawn (speculative sampling)
+    bool draw_win{};   // this window's drafts are the drafter's (not a lookup proposal)
     bool in_call{};
     int64_t relaxed_kept{};
     std::vector<int32_t> drafts{};

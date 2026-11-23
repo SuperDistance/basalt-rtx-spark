@@ -130,6 +130,7 @@ inline void QfnRequest::lookup_window(int& T, bool& from_sfx, int& sfx_match) {
 }
 
 inline void QfnRequest::fill_drafts(int T, bool from_sfx) {
+        draw_win = draw_req && !from_sfx && T > 1;
         for (int i = 1; i < T; ++i) window[(size_t) i] = from_sfx ? sbuf[(size_t) i - 1] : drafts[(size_t) i - 1];
         if (held.on)
             for (int i = 0; i < T; ++i) window[(size_t) i] = held.win[(size_t) i];
@@ -282,6 +283,10 @@ inline bool QfnRequest::run_window(int T, int e0, int& TB) {
         // kept lists, which the drafter notes as candidates)
         if (first_window && e0 > 0 && ppl == nullptr && !runtime_.logit_hash && req_temperature <= 0.0f)
             cv->set_head_from(e0);
+        // a plain window of drawn drafts keeps them by speculative sampling (not a paired, held or prompt-folding one)
+        if (draw_win && !held.on && !try_pair && e0 == 0)
+            cv->set_drawn(runtime_.mtp.draft_q_ids(), runtime_.mtp.draft_q_p(), basalt::kernels::kDraftDrawQ);
+        draw_win = false;
         const bool ran_ok = held.on ? true
             : try_pair ? cv->run_pair(*ov, T, window.data(), p, guess, win_b.data(), TB, runtime_.win_pool_fn, user_c, user_o,
                                       outv.data(), runtime_.err)

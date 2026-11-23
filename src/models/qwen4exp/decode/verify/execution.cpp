@@ -150,17 +150,32 @@ bool Verifier::run_begin(int T, const int32_t* tokens, int64_t pos0, std::string
     // the sampled rows' kept lists; the wide path keeps none
     top_valid_ = head_sampling_ && sampled && le_ >= g.n_layers &&
                  sampler_list_len(sampling_.top_k, (int) n_vocab_) <= kSamplerNarrowMax;
-    if (probe)
+    // speculative sampling: a window whose drafts were drawn (set_drawn) keeps them by min(1, p/q)
+    const bool drawn = drawn_n_ > 0 && drawn_ids_ != nullptr && drawn_p_ != nullptr && sampled && T > 1 &&
+                       head_sampling_ && le_ >= g.n_layers &&
+                       sampler_list_len(sampling_.top_k, (int) n_vocab_) <= kSamplerNarrowMax;
+    if (probe || drawn)
         for (int t = 0; t + 1 < T; ++t) h_q_[t] = tokens[t + 1];
     if (early_sample) {
         SamplerParams sp = sampling_;
         sp.counter = (uint64_t) pos0;
+        if (drawn) {
+            sp.draw_drafts = true;
+            sp.drafts = m_q_;
+            sp.q_ids = drawn_ids_;
+            sp.q_p = drawn_p_;
+            sp.q_n = drawn_n_;
+            sp.n_drawn = T - 1;
+        } else {
+            sp.n_drawn = 0;
+        }
         if (sampled) { sp.top_ids = m_top_; sp.n_top = kTopIds; }
         if (sampler_list_len(sp.top_k, (int) n_vocab_) > kSamplerNarrowMax && sampled && !exact_head_rows(T, err))
             return false;
         sample_tokens_probe(head_logits_, T, (int) n_vocab_, hist_d_, hist_len_, sp, m_out_, probe ? m_q_ : nullptr,
                             probe ? T - 1 : 0, probe ? m_qp_ : nullptr, cs_);
     }
+    drawn_n_ = 0;   // one window only
     (void) cudaStreamQuery(cs_);
     if (post_launch_) { auto f = std::move(post_launch_); post_launch_ = nullptr; f(); }
     gm.mark(15);

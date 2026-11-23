@@ -47,7 +47,7 @@ MtpDrafter::~MtpDrafter() {
     if (proxy_) cudaFree(proxy_);
     if (proxy_scratch_) cudaFree(proxy_scratch_);
     if (gstamp_) cudaFree(gstamp_);
-    void* hosts[] = {h_tok_, h_step_, h_pos_, h_row_, h_out_, h_prob_, h_bout_, h_bprob_};
+    void* hosts[] = {h_tok_, h_step_, h_pos_, h_row_, h_out_, h_prob_, h_bout_, h_bprob_, h_draw_, h_qids_, h_qp_};
     for (void* h : hosts) if (h) cudaFreeHost(h);
 }
 

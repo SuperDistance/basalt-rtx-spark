@@ -4,6 +4,8 @@
 // bytes each; every value is the Q8_0 row's.
 #pragma once
 
+#include "basalt/models/qwen4exp/kernels/draft_draw.hpp"
+
 #include <cstddef>
 #include <cstdint>
 
@@ -19,7 +21,8 @@ void q80_proxy_pack(const void* q80_rows, int64_t row0, int64_t n, void* proxy, 
 /// `rows_by_map`: q80_rows is the whole head and the copy's row r is its row map[r].
 bool q80_proxy_top1(const void* proxy, const void* q80_rows, const void* x_q8_1, int n_rows, int64_t n_cap,
                     const int32_t* map, int* out_id, float* out_prob, void* scratch, void* stream,
-                    bool rows_by_map = false);
+                    bool rows_by_map = false,
+                    const DraftDrawArgs* dd = nullptr);
 
 /// One column: y[r] = row rows[r] of `weights` (Q8_0, n_in 2560) . x_q8_1, the bits of native_q8_0_mmvq on the
 /// gathered rows, the weights read cache-streaming.  A negative entry reads row 0 (its logit is masked afterwards).

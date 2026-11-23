@@ -388,6 +388,7 @@ bool QfnRuntime::batch_step() {
         // a slot gets about its share of the next window's rows: drafts past it cost the drafter's GPU time and
         // are cut (at four slots of an 8-row budget, two drafts a slot); the verdicts stay exact
         mtp.set_step_cap(nc > 1 ? (MB + nc - 1) / nc : 0);
+        mtp.set_draw(basalt::kernels::DraftDraw{});   // batch windows keep the exact-match rule: argmax drafts
         // the drafting slots in one pass (stores in place): every slot's catch-up in one forward and one full-layer row
         // per slot for each draft step, each row in its slot's own K/V and with its slot's own rule and cap
         const int nb = std::min(nfull, (int) basalt::core::MtpDrafter::kDraftRowsMax);

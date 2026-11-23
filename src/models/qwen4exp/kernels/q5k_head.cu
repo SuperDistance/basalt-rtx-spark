@@ -475,7 +475,7 @@ __global__ void __launch_bounds__(512) q5k_proxy_final_kernel(const Q5KBlock* __
                                                               const int32_t* __restrict__ map,
                                                               const float2* __restrict__ cand,
                                                               const float2* __restrict__ part, int* __restrict__ out_id,
-                                                              float* __restrict__ out_prob) {
+                                                              float* __restrict__ out_prob, DraftDrawArgs dda) {
     __shared__ __align__(16) int4 xe[80 * XS];
     __shared__ px::Final f;
     const int tid = threadIdx.x, lane = tid & 31, warp = tid >> 5;
@@ -500,7 +500,7 @@ __global__ void __launch_bounds__(512) q5k_proxy_final_kernel(const Q5KBlock* __
     }
     __syncthreads();
     if (warp != 0) return;
-    px::pick(f, n, n_tiles, map, part, out_id, out_prob);
+    px::pick_draw(f, n, n_tiles, map, part, out_id, out_prob, dda.draw, dda.cell, dda.q_ids, dda.q_p);
 }
 
 }  // namespace
@@ -522,7 +522,7 @@ void q5k_proxy_pack(const void* q5k_rows, int64_t row0, int64_t n, void* proxy, 
 }
 
 bool q5k_proxy_top1(const void* proxy, const void* q5k_rows, const void* x_q8_1, int n_rows, int64_t n_cap,
-                    const int32_t* map, int* out_id, float* out_prob, void* scratch, void* stream) {
+                    const int32_t* map, int* out_id, float* out_prob, void* scratch, void* stream, const DraftDrawArgs* dd) {
     if (n_rows <= 0 || n_rows > n_cap || !proxy || !q5k_rows || !x_q8_1 || !map || !out_id || !out_prob || !scratch)
         return false;
     const int tiles = (int) px::tiles(n_rows);
@@ -533,7 +533,7 @@ bool q5k_proxy_top1(const void* proxy, const void* q5k_rows, const void* x_q8_1,
     launch_pdl(px::score_kernel, dim3((unsigned) tiles), dim3(128), 0, (cudaStream_t) stream, wq, sc,
                (const px::X81*) x_q8_1, n_rows, map, cand, part);
     launch_pdl(q5k_proxy_final_kernel, dim3(1), dim3(512), 0, (cudaStream_t) stream, (const Q5KBlock*) q5k_rows,
-               (const Q81Block*) x_q8_1, tiles, map, (const float2*) cand, (const float2*) part, out_id, out_prob);
+               (const Q81Block*) x_q8_1, tiles, map, (const float2*) cand, (const float2*) part, out_id, out_prob, dd ? *dd : DraftDrawArgs{});
     const cudaError_t e = cudaGetLastError();
     if (e != cudaSuccess) {
         basalt::log::error("basalt", "q5k_proxy_top1: %s", cudaGetErrorString(e));

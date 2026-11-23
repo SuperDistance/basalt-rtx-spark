@@ -4,6 +4,8 @@
 // next row's weights while it computes this one.
 #pragma once
 
+#include "basalt/models/qwen4exp/kernels/draft_draw.hpp"
+
 #include <cstddef>
 #include <cstdint>
 
@@ -29,9 +31,13 @@ void q6k_proxy_pack(const void* q6k_rows, int64_t row0, int64_t n, void* proxy, 
 /// q5k_proxy_top1 for Q6_K rows: the approximate pass over the 2-bit copy, the near-best rows rescored exactly (the
 /// same bits as q6k_head_top1's logits), the exact best is the pick.  `scratch`: q5k_proxy_scratch_bytes(n_cap).
 /// `rows_by_map`: q6k_rows is the whole head and the copy's row r is its row map[r] (map entries >= 0).
+/// A step that took the argmax: its proposal one-hot at `id` (device), into dd.q_ids/dd.q_p (kDraftDrawQ entries).
+void draft_q_onehot(const int* id, const DraftDrawArgs& dd, void* stream);
+
 bool q6k_proxy_top1(const void* proxy, const void* q6k_rows, const void* x_q8_1, int n_rows, int64_t n_cap,
                     const int32_t* map, int* out_id, float* out_prob, void* scratch, void* stream,
-                    bool rows_by_map = false);
+                    bool rows_by_map = false,
+                    const DraftDrawArgs* dd = nullptr);
 
 /// The verify head's 2-bit copy of all n rows of a Q6_K head (n_in 2560, n a multiple of 16), fitted as the draft
 /// copy (head_proxy.cuh) and laid out for int8 tensor-core scoring; q6k_vproxy_bytes(n) bytes.

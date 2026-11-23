@@ -5,6 +5,8 @@
 
 #include "basalt/kernels/dp4a.hpp"
 #include "basalt/kernels/pdl.hpp"
+#include "basalt/models/qwen4exp/kernels/draft_draw.hpp"
+#include "../../../kernels/cuda/philox.cuh"
 
 #include <cuda_fp16.h>
 #include <cuda_runtime.h>
@@ -18,6 +20,7 @@ constexpr int kNw4 = 2560 / 64;   // uint4 of weight words per row
 constexpr int kPer = 4;           // candidates kept per tile of 32 rows
 constexpr int kMaxCand = 64;      // rows rescored exactly
 constexpr float kDelta = 5.0f;    // a row is rescored when its approximate score is within this of the best
+constexpr int kDraftQn = kDraftDrawQ;   // proposal entries a drawn draft writes (pick_draw)
 
 __host__ __device__ inline int64_t tiles(int64_t n_cap) { return (n_cap + 31) / 32; }
 
@@ -316,6 +319,61 @@ __device__ __forceinline__ void pick(const Final& f, int n, int n_tiles, const i
         *out_id = map[bi < 0x7fffffff ? bi : 0];
         *out_prob = 1.0f / sum;
     }
+}
+
+// pick, but the token is drawn (speculative sampling's proposal) when draw->on: the n candidates sorted by exact score,
+// cut by the request's chain (top_k, then top_p on softmax(ex)), then softmax(ex / temperature) over what is kept, a
+// uniform on Philox's draft stream at (seed, *cell).  q_ids/q_p get the kept candidates' tokens and probabilities (the
+// proposal the verify's sampler reads), the rest -1 and 0.  out_prob stays pick's (the draft-length rule reads it).
+// Any proposal keeps speculative sampling exact as long as the draw follows q and the verify gets this q.
+__device__ __forceinline__ void pick_draw(const Final& f, int n, int n_tiles, const int32_t* __restrict__ map,
+                                          const float2* __restrict__ part, int* __restrict__ out_id,
+                                          float* __restrict__ out_prob, const DraftDraw* __restrict__ draw,
+                                          const int32_t* __restrict__ cell, int32_t* __restrict__ q_ids,
+                                          float* __restrict__ q_p) {
+    pick(f, n, n_tiles, map, part, out_id, out_prob);
+    if (draw == nullptr || !draw->on || q_ids == nullptr || q_p == nullptr) return;
+    __syncwarp();
+    if ((threadIdx.x & 31) != 0) return;
+    int ord[kMaxCand];
+    for (int c = 0; c < n; ++c) {   // insertion sort, best exact score first (the lower row on a tie)
+        int j = c;
+        while (j > 0 && (f.ex[ord[j - 1]] < f.ex[c] || (f.ex[ord[j - 1]] == f.ex[c] && f.list[ord[j - 1]] > f.list[c]))) {
+            ord[j] = ord[j - 1];
+            --j;
+        }
+        ord[j] = c;
+    }
+    int keep = n;
+    if (draw->top_k > 0 && draw->top_k < keep) keep = draw->top_k;
+    if (keep > kDraftQn) keep = kDraftQn;
+    const float best = f.ex[ord[0]];
+    if (draw->top_p < 1.0f) {   // top_p on the untempered softmax over the kept candidates
+        float z = 0.0f;
+        for (int k = 0; k < keep; ++k) z += __expf(f.ex[ord[k]] - best);
+        float cum = 0.0f;
+        int cut = keep;
+        for (int k = 0; k < keep; ++k) {
+            cum += __expf(f.ex[ord[k]] - best) / z;
+            if (cum >= draw->top_p) { cut = k + 1; break; }
+        }
+        keep = cut < 1 ? 1 : cut;
+    }
+    const float inv_t = draw->temperature > 0.0f ? 1.0f / draw->temperature : 1.0f;
+    float zt = 0.0f;
+    for (int k = 0; k < keep; ++k) zt += __expf((f.ex[ord[k]] - best) * inv_t);
+    const float u = philox_uniform(draw->seed, (uint64_t) (int64_t) *cell, kPhiloxDraft) * zt;
+    float cum = 0.0f;
+    int pickk = keep - 1;
+    for (int k = 0; k < keep; ++k) {
+        const float e = __expf((f.ex[ord[k]] - best) * inv_t);
+        q_ids[k] = map[f.list[ord[k]]];
+        q_p[k] = e / zt;
+        if (pickk == keep - 1 && u < cum + e) pickk = k;
+        cum += e;
+    }
+    for (int k = keep; k < kDraftQn; ++k) { q_ids[k] = -1; q_p[k] = 0.0f; }
+    *out_id = map[f.list[ord[pickk]]];
 }
 
 }  // namespace

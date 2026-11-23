@@ -105,7 +105,7 @@ __global__ void __launch_bounds__(512) q80_proxy_final_kernel(const uint8_t* __r
                                                               const int32_t* __restrict__ map,
                                                               const float2* __restrict__ cand,
                                                               const float2* __restrict__ part, int* __restrict__ out_id,
-                                                              float* __restrict__ out_prob, int by_map) {
+                                                              float* __restrict__ out_prob, int by_map, DraftDrawArgs dda) {
     __shared__ __align__(16) int4 xe[BPR * 4];
     __shared__ px::Final f;
     const int tid = threadIdx.x, lane = tid & 31, warp = tid >> 5;
@@ -126,7 +126,7 @@ __global__ void __launch_bounds__(512) q80_proxy_final_kernel(const uint8_t* __r
     }
     __syncthreads();
     if (warp != 0) return;
-    px::pick(f, n, n_tiles, map, part, out_id, out_prob);
+    px::pick_draw(f, n, n_tiles, map, part, out_id, out_prob, dda.draw, dda.cell, dda.q_ids, dda.q_p);
 }
 
 // ---- every row of a subset through a row map
@@ -170,7 +170,7 @@ void q80_proxy_pack(const void* q80_rows, int64_t row0, int64_t n, void* proxy, 
 }
 
 bool q80_proxy_top1(const void* proxy, const void* q80_rows, const void* x_q8_1, int n_rows, int64_t n_cap,
-                    const int32_t* map, int* out_id, float* out_prob, void* scratch, void* stream, bool rows_by_map) {
+                    const int32_t* map, int* out_id, float* out_prob, void* scratch, void* stream, bool rows_by_map, const DraftDrawArgs* dd) {
     if (n_rows <= 0 || n_rows > n_cap || !proxy || !q80_rows || !x_q8_1 || !map || !out_id || !out_prob || !scratch)
         return false;
     const int tiles = (int) px::tiles(n_rows);
@@ -182,7 +182,7 @@ bool q80_proxy_top1(const void* proxy, const void* q80_rows, const void* x_q8_1,
                (const px::X81*) x_q8_1, n_rows, map, cand, part);
     launch_pdl(q80_proxy_final_kernel, dim3(1), dim3(512), 0, (cudaStream_t) stream, (const uint8_t*) q80_rows,
                (const Q81Block*) x_q8_1, tiles, map, (const float2*) cand, (const float2*) part, out_id, out_prob,
-               rows_by_map ? 1 : 0);
+               rows_by_map ? 1 : 0, dd ? *dd : DraftDrawArgs{});
     check("q80_proxy_top1");
     return true;
 }

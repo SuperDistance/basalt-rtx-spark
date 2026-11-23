@@ -31,6 +31,20 @@ Flow QfnRequest::set_sampling() {
     // relaxed acceptance: sampled text requests without a logit_bias; never the quality gate
     relax_on = req_relax > 0.0f && !req_sp.greedy && !req_bias_present && ppl == nullptr && gguard == nullptr;
     runtime_.ver.set_draft_probe(relax_on);
+    // speculative sampling for the MTP drafts: a sampled request (narrow list, no fixed seed, no relaxed drafting) draws
+    // its drafts from the draft head and keeps them by min(1, p/q): the reply keeps the model's distribution exactly
+    draw_req = !req_sp.greedy && req_sp.temperature > 0.0f && req_sp.draw_drafts && !relax_on && ppl == nullptr &&
+               basalt::kernels::sampler_list_len(req_sp.top_k, (int) runtime_.n_vocab) <= basalt::kernels::kSamplerNarrowMax &&
+               runtime_.mtp.can_draw();
+    {
+        basalt::kernels::DraftDraw dd;
+        dd.on = draw_req ? 1 : 0;
+        dd.temperature = req_sp.temperature;
+        dd.top_k = req_sp.top_k;
+        dd.top_p = req_sp.top_p;
+        dd.seed = req_sp.seed;
+        runtime_.mtp.set_draw(dd);
+    }
     in_call = false;   // inside a tool call (its tags seen last in the prompt or the output): exact
     for (size_t i = ids.size(); i-- > 0;)
         if (ids[i] == runtime_.o.relax_call_open || ids[i] == runtime_.o.relax_call_close) { in_call = ids[i] == runtime_.o.relax_call_open; break; }

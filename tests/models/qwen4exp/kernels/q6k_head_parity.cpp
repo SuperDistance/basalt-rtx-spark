@@ -322,6 +322,92 @@ int main(int argc, char** argv) {
                 sum_p_rel += rel;
             }
         }
+        // speculative sampling's draw (pick_draw) on the last trial's input: off = the argmax pick unchanged; on = a
+        // proposal over the rescored rows that sums to 1, matches softmax(exact logit / T) after top_k/top_p, holds
+        // every drawn token, and whose empirical draw frequencies match it
+        // two inputs: the last planted trial (a peaked head: few rows near the best) and noise alone (many rows near it)
+        for (int variant = 0; variant < 2 && !fail; ++variant) {
+            if (variant == 1) {
+                std::vector<float> xn(n_in);
+                for (auto& v : xn) v = 0.35f * nd(rng);
+                ck(cudaMemcpy(x1, xn.data(), (size_t) n_in * 4, cudaMemcpyHostToDevice), "x1 up");
+                k::native_quantize_q8_1(x1, xq1, n_in, 1, s);
+                k::native_mmvq(14, w2, xq1, y0, n_in, rr, 1, s);
+                k::q6k_proxy_top1(proxy, w2, xq1, rr, cap, d_map_i, d_id, d_p, scratch, s);
+                ck(cudaStreamSynchronize(s), "sync");
+            }
+            k::DraftDraw hd;
+            k::DraftDraw* d_draw = nullptr;
+            int32_t *d_cell = nullptr, *d_qi = nullptr;
+            float* d_qp = nullptr;
+            ck(cudaMalloc(&d_draw, sizeof(k::DraftDraw)), "draw");
+            ck(cudaMalloc(&d_cell, 4), "cell");
+            ck(cudaMalloc(&d_qi, k::kDraftDrawQ * 4), "qi");
+            ck(cudaMalloc(&d_qp, k::kDraftDrawQ * 4), "qp");
+            k::DraftDrawArgs dda{d_draw, d_cell, d_qi, d_qp};
+            int id_ref = -1, id_off = -1;
+            ck(cudaMemcpy(&id_ref, d_id, 4, cudaMemcpyDeviceToHost), "id");
+            hd.on = 0;
+            ck(cudaMemcpy(d_draw, &hd, sizeof(hd), cudaMemcpyHostToDevice), "draw up");
+            k::q6k_proxy_top1(proxy, w2, xq1, rr, cap, d_map_i, d_id, d_p, scratch, s, false, &dda);
+            ck(cudaStreamSynchronize(s), "sync");
+            ck(cudaMemcpy(&id_off, d_id, 4, cudaMemcpyDeviceToHost), "id");
+            bool draw_ok = id_off == id_ref;
+            std::vector<float> ah((size_t) rr);
+            ck(cudaMemcpy(ah.data(), y0, ah.size() * 4, cudaMemcpyDeviceToHost), "a");
+            std::vector<int> row_of_tok;   // token -> row (map is row -> token)
+            int max_tok = 0;
+            for (int i = 0; i < rr; ++i) max_tok = std::max(max_tok, map[(size_t) i]);
+            row_of_tok.assign((size_t) max_tok + 1, -1);
+            for (int i = 0; i < rr; ++i) if (map[(size_t) i] >= 0) row_of_tok[(size_t) map[(size_t) i]] = i;
+            double worst_sum = 0, worst_ratio = 0, worst_freq = 0;
+            int bad_member = 0, kept_n = 0;
+            for (const float temp : {1.0f, 0.7f}) {
+                hd.on = 1; hd.temperature = temp; hd.top_k = 20; hd.top_p = 0.95f; hd.seed = 0x1234ABCDull + (unsigned long long) (temp * 10);
+                ck(cudaMemcpy(d_draw, &hd, sizeof(hd), cudaMemcpyHostToDevice), "draw up");
+                constexpr int ND = 4000;
+                std::vector<int> drawn(ND);
+                std::vector<int32_t> qi(k::kDraftDrawQ), qi0(k::kDraftDrawQ);
+                std::vector<float> qp(k::kDraftDrawQ), qp0(k::kDraftDrawQ);
+                for (int d = 0; d < ND; ++d) {
+                    const int32_t cell = 1000 + d;
+                    ck(cudaMemcpy(d_cell, &cell, 4, cudaMemcpyHostToDevice), "cell up");
+                    k::q6k_proxy_top1(proxy, w2, xq1, rr, cap, d_map_i, d_id, d_p, scratch, s, false, &dda);
+                    ck(cudaMemcpy(&drawn[(size_t) d], d_id, 4, cudaMemcpyDeviceToHost), "id");
+                    ck(cudaMemcpy(qi.data(), d_qi, qi.size() * 4, cudaMemcpyDeviceToHost), "qi");
+                    ck(cudaMemcpy(qp.data(), d_qp, qp.size() * 4, cudaMemcpyDeviceToHost), "qp");
+                    if (d == 0) { qi0 = qi; qp0 = qp; }
+                    bool member = false;
+                    for (int j = 0; j < k::kDraftDrawQ; ++j) member |= qi[(size_t) j] == drawn[(size_t) d] && qp[(size_t) j] > 0.0f;
+                    bad_member += !member;
+                    draw_ok &= qi == qi0 && qp == qp0;   // the proposal does not depend on the draw
+                }
+                double qsum = 0;
+                int n = 0;
+                for (int j = 0; j < k::kDraftDrawQ && qi0[(size_t) j] >= 0; ++j) { qsum += qp0[(size_t) j]; ++n; }
+                kept_n = std::max(kept_n, n);
+                worst_sum = std::max(worst_sum, std::fabs(qsum - 1.0));
+                // the proposal against softmax(exact logit / T) over its own entries (the host logits of the same rows)
+                const int r0 = row_of_tok[(size_t) qi0[0]];
+                for (int j = 1; j < n; ++j) {
+                    const int r = row_of_tok[(size_t) qi0[(size_t) j]];
+                    const double want = std::exp(((double) ah[(size_t) r] - (double) ah[(size_t) r0]) / temp);
+                    worst_ratio = std::max(worst_ratio, std::fabs((double) qp0[(size_t) j] / qp0[0] / want - 1.0));
+                }
+                for (int j = 0; j < n; ++j) {
+                    int c = 0;
+                    for (int d = 0; d < ND; ++d) c += drawn[(size_t) d] == qi0[(size_t) j];
+                    const double q = qp0[(size_t) j], f = (double) c / ND;
+                    worst_freq = std::max(worst_freq, std::fabs(f - q) / (std::sqrt(q * (1 - q) / ND) + 1e-3));
+                }
+            }
+            draw_ok &= bad_member == 0 && worst_sum < 1e-5 && worst_ratio < 2e-3 && worst_freq < 5.0 && kept_n >= 1;
+            std::printf("proxy draw (%s): off keeps the argmax %s; on: %d entries, |sum q - 1| %.2e, q vs softmax(exact/T) worst "
+                        "rel %.2e, drawn outside q %d, worst |freq - q| %.2f sigma -> %s\n", variant ? "noise" : "planted", id_off == id_ref ? "yes" : "NO",
+                        kept_n, worst_sum, worst_ratio, bad_member, worst_freq, draw_ok ? "ok" : "FAIL");
+            if (!draw_ok) fail = 1;
+            cudaFree(d_draw); cudaFree(d_cell); cudaFree(d_qi); cudaFree(d_qp);
+        }
         // cold time: the two-stage argmax, the fused exact head, and the plain head + top-prob the draft ran before
         float t_px = 0, t_ex = 0, t_pl = 0;
         int *r_id = nullptr;
