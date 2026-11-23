@@ -112,15 +112,26 @@ Flow Request::complete() {
                             sl.guard = std::move(gguard);   // the request's grammar, already past the tokens the request decoded here
             // the slot keeps its conversation's longest checkpoint (its next turn) and its shortest (the
             // system prompt, which other requests may share)
-            const ConvCheckpoint *best = nullptr, *root = nullptr;
-            for (const ConvCheckpoint& c : runtime_.checks)
+            ConvCheckpoint *best = nullptr, *root = nullptr;
+            for (ConvCheckpoint& c : runtime_.checks)
                 if (c.ids.size() < runtime_.live.size() &&
                     basalt::core::conversation_ids_equal(c.ids.data(), c.ids.size(), runtime_.live.data())) {
                     if (best == nullptr || c.ids.size() > best->ids.size()) best = &c;
                     if (root == nullptr || c.ids.size() < root->ids.size()) root = &c;
                 }
-            if (root != nullptr && root != best) sl.checks.push_back(*root);
-            if (best != nullptr) sl.checks.push_back(*best);
+            // a request read in its slot hands its chain back below (the solo one's returns): they move, not a copy
+            // each of ~110 MiB of running state (~30 ms) while the batch waits
+            const bool chain_ends = in_slot && !solo_req;
+            auto keep = [&](ConvCheckpoint* c) {
+                if (chain_ends) sl.checks.push_back(std::move(*c));
+                else sl.checks.push_back(*c);
+            };
+            if (root != nullptr && root != best) keep(root);
+            if (best != nullptr) keep(best);
+            if (chain_ends)
+                runtime_.checks.erase(std::remove_if(runtime_.checks.begin(), runtime_.checks.end(),
+                                                     [](const ConvCheckpoint& c) { return c.ids.empty(); }),
+                                      runtime_.checks.end());
             basalt::log::info("basalt batch", "slot %d takes %lld tokens (copied in %.1f ms)", runtime_.admit_slot,
                          (long long) runtime_.live.size(), std::chrono::duration<double, std::milli>(Clock::now() - tc0).count());
         }
