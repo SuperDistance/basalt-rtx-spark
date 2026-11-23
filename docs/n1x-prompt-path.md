@@ -32,6 +32,12 @@ request spent 66-71 ms beyond its prompt read and generation (median, about 70-t
 every millisecond within 2 s of the last command, at the tick when idle: 21-27 ms, and short requests' wall time fell
 from about 400 to 360 ms. The idle engine's CPU did not rise (0.8% of a core against 2.0%).
 
+A request that continues a conversation from an idle slot's checkpoint (every thinking turn whose reply was
+re-templated) restores the sessions from it and puts the checkpoint into the main session's chain. That was a
+host-to-host copy of the 112 MiB GDN state, 31-35 ms of the 35-46 ms restore; the restores themselves (state 2-4 ms,
+K/V 2-3 ms) were cheap. The chain's copy is now saved from the restored sessions into a page-locked block (4-6 ms,
+byte-identical): the restore is 8.6-13.9 ms, the conversation's reuse and replies unchanged (10b4873).
+
 ## Where a prompt chunk goes
 
 One 6.8K-token chunk with every stage synchronized (diagnostic build, about 2.1 GHz), 3.3 s in all:
