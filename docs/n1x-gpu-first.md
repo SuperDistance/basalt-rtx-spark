@@ -304,6 +304,25 @@ the GPU's 0.3 ms per image token to shorten a single image, overlap would only h
 the DLA shares the memory bandwidth (a continuous DLA load cut serving throughput from 63.6 to 48.0 output tokens/s, -24.5%, in the earlier test). It would also break the
 bitwise-equal embeddings every vision mode gives today.
 
+## Against vLLM for RTX Spark
+
+BetterBench 0.6.1 with one config for both (temperature 0.7, cold prefix cache, concurrency 1-4) on the 96 GB GPU split:
+Basalt 2dacc65 on UD-IQ3_XXS against vLLM for RTX Spark 0.2.0 (vLLM 0.32.0) on FP4-Local with its default recipe (MTP 7
+with block verification, Marlin weight-only NVFP4 MoE, b12x MXFP8 dense; its kernels are sm_121a code, and its FP4 GEMMs
+need sm_100, so the experts run weight-only).
+
+| | Basalt | vLLM |
+| --- | ---: | ---: |
+| Single-stream decode, weighted median | 91.9 tok/s | 55.1 tok/s |
+| First token, short prompts (p50) | 375 ms | 279 ms |
+| Aggregate output at 1 / 2 / 3 / 4 streams | 77.6 / 80.9 / 91.4 / 93.9 | 53.0 / 81.2 / 97.8 / 104.4 |
+| Prefill at 2K / 8K / 16K / 32K / 64K tokens | 1,218 / 1,590 / 1,768 / 1,840 / 1,845 | 1,370 / 1,773 / 1,815 / 2,035 / 2,182 |
+
+The same Basalt build on the 64 GB split had measured 74.0 tok/s decode and 697 tok/s at 2K: there the prompt path read
+most of its experts from RAM. Both runs burst for about eight minutes and then ran under the firmware's sustained clamp
+(P4, 22-30 W, reason 0x400), so their prefill and concurrency phases are in the sustained regime. vLLM gains on
+concurrency because it draws its MTP drafts at every concurrency; Basalt's batch windows took argmax drafts only.
+
 ## Still open
 
 - The resident RAM copy holds 22 GiB of experts that are also on the GPU, for the slots elastic KV and prompt loans may
