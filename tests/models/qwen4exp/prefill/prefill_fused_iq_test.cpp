@@ -617,7 +617,8 @@ int main(int argc, char** argv) {
             {GGML_TYPE_IQ2_S, GGML_TYPE_Q2_0, "IQ2_S / Q2_0"},       {GGML_TYPE_IQ2_XXS, GGML_TYPE_Q2_0, "IQ2_XXS / Q2_0"},
             {GGML_TYPE_IQ2_XS, GGML_TYPE_IQ4_NL, "IQ2_XS / IQ4_NL"}, {GGML_TYPE_IQ3_XXS, GGML_TYPE_IQ4_NL, "IQ3_XXS / IQ4_NL"},
             {GGML_TYPE_IQ3_S, GGML_TYPE_IQ4_NL, "IQ3_S / IQ4_NL"},   {GGML_TYPE_IQ4_XS, GGML_TYPE_Q2_0, "IQ4_XS / Q2_0"},
-            {GGML_TYPE_IQ2_S, GGML_TYPE_Q2_0, "IQ2_S+IQ2_XXS / Q2_0", GGML_TYPE_IQ2_XXS}};
+            {GGML_TYPE_IQ2_S, GGML_TYPE_Q2_0, "IQ2_S+IQ2_XXS / Q2_0", GGML_TYPE_IQ2_XXS},
+            {GGML_TYPE_IQ2_S, GGML_TYPE_IQ4_NL, "IQ2_S / IQ4_NL"}};
         const char* only = nullptr;   // --only=NAME: the pairs whose name contains NAME
         for (int i = 1; i < argc; ++i)
             if (std::strncmp(argv[i], "--only=", 7) == 0) only = argv[i] + 7;
@@ -644,8 +645,9 @@ int main(int argc, char** argv) {
             if (ref) reference_part(p, s);
         }
         if (timing) {
-            // the IQ2_XS pack's layers (34 of 48 IQ2_S / Q2_0, 11 IQ2_XXS / Q2_0), the IQ3_S pack's most common, IQ3_XXS's
-            for (const Pair& p : {pairs[0], pairs[1], pairs[4], pairs[3]}) {
+            // the IQ2_XS pack's layers (34 of 48 IQ2_S / Q2_0, 11 IQ2_XXS / Q2_0), the IQ3_S pack's most common, IQ3_XXS's,
+            // and the UD-IQ3_XXS pack's most common (IQ2_S / IQ4_NL on 23 to 26 of 48 layers)
+            for (const Pair& p : {pairs[0], pairs[1], pairs[4], pairs[3], pairs[7]}) {
                 if (only && std::string(p.name).find(only) == std::string::npos) continue;
                 for (int T : chunks) timing_part(p, T, s);
             }
