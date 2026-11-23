@@ -164,7 +164,6 @@ __global__ void __launch_bounds__(TOPK_T) block_topk_kernel(const float* __restr
 constexpr int TC_QT = 16;                 // queries per CTA (one m16 tile per indexer head)
 constexpr int TC_NB = 32;                 // blocks per tile (4 warps x n8)
 constexpr int TC_ITER = 16;               // tiles per CTA (the query tile is loaded once)
-constexpr int TC_QS = IDX_HEADS * IDX_DIM + 4;   // query row stride in floats
 constexpr int TC_KS = IDX_DIM + 4;               // key row stride
 
 __device__ __forceinline__ uint32_t tf32_hi(float x) {
@@ -179,35 +178,48 @@ __device__ __forceinline__ void mma_tf32(float* c, const uint32_t* a, const uint
                  : "r"(a[0]), "r"(a[1]), "r"(a[2]), "r"(a[3]), "r"(b[0]), "r"(b[1]));
 }
 
-__global__ void __launch_bounds__(128) block_scores_tc_kernel(const float* __restrict__ pooled,
-                                                              const float* __restrict__ q_idx,
-                                                              const int32_t* __restrict__ steps, int64_t nq,
-                                                              int64_t max_blocks, int64_t reach,
-                                                              float* __restrict__ out) {
+// Warp h holds indexer head h: its 16 queries' TF32 hi/lo parts in registers for the whole CTA (split once), against
+// every 8-block column of each key tile in shared memory. The heads' relu'd products meet in shared memory and are
+// added in head order, as the warp kernel adds them; every product is the same three MMAs on the same operands.
+__global__ void __launch_bounds__(128, 3) block_scores_tc_kernel(const float* __restrict__ pooled,
+                                                                 const float* __restrict__ q_idx,
+                                                                 const int32_t* __restrict__ steps, int64_t nq,
+                                                                 int64_t max_blocks, int64_t reach,
+                                                                 float* __restrict__ out) {
     extern __shared__ __align__(16) float sm[];
-    float* sQ = sm;                                   // [TC_QT][TC_QS]
-    float* sK = sm + TC_QT * TC_QS;                   // [TC_NB][TC_KS]
+    float* sK = sm;                                   // [TC_NB][TC_KS]
+    float* sR = sm + TC_NB * TC_KS;                   // [IDX_HEADS][TC_QT][TC_NB]: each head's relu'd products
     __shared__ int s_nbid[TC_QT];
-    const int t = threadIdx.x, lane = t & 31, warp = t >> 5, gid = lane >> 2, tig = lane & 3;
+    const int t = threadIdx.x, lane = t & 31, h = t >> 5, gid = lane >> 2, tig = lane & 3;
+    constexpr int KSTEPS = IDX_DIM / 8;
     const int64_t q0 = (int64_t) blockIdx.y * TC_QT;
-    for (int i = t; i < TC_QT * IDX_HEADS * IDX_DIM / 4; i += 128) {
-        const int r = i / (IDX_HEADS * IDX_DIM / 4), c = i % (IDX_HEADS * IDX_DIM / 4);
-        float4 v = make_float4(0.f, 0.f, 0.f, 0.f);
-        if (q0 + r < nq) v = reinterpret_cast<const float4*>(q_idx + (q0 + r) * IDX_HEADS * IDX_DIM)[c];
-        *reinterpret_cast<float4*>(sQ + r * TC_QS + c * 4) = v;
+    // this head's A fragments for every k step: rows gid and gid + 8, columns k0 + tig and k0 + tig + 4
+    uint32_t ah[KSTEPS][4], al[KSTEPS][4];
+    {
+        const float* qr0 = q0 + gid < nq ? q_idx + (q0 + gid) * IDX_HEADS * IDX_DIM + h * IDX_DIM : nullptr;
+        const float* qr1 = q0 + gid + 8 < nq ? q_idx + (q0 + gid + 8) * IDX_HEADS * IDX_DIM + h * IDX_DIM : nullptr;
+#pragma unroll
+        for (int ks = 0; ks < KSTEPS; ++ks) {
+            const int k = ks * 8 + tig;
+            const float x[4] = {qr0 ? qr0[k] : 0.f, qr1 ? qr1[k] : 0.f, qr0 ? qr0[k + 4] : 0.f, qr1 ? qr1[k + 4] : 0.f};
+#pragma unroll
+            for (int r = 0; r < 4; ++r) {
+                ah[ks][r] = tf32_hi(x[r]);
+                al[ks][r] = tf32_hi(x[r] - __uint_as_float(ah[ks][r]));
+            }
+        }
     }
     if (t < TC_QT) s_nbid[t] = q0 + t < nq ? steps[(q0 + t) * kStepCount + kStepNBid] : 0;
-    int lo_nbid = 0x7fffffff, hi_nbid = 0;
+    int hi_nbid = 0;
     __syncthreads();
     for (int i = 0; i < TC_QT; ++i) {
         if (q0 + i >= nq) break;
-        lo_nbid = min(lo_nbid, s_nbid[i]);
         hi_nbid = max(hi_nbid, s_nbid[i]);
     }
     for (int it = 0; it < TC_ITER; ++it) {
         const int64_t b0 = ((int64_t) blockIdx.x * TC_ITER + it) * TC_NB;
         if (b0 >= reach || b0 >= hi_nbid) break;      // blocks >= every query's n_bid: nothing to score
-        __syncthreads();                              // the previous tile's reads are done
+        __syncthreads();                              // the previous tile's reads (keys, products) are done
         for (int i = t; i < TC_NB * IDX_DIM / 4; i += 128) {
             const int r = i / (IDX_DIM / 4), c = i % (IDX_DIM / 4);
             float4 v = make_float4(0.f, 0.f, 0.f, 0.f);
@@ -215,58 +227,48 @@ __global__ void __launch_bounds__(128) block_scores_tc_kernel(const float* __res
             *reinterpret_cast<float4*>(sK + r * TC_KS + c * 4) = v;
         }
         __syncthreads();
-        float acc[IDX_HEADS][4];
+        float acc[TC_NB / 8][4];
 #pragma unroll
-        for (int h = 0; h < IDX_HEADS; ++h) acc[h][0] = acc[h][1] = acc[h][2] = acc[h][3] = 0.f;
-        const float* kr = sK + (warp * 8 + gid) * TC_KS;
-#pragma unroll 4
-        for (int k0 = 0; k0 < IDX_DIM; k0 += 8) {
-            const float kx0 = kr[k0 + tig], kx1 = kr[k0 + tig + 4];
-            uint32_t bh[2], bl[2];
-            bh[0] = tf32_hi(kx0);
-            bh[1] = tf32_hi(kx1);
-            bl[0] = tf32_hi(kx0 - __uint_as_float(bh[0]));
-            bl[1] = tf32_hi(kx1 - __uint_as_float(bh[1]));
+        for (int nt = 0; nt < TC_NB / 8; ++nt) acc[nt][0] = acc[nt][1] = acc[nt][2] = acc[nt][3] = 0.f;
 #pragma unroll
-            for (int h = 0; h < IDX_HEADS; ++h) {
-                const float* qa = sQ + h * IDX_DIM + k0 + tig;
-                const float x0 = qa[gid * TC_QS], x1 = qa[(gid + 8) * TC_QS];
-                const float x2 = qa[gid * TC_QS + 4], x3 = qa[(gid + 8) * TC_QS + 4];
-                uint32_t ah[4], al[4];
-                ah[0] = tf32_hi(x0); ah[1] = tf32_hi(x1); ah[2] = tf32_hi(x2); ah[3] = tf32_hi(x3);
-                al[0] = tf32_hi(x0 - __uint_as_float(ah[0]));
-                al[1] = tf32_hi(x1 - __uint_as_float(ah[1]));
-                al[2] = tf32_hi(x2 - __uint_as_float(ah[2]));
-                al[3] = tf32_hi(x3 - __uint_as_float(ah[3]));
-                mma_tf32(acc[h], al, bh);
-                mma_tf32(acc[h], ah, bl);
-                mma_tf32(acc[h], ah, bh);
+        for (int ks = 0; ks < KSTEPS; ++ks) {
+#pragma unroll
+            for (int nt = 0; nt < TC_NB / 8; ++nt) {
+                const float* kr = sK + (nt * 8 + gid) * TC_KS + ks * 8;
+                const float kx0 = kr[tig], kx1 = kr[tig + 4];
+                uint32_t bh[2], bl[2];
+                bh[0] = tf32_hi(kx0);
+                bh[1] = tf32_hi(kx1);
+                bl[0] = tf32_hi(kx0 - __uint_as_float(bh[0]));
+                bl[1] = tf32_hi(kx1 - __uint_as_float(bh[1]));
+                mma_tf32(acc[nt], al[ks], bh);
+                mma_tf32(acc[nt], ah[ks], bl);
+                mma_tf32(acc[nt], ah[ks], bh);
             }
         }
-        // relu per head, heads added in order (as the warp kernel), written where the block completed for the query
-        const int64_t bc = b0 + warp * 8 + 2 * tig;
+        // this head's relu'd products, then the scores: heads added in order (as the warp kernel), written where
+        // the block completed for the query
 #pragma unroll
-        for (int half = 0; half < 2; ++half) {
-            const int qr = gid + half * 8;
-            const int64_t qi = q0 + qr;
-            if (qi >= nq) continue;
-            const int nb = s_nbid[qr];
+        for (int nt = 0; nt < TC_NB / 8; ++nt)
 #pragma unroll
-            for (int j = 0; j < 2; ++j) {
-                const int64_t b = bc + j;
-                if (b >= nb || b >= max_blocks) continue;
-                float score = 0.0f;
+            for (int half = 0; half < 2; ++half)
 #pragma unroll
-                for (int h = 0; h < IDX_HEADS; ++h) {
-                    const float d = acc[h][half * 2 + j];
-                    score += d > 0.0f ? d : 0.0f;
+                for (int j = 0; j < 2; ++j) {
+                    const float d = acc[nt][half * 2 + j];
+                    sR[(h * TC_QT + gid + half * 8) * TC_NB + nt * 8 + 2 * tig + j] = d > 0.0f ? d : 0.0f;
                 }
-                out[qi * max_blocks + b] = score;
-            }
+        __syncthreads();
+        for (int i = t; i < TC_QT * TC_NB; i += 128) {
+            const int qr = i / TC_NB, c = i % TC_NB;
+            const int64_t qi = q0 + qr, b = b0 + c;
+            if (qi >= nq || b >= s_nbid[qr] || b >= max_blocks) continue;
+            float score = 0.0f;
+#pragma unroll
+            for (int hh = 0; hh < IDX_HEADS; ++hh) score += sR[(hh * TC_QT + qr) * TC_NB + c];
+            out[qi * max_blocks + b] = score;
         }
     }
 }
-
 
 // the tail block n_bid of each query: exactly block_scores_kernel's arithmetic for that block
 __global__ void __launch_bounds__(32) block_scores_tail_kernel(const float* __restrict__ dead,
@@ -1080,7 +1082,7 @@ bool qsa_block_scores_tc(const float* pooled, const float* dead, const float* q_
     static std::atomic<bool> attr[64];   // the shared-memory opt-in is per device (a layer split runs it on several)
     int adev = 0;
     cudaGetDevice(&adev);
-    const int bytes = (TC_QT * TC_QS + TC_NB * TC_KS) * (int) sizeof(float);
+    const int bytes = (TC_NB * TC_KS + IDX_HEADS * TC_QT * TC_NB) * (int) sizeof(float);
     if (!attr[adev].load(std::memory_order_acquire)) {
         if (cudaFuncSetAttribute(block_scores_tc_kernel, cudaFuncAttributeMaxDynamicSharedMemorySize, bytes) !=
             cudaSuccess) {
