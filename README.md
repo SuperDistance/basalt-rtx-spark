@@ -1,127 +1,88 @@
-# basalt-arm-sm121
+# basalt-rtx-spark
 
-**Basalt 推理引擎的 Arm64 / sm_121 移植版。** 让 Qwen3.8-Flash-Next 和 Qwen3.8-27B 在 NVIDIA RTX Spark N1X 这类
-Arm64 + 集成 Blackwell GPU（计算能力 12.1，和 DGX Spark 的 GB10 同代）的机器上原生运行，Windows on Arm64 和 Linux Arm64 都能编译。
+A fork of the [Basalt](https://github.com/jesdga95/basalt) inference engine tuned for the **NVIDIA RTX Spark** (N1X:
+Arm64 CPU with an integrated Blackwell GPU, compute capability 12.1), running Qwen3.8-Flash-Next natively on Windows on
+Arm64. It serves an OpenAI- and Anthropic-compatible API, like Basalt.
 
-*English:* a port of the [Basalt](https://github.com/jesdga95/basalt) inference engine to Arm64 CPUs and compute
-capability 12.1 GPUs (RTX Spark N1X, DGX Spark / GB10), building natively on Windows on Arm64 (MSVC) and on Linux Arm64.
-On an RTX Spark N1X it decodes Qwen3.8-Flash-Next about 2.1 times as fast as vLLM on the same requests. Build guide,
-design notes, test status and measurements: [docs/arm64.md](docs/arm64.md). The upstream README is kept as
-[README.basalt.md](README.basalt.md).
+Changes are lossless: the same greedy text as before the change (checked by output hashes), the KLD gate against the
+BF16 model for the few that change rounding, and speculative sampling that keeps the sampling distribution.
 
-## 这是什么
+## Results
 
-- **上游**：[jesdga95/basalt](https://github.com/jesdga95/basalt)（MIT 许可），一个面向 NVIDIA Blackwell 显卡的本地大模型推理引擎，
-  支持 MoE 专家分层存放、MTP / 块草稿推测解码、OpenAI 和 Anthropic 兼容接口。上游只支持 x86-64 CPU + sm_120 独立显卡。
-- **本仓库**：在上游最新代码（`63cb68a`，v0.4.1 之后）的基础上，加上 Arm64 CPU 和计算能力 12.1 集成显卡的支持，独立维护，
-  不向上游提交。上游文件只做最少的机械性改动，新逻辑尽量放在新文件里，方便以后跟进上游更新。
-- **实测机器**：一台 RTX Spark N1X 笔记本（128 GB 统一内存，其中 96 GB 划给 GPU），Windows 11 on Arm 原生运行，
-  以及同一台机器上的 WSL2（Ubuntu 26.04 aarch64）。DGX Spark 是同一代 GPU，但没有实测过。
+Same laptop, same model pack, same settings, run back to back with BetterBench 0.6.1 (the
+config of the community runs: temperature 0.7, cold prefix cache, 20 passes per category, 48 requests per concurrency
+level). Qwen3.8-Flash-Next UD-IQ3_XXS, int8 KV, four 262,144-token slots, MTP window 8, 96 GB GPU split. The GPU drew
+41-42 W on average while busy in both runs, at about 2.07 GHz.
 
-## 相比上游做了什么
+| | Basalt + Arm64 port (2ec7a84) | basalt-rtx-spark | |
+| --- | ---: | ---: | ---: |
+| Single-stream decode, weighted median (tok/s) | 87.5 | **97.9** | +12% |
+| First token, short prompts, p50 (ms) | 622 | **284** | 2.2x faster |
+| Aggregate output, 1 stream (tok/s) | 74.6 | **86.5** | +16% |
+| Aggregate output, 2 streams (tok/s) | 81.1 | **99.4** | +23% |
+| Aggregate output, 3 streams (tok/s) | 85.7 | **110.8** | +29% |
+| Aggregate output, 4 streams (tok/s) | 85.3 | **113.1** | +33% |
+| First token at 4 streams, p50 (ms) | 727 | **430** | 1.7x faster |
+| Prefill at 2K tokens (tok/s) | 983 | **1,724** | +75% |
+| Prefill at 8K tokens (tok/s) | 1,506 | **2,077** | +38% |
+| Prefill at 16K / 32K / 64K tokens (tok/s) | 2,055 / 1,951 / 2,095 | **2,149 / 2,295 / 2,342** | +5% / +18% / +12% |
 
-**Arm64 编译**
-- Linux Arm64（GCC）和 Windows on Arm64（MSVC 原生）都能完整编译；一次编译对应一种 CPU 架构和一种计算能力，x86-64 + 12.0 保持不变。
-- CPU 内核换成 NEON 版本：各种量化格式的点积由 llama.cpp 的 Arm 内核生成（MIT），NVFP4、多 token 的 Q2_0、路由和视觉 GEMM 是自己写的。
-- 内存顺序：Arm64 的自旋等待、读写屏障和预取都有对应实现，轮询 GPU 写的环形队列后加读屏障。
+Against vLLM for RTX Spark (FP4-Local, MTP 7) on the same laptop and benchmark (an earlier build, both without the
+sustained-power controller), single-stream decode was 60% faster (88.2 against 55.1 tok/s) and so was output at one
+stream; vLLM led on short-prompt first token, at three and four streams, and on prefill. The details, and why the GPU's power state matters for any
+comparison on this laptop, are in [docs/n1x-vs-vllm.md](docs/n1x-vs-vllm.md) and [docs/n1x-gpu-power.md](docs/n1x-gpu-power.md).
 
-**集成显卡（N1X）的特殊处理**
-- **显存读数**：`cudaMemGetInfo` 会把共享内存段也算进总量，而且看不到通过虚拟内存接口映射的显存。改成以划给 GPU 的那块内存为总量，
-  按系统级统计算已用量，所有容量规划都用这个读数。
-- **Windows 提交量护栏**：集成显卡的每次显存分配都会立刻计入 Windows 的提交量（物理内存 + 页面文件）。引擎会给系统留足余量，
-  避免把别的程序挤崩；并建议把页面文件设到足够大（见下文）。
-- **上传数据迟到**：从可分页内存同步拷贝到显卡后，数据可能还没真正到达；在集成显卡上拷贝后多做一次同步。
-- 跳过 NVML 里列出的 NPU，锁页内存预算改用 DXGI 的本地段，Modern Standby 机器上运行时保持唤醒。
+## What changed
 
-**工具**
-- `tools/port/fetch_cuda.py`：从 NVIDIA 的可再分发包拼装 CUDA 工具包（不用安装程序，逐个校验 SHA-256）。
-- `tools/port/env-win-arm64.cmd`、`build-win-arm64.cmd`：Windows on Arm64 一键配置和编译。
-- `tools/serve_speed.py`：服务端测速（长上下文；把 basalt-bench 的同一批题发给 vLLM 等其他引擎做对比）。
+On top of Basalt and the Arm64 / sm_121 port:
 
-## 实测速度（RTX Spark N1X，Windows 11 on Arm）
+- **Memory placement on a unified-memory laptop.** Expert placement budgets the GPU, private RAM and Windows commit
+  together (counting the page file's room to grow), so every routed expert of the IQ3 pack gets a GPU home; experts
+  pinned in RAM are read in place by the GPU, in prompt reads and in decode windows.
+- **Decode.** Batch slots draft in one pass and draw their MTP drafts from the draft head (speculative sampling, at
+  every concurrency); a slot's GDN state rows are committed by its next window; the CPU pool sleeps when parked.
+- **Prompt path.** The n-gram embedding table read from its own unbuffered copy; FP16 copies of the dense projections
+  kept in VRAM; faster tensor-core indexer scores, int8 sparse attention (two blocks per SM) and GDN recurrence; a
+  cold prompt read beside decoding slots; the prompt's expert loan sized to what it stages.
+- **Requests.** The engine answers the server's commands within a millisecond on Windows; conversation checkpoints
+  copy in 4 ms instead of 30 (a resumed thinking turn restores in 8-13 ms); batch admission moves checkpoints instead
+  of copying them.
+- **Conversion.** NVFP4 experts with CSF-encoded block scales, and FP4-Local's norms and NVFP4 n-gram table.
 
-Qwen3.8-Flash-Next（`NVFP4-DQ6_K` 模型包），basalt-bench 的同一批题，vLLM 为社区版 vLLM 0.32.0（NVIDIA 的 NVFP4 权重，MTP 草稿 2）：
+The measurements behind each change: [performance notes](docs/n1x-performance.md),
+[GPU-first placement](docs/n1x-gpu-first.md), [prompt path](docs/n1x-prompt-path.md),
+[GPU power](docs/n1x-gpu-power.md).
 
-| | Basalt | vLLM |
-| --- | ---: | ---: |
-| 解码：技术讲解（conv） | 80.8 tok/s | 49.1 tok/s |
-| 解码：JSON（struct） | 140.3 tok/s | 57.9 tok/s |
-| 解码：散文（prose） | 67.8 tok/s | 45.6 tok/s |
-| 解码：按 token 加权 | **约 116 tok/s** | 约 55 tok/s |
-| 预填充 16k / 64k | 2,558 / 2,638 tok/s | 1,753 / 1,780 tok/s |
+## Building and running
 
-长上下文（服务端，int8 KV，一段中文长文本，关闭思考）：
+Tested on Windows 11 on Arm64 (RTX Spark N1X, 128 GB, 96 GB GPU split) with MSVC, CUDA 13.5 and `sm_121`. The Linux
+Arm64 build of the port is kept but untested here. The build guide is [docs/arm64.md](docs/arm64.md#building)
+(`tools/port/fetch_cuda.py` assembles the CUDA toolkit; `tools/port/build-win-arm64.cmd` builds).
 
-| 提示词长度 | 预填充 | 解码 |
-| --- | --- | --- |
-| 4,128 | 1,473 tok/s | 63.6 tok/s |
-| 191,231 | 2,387 tok/s | 55.1 tok/s |
-| 260,124 | 2,224 tok/s（117 秒） | 54.3 tok/s |
+A server config like the one measured above:
 
-4 个并发槽位：1 / 2 / 4 路同时解码，总吞吐 63.7 / 78.4 / 80.1 tok/s。
-
-Qwen3.8-27B（`QUASAR-NVFP4` 模型包，稠密模型）：解码 conv 50、struct 157、prose 36 tok/s（关掉草稿 16.5 tok/s，已接近内存带宽上限）；
-预填充 16k 2,757 tok/s；260k 长提示词预填充 1,036 tok/s、解码 14.3 tok/s；4 路并发总吞吐 72.3 tok/s。
-
-完整数据和测试方法见 [docs/arm64.md](docs/arm64.md#speed-on-the-rtx-spark-n1x)。
-
-## 快速开始：Windows on Arm64
-
-需要：Visual Studio 2026 或其 Build Tools（勾选 ARM64 C++ 工具），Python 3.10+（Arm64 版），足够大的页面文件（见下文）。
-
-```bat
-git clone https://github.com/yanmindi/basalt-arm-sm121 && cd basalt-arm-sm121
-python tools\port\fetch_cuda.py windows-arm64 C:\cuda-13.5
-tools\port\build-win-arm64.cmd build C:\cuda-13.5
+```json
+{
+  "version": 2,
+  "models": [{ "model": "Qwen3.8-FN-UD-IQ3_XXS.basalt", "alias": "flash-next", "kv": "int8", "parallel": 4,
+               "max-context": 262144, "slot-full-context": true, "gpu": "0" }],
+  "engine": { "spec": 8 },
+  "server": { "host": "127.0.0.1", "port": 8080 }
+}
 ```
 
-下载模型包（任选其一；国内可以设置 `HF_ENDPOINT=https://hf-mirror.com` 走镜像）：
-
-```bat
-hf download jesdga/Qwen3.8-Flash-Next-Basalt Qwen3.8-FN-NVFP4-DQ6_K.basalt --local-dir models
-hf download jesdga/Qwen3.8-27B-Basalt Qwen3.8-27B-QUASAR-NVFP4.basalt --local-dir models
+```
+basalt serve --config config.json --python <python with requirements.txt>
 ```
 
-启动服务（OpenAI / Anthropic 兼容接口，默认 `http://127.0.0.1:8080`，浏览器打开同一地址是统计页面）：
+The rest of the documentation is Basalt's: [README.basalt.md](README.basalt.md), [running](docs/running.md),
+[configuration](docs/configuration), [model files](docs/model-file.md).
 
-```bat
-set PATH=C:\cuda-13.5\bin\arm64;%PATH%
-pip install -r requirements.txt
-bin\basalt.exe serve models\Qwen3.8-FN-NVFP4-DQ6_K.basalt --python python.exe --max-context 262144 --kv int8
-```
+## Credits and license
 
-`--python` 填装好依赖的那个 Python 解释器的路径。`bin\arm64` 一定要在 PATH 里，否则 Windows 会弹出"找不到 cublas64_13.dll"的窗口。
+- [Basalt](https://github.com/jesdga95/basalt) by Jesus Gulfo and contributors (MIT): the engine this fork is built on.
+- [basalt-arm-sm121](https://github.com/yanmindi/basalt-arm-sm121) (MIT): the Arm64 and compute capability 12.1 port
+  this work builds on.
+- The projects Basalt credits in [README.basalt.md](README.basalt.md) and [THIRD_PARTY_LICENSES](THIRD_PARTY_LICENSES).
 
-## 快速开始：Linux Arm64
-
-```sh
-python3 tools/port/fetch_cuda.py linux-sbsa ~/cuda-13.5
-export PATH=~/cuda-13.5/bin:$PATH
-cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release && cmake --build build
-pip install -r requirements.txt
-LD_LIBRARY_PATH=~/cuda-13.5/lib bin/basalt serve models/Qwen3.8-FN-NVFP4-DQ6_K.basalt --max-context 262144 --kv int8
-```
-
-WSL2 下还要把 `/usr/lib/wsl/lib` 加进 `LD_LIBRARY_PATH`。
-
-## 使用注意
-
-- **页面文件**：在 Windows 上，集成显卡的显存会计入提交量。128 GB 的 N1X 建议把页面文件设为自定义大小，**至少约 72 GB**
-  （我们用的是 81,920～98,304 MB）。系统自动管理的 68 GB 页面文件下，引擎为了安全会少放一些专家进显存，每个请求慢约 0.9 秒。
-- 一次只跑一个大模型：Flash-Next 加载后占 70 GB 以上显存，不要和 vLLM 等其他推理服务同时运行。
-- **测试状态**：Linux Arm64 225 项过 224 项，Windows on Arm64 219 项过 213 项。没过的每一项及原因见 [docs/arm64.md](docs/arm64.md#tests)。
-- **没有实测过**：DGX Spark、DeepSeek-V4.1-Flash 的真实权重（模型包 260 GB 以上）、真正进入待机、图片和视频输入、
-  在全新的 Arm64 Python 环境里安装依赖、本移植之后的 x86-64 编译。
-
-## 文档
-
-- [docs/arm64.md](docs/arm64.md)：Arm64 编译、集成显卡的处理、测试状态、实测数据（英文）。
-- [README.basalt.md](README.basalt.md)：上游原版说明，支持的模型、配置文件、API、视频等用法仍然适用。
-- [docs/](docs/)：上游的完整文档（运行、配置、模型、精度、模型文件格式）。
-
-## 许可与致谢
-
-- 本仓库沿用上游的 MIT 许可（[LICENSE](LICENSE)），第三方代码（ggml / llama.cpp）的许可见 [THIRD_PARTY_LICENSES](THIRD_PARTY_LICENSES)。
-- Basalt 由 [jesdga95](https://github.com/jesdga95) 开发，模型包来自其 Hugging Face 页面。
-- Windows on Arm64 部分参考了 SolettaSolaris 在上游 PR [jesdga95/basalt#230](https://github.com/jesdga95/basalt/pull/230) 中的思路，没有复用其代码。
-- 本仓库与上游项目和 NVIDIA 均无隶属关系。
+MIT License, see [LICENSE](LICENSE).

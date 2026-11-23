@@ -28,3 +28,22 @@ windows took argmax drafts until 798e173 (a67b9d4 and later).
 c4ca7d2 adds the faster long-context prompt scores, the millisecond pipe wait (about 45 ms less per request) and
 the dense projections' FP16 copies ([prompt path](n1x-prompt-path.md)); its first token on short prompts is the
 clearest change (324 ms p50 against 420 and 363 in the earlier full runs), the rest is within the power state's spread.
+
+## Against Basalt with the Arm64 port
+
+The same benchmark and config, both builds on the same pack and settings, run back to back on 2026-11-23 with the
+laptop's sustained-power controller on (it re-sends the thermal profile when the GPU's power budget starts to decline,
+so neither run sits on the 22-28 W floor). The busy GPU drew 42.3 W at 2,063 MHz in the first run and 40.8 W at
+2,072 MHz in the second. These figures are not comparable with the table above, which was measured without the
+controller.
+
+| | Basalt + Arm64 port (2ec7a84) | This fork (004d287) |
+| --- | ---: | ---: |
+| Single-stream decode, weighted median (tok/s) | 87.5 | 97.9 |
+| First token, short prompts, p50 (ms) | 622 | 284 |
+| Aggregate output at 1 / 2 / 3 / 4 streams (tok/s) | 74.6 / 81.1 / 85.7 / 85.3 | 86.5 / 99.4 / 110.8 / 113.1 |
+| First token at 4 streams, p50 / p99 (ms) | 727 / 2,351 | 430 / 1,326 |
+| Prefill at 2K / 8K / 16K / 32K / 64K (tok/s) | 983 / 1,506 / 2,055 / 1,951 / 2,095 | 1,724 / 2,077 / 2,149 / 2,295 / 2,342 |
+
+Both builds placed every routed expert on the GPU at load. A 20-second fp16 GEMM from another program ran during the
+second run (2ec7a84) about 20 minutes in; at most a few of its requests overlapped it.
