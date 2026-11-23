@@ -78,3 +78,9 @@ registers, instead of every warp re-splitting all four heads from shared memory,
 (11.2-11.5 ms). Every score keeps its bits (`qsa_scores_tc_parity` hashes). The scores were about 300 ms of an
 8K-token turn at 60K context; the remaining long-context cost is the attention (about 300 ms, a block per query and
 KV head) and the top-k (about 50 ms, half the bandwidth floor of reading the scores back).
+
+The int8 attention held 76 KB of shared memory per block (each warp's tile double-buffered, every warp's rows side
+by side for the merge): one block per SM. Each warp now stages one tile and the warps add their rows into one set in
+warp order, the same sums: 42 KB, two blocks per SM, 2,048 queries at 64K context 5.16 -> 4.40 ms (`qsa_prompt_attn_parity`
+hashes unchanged). The GDN prompt recurrence likewise takes the chunk's state by warp shuffles instead of a 32 KB
+shared snapshot (2-3% of that kernel, `gdn_chunk_parity` hashes unchanged).
