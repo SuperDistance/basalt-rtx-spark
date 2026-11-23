@@ -1,4 +1,7 @@
 #include "common.hpp"
+#include <algorithm>
+#include <cstring>
+#include <iterator>
 #include "expert_plan.hpp"
 #include "diagnostics.hpp"
 #include "basalt/core/load_progress.hpp"
@@ -327,7 +330,40 @@ bool Verifier::sample_rows(int S, std::string& err) {
                         basalt::kernels::sampler_list_len(sp.top_k, (int) n_vocab_) > basalt::kernels::kSamplerNarrowMax);
     }
     if (wide && !exact_head_rows(S, err)) return false;
+    // segments whose drafts were drawn (set_seg_drawn): their rows sampled together, each draft kept by
+    // min(1, p/q) and otherwise replaced by a draw from max(p - q, 0) - every row keeps its distribution exactly
+    constexpr int Q = 32;
+    for (int sg = 0, r0 = 0; sg < last_nseg_ && sg < 16; r0 += last_seg_len_[sg], ++sg) {
+        const int n = last_seg_len_[sg];
+        const int32_t* qi = seg_dq_ids_[sg];
+        const float* qp = seg_dq_p_[sg];
+        seg_dq_ids_[sg] = nullptr;
+        seg_dq_p_[sg] = nullptr;
+        basalt::kernels::SamplerParams sp = slot_sp_[(size_t) last_seg_slot_[sg]];
+        const bool sampled = !sp.greedy && sp.temperature > 0.0f;
+        const bool pen = bh_d_ != nullptr && sp.penalty_last_n > 0;
+        if (qi == nullptr || qp == nullptr || n < 2 || !sampled || pen || seg_dq_n_ != Q || h_dq_ids_ == nullptr ||
+            basalt::kernels::sampler_list_len(sp.top_k, (int) n_vocab_) > basalt::kernels::kSamplerNarrowMax)
+            continue;
+        std::memcpy(h_dq_ids_ + (size_t) r0 * Q, qi, (size_t) (n - 1) * Q * sizeof(int32_t));
+        std::memcpy(h_dq_p_ + (size_t) r0 * Q, qp, (size_t) (n - 1) * Q * sizeof(float));
+        for (int t = 0; t + 1 < n; ++t) h_q_[r0 + t] = last_tokens_[r0 + t + 1];
+        std::atomic_thread_fence(std::memory_order_seq_cst);
+        sp.counter = (uint64_t) last_pos_b_[r0];   // row t draws at Philox(seed, pos0 + t), as one row at a time does
+        sp.penalty_last_n = 0;
+        sp.draw_drafts = true;
+        sp.drafts = m_q_ + r0;
+        sp.q_ids = m_dq_ids_ + (size_t) r0 * Q;
+        sp.q_p = m_dq_p_ + (size_t) r0 * Q;
+        sp.q_n = Q;
+        sp.n_drawn = n - 1;
+        basalt::kernels::sample_tokens(head_logits_ + (size_t) r0 * (size_t) n_vocab_, n, (int) n_vocab_, nullptr, 0, sp,
+                                       m_out_ + r0, cs_);
+        for (int t = r0; t < r0 + n; ++t) drawn_row_[t] = 1;
+        any_drawn_ = true;
+    }
     for (int t = 0; t < S; ++t) {
+        if (drawn_row_[t]) continue;   // sampled with its segment above
         basalt::kernels::SamplerParams sp = slot_sp_[(size_t) last_rows_[t]];
         const bool pen = bh_d_ != nullptr && sp.penalty_last_n > 0;
         if ((sp.greedy || sp.temperature <= 0.0f) && !pen) continue;   // the recorded greedy pick stands
@@ -338,7 +374,9 @@ bool Verifier::sample_rows(int S, std::string& err) {
                                        m_out_ + t, cs_);
         any = true;
     }
-    if (any && cudaStreamSynchronize(cs_) != cudaSuccess) { err = "verify batch: the row sampling failed"; return false; }
+    if ((any || any_drawn_) && cudaStreamSynchronize(cs_) != cudaSuccess) { err = "verify batch: the row sampling failed"; return false; }
+    any_drawn_ = false;
+    std::fill(std::begin(drawn_row_), std::end(drawn_row_), (uint8_t) 0);
     return true;
 }
 

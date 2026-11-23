@@ -131,7 +131,9 @@ bool Verifier::init_slots(const std::vector<SessionState*>& slots, std::string& 
         if (cudaMalloc(&p, hb + 2 * gb + 2 * 256 + MT * 12) != cudaSuccess ||
             !mapped((size_t) MT * 4, (void**) &h_deferb_, (void**) &m_deferb_) ||
             !mapped((size_t) MT * 8, (void**) &h_prevb_, (void**) &m_prevb_) ||
-            !mapped((size_t) MT * sizeof(basalt::kernels::SegRow), (void**) &h_flushb_, (void**) &m_flushb_)) {
+            !mapped((size_t) MT * sizeof(basalt::kernels::SegRow), (void**) &h_flushb_, (void**) &m_flushb_) ||
+            !mapped((size_t) MT * 32 * 4, (void**) &h_dq_ids_, (void**) &m_dq_ids_) ||
+            !mapped((size_t) MT * 32 * 4, (void**) &h_dq_p_, (void**) &m_dq_p_)) {
             err = "verify: the deferred commit buffers do not fit";
             return false;
         }

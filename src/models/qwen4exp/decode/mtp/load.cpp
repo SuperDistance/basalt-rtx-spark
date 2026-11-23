@@ -220,9 +220,13 @@ bool MtpDrafter::load(const MtpFiles& files, const ModelGeometry& g, SessionStat
               mapped(kDraftRowsMax * 4 + 64, (void**) &h_bprob_, (void**) &m_bprob_) &&
               mapped(sizeof(basalt::kernels::DraftDraw) + 64, (void**) &h_draw_, (void**) &m_draw_) &&
               mapped((uint64_t) kMtpChainMax * basalt::kernels::kDraftDrawQ * 4 + 64, (void**) &h_qids_, (void**) &m_qids_) &&
-              mapped((uint64_t) kMtpChainMax * basalt::kernels::kDraftDrawQ * 4 + 64, (void**) &h_qp_, (void**) &m_qp_);
+              mapped((uint64_t) kMtpChainMax * basalt::kernels::kDraftDrawQ * 4 + 64, (void**) &h_qp_, (void**) &m_qp_) &&
+              mapped(kDraftRowsMax * sizeof(basalt::kernels::DraftDraw) + 64, (void**) &h_draw_rows_, (void**) &m_draw_rows_) &&
+              mapped((uint64_t) kDraftRowsMax * basalt::kernels::kDraftDrawQ * 4 + 64, (void**) &h_qids_rows_, (void**) &m_qids_rows_) &&
+              mapped((uint64_t) kDraftRowsMax * basalt::kernels::kDraftDrawQ * 4 + 64, (void**) &h_qp_rows_, (void**) &m_qp_rows_);
     if (!ok) { err = "mtp: mapped staging failed"; return false; }
     *h_draw_ = basalt::kernels::DraftDraw{};
+    for (int s = 0; s < kDraftRowsMax; ++s) h_draw_rows_[s] = basalt::kernels::DraftDraw{};
     auto carve = [&](Bump& b) {
         tok_ = b.take<int32_t>(T); step_ = b.take<int32_t>(R2 * 4); pos_ = b.take<int32_t>(R2 * NH); row_ = b.take<int32_t>(4);
         ident_ = b.take<int32_t>(T * (uint64_t) cap_);

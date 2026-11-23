@@ -1,5 +1,6 @@
 #include "common.hpp"
 #include "basalt/core/spin_wait.hpp"
+#include <cstring>
 
 namespace basalt::core {
 
@@ -34,7 +35,8 @@ bool MtpDrafter::draft_seq(int id, const float* R_rows, int T, const int32_t* to
 
 bool MtpDrafter::draft_batch(int S, const int* ids, const float* R_rows, const int* r0s, const int* Ts,
                              const int32_t* const* toks, const int64_t* p0s, const int* as, const float* cum_ths,
-                             int32_t* const* drafts, float* const* probs, int* n_drafts, std::string& err) {
+                             int32_t* const* drafts, float* const* probs, int* n_drafts, std::string& err, int32_t* const* q_ids,
+                             float* const* q_p) {
     using namespace basalt::kernels;
     if (!seg_on_ || S < 1 || S > kDraftRowsMax) { err = "mtp: a batched draft needs stores in place and 1-4 sequences"; return false; }
     const OnDevice on_device(device_);
@@ -157,6 +159,11 @@ bool MtpDrafter::draft_batch(int S, const int* ids, const float* R_rows, const i
             if (!alive[s]) continue;
             drafts[s][j] = ((volatile int32_t*) h_bout_)[s];
             pr[s][j] = ((volatile float*) h_bprob_)[s];
+            if (q_ids != nullptr && q_ids[s] != nullptr && h_qids_rows_ != nullptr) {   // the step's proposal (drawn rows)
+                constexpr int Q = basalt::kernels::kDraftDrawQ;
+                std::memcpy(q_ids[s] + (size_t) j * Q, (const void*) (h_qids_rows_ + (size_t) s * Q), Q * sizeof(int32_t));
+                std::memcpy(q_p[s] + (size_t) j * Q, (const void*) (h_qp_rows_ + (size_t) s * Q), Q * sizeof(float));
+            }
             if (probs) probs[s][j] = pr[s][j];
             ++n_drafts[s];
             alive[s] = j + 1 < cap && draft_keep(pr[s], j, cum_ths[s]);   // the rule draft_rows applies

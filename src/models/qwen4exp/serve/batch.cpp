@@ -141,6 +141,9 @@ bool QfnRuntime::batch_step() {
             lens[sg] = Tw[sg];
             const int32_t* src = sl.from_sfx ? sl.sbuf : sl.dr;
             drafts[sg].assign(src, src + (Tw[sg] - 1));
+            // drawn drafts are kept by min(1, p/q) against the proposals they were drawn from
+            if (sl.drawn && !sl.from_sfx && Tw[sg] > 1 && !sl.qids.empty())
+                ver.set_seg_drawn(sg, sl.qids.data(), sl.qp.data(), basalt::kernels::kDraftDrawQ);
         }
     } else {   // the rows beyond one per slot go to the scripted slots, as many drafts as the script and the context allow
         int extra = MB - S;
@@ -393,7 +396,7 @@ bool QfnRuntime::batch_step() {
         // a slot gets about its share of the next window's rows: drafts past it cost the drafter's GPU time and
         // are cut (at four slots of an 8-row budget, two drafts a slot); the verdicts stay exact
         mtp.set_step_cap(nc > 1 ? (MB + nc - 1) / nc : 0);
-        mtp.set_draw(basalt::kernels::DraftDraw{});   // batch windows keep the exact-match rule: argmax drafts
+        mtp.set_draw(basalt::kernels::DraftDraw{});   // the one-sequence drafts below keep the argmax pick
         // the drafting slots in one pass (stores in place): every slot's catch-up in one forward and one full-layer row
         // per slot for each draft step, each row in its slot's own K/V and with its slot's own rule and cap
         const int nb = std::min(nfull, (int) basalt::core::MtpDrafter::kDraftRowsMax);
@@ -406,13 +409,35 @@ bool QfnRuntime::batch_step() {
             int32_t* dr[MR];
             float* pb[MR];
             int nd[MR];
+            // speculative sampling: a sampled slot (narrow list, no fixed seed, no penalties or grammar) draws its drafts
+            basalt::kernels::DraftDraw dd[MR] = {};
+            int32_t* qi[MR] = {};
+            float* qp[MR] = {};
+            constexpr int Q = basalt::kernels::kDraftDrawQ;
+            for (int ci = 0; ci < nb; ++ci) {
+                BSlot& sl = bs[(size_t) rows[cont[ci]]];
+                const basalt::kernels::SamplerParams* ssp = ver.slot_sampling(rows[cont[ci]]);
+                const bool draw = ssp != nullptr && !ssp->greedy && ssp->temperature > 0.0f && ssp->draw_drafts &&
+                                  sl.pen_n == 0 && (sl.guard == nullptr || !sl.guard->on()) && mtp.can_draw() &&
+                                  basalt::kernels::sampler_list_len(ssp->top_k, (int) n_vocab) <= basalt::kernels::kSamplerNarrowMax;
+                if (draw) {
+                    dd[ci].on = 1; dd[ci].temperature = ssp->temperature; dd[ci].top_k = ssp->top_k;
+                    dd[ci].top_p = ssp->top_p; dd[ci].seed = ssp->seed;
+                    sl.qids.resize((size_t) basalt::spec::DraftPolicy::kMaxT * Q);
+                    sl.qp.resize((size_t) basalt::spec::DraftPolicy::kMaxT * Q);
+                    qi[ci] = sl.qids.data();
+                    qp[ci] = sl.qp.data();
+                }
+                sl.drawn = draw;
+            }
+            mtp.set_draw_rows(dd, nb);
             for (int ci = 0; ci < nb; ++ci) {
                 const int sg = cont[ci];
                 BSlot& sl = bs[(size_t) rows[sg]];
                 ids[ci] = rows[sg]; r0[ci] = r0s[sg]; Tn[ci] = lens[sg]; an[ci] = n_keep[sg] - 1; pn[ci] = p0s[sg];
                 th[ci] = sl.cum.th(); tk[ci] = outb + r0s[sg]; dr[ci] = sl.dr; pb[ci] = sl.dprob;
             }
-            if (!mtp.draft_batch(nb, ids, Rw, r0, Tn, tk, pn, an, th, dr, pb, nd, err)) {
+            if (!mtp.draft_batch(nb, ids, Rw, r0, Tn, tk, pn, an, th, dr, pb, nd, err, qi, qp)) {
                 std::printf("ERR %s\n", err.c_str());
                 return false;
             }
@@ -430,6 +455,7 @@ bool QfnRuntime::batch_step() {
             const int a = n_keep[sg] - 1;
             mtp.set_ple_session(bslot_ss[0][(size_t) b].get());
             sl.n_dr = 0;
+            sl.drawn = false;   // a one-sequence draft here keeps the argmax pick
             if (ci < nfull) {
                 mtp.set_cum_th(sl.cum.th());
                 int nd = 0;

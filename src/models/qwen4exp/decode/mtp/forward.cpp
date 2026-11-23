@@ -339,19 +339,27 @@ bool MtpDrafter::record_forward(int T, int step_row0, cudaStream_t cs, std::stri
             bool all = true;
             for (int t = 0; t < T && all; ++t) {
                 const uint8_t* xr = xq_ + (size_t) t * xb;
+                // row t's draw (speculative sampling, set_draw_rows): its own draw, step record (cell) and proposal
+                basalt::kernels::DraftDrawArgs rdd;
+                if (m_draw_rows_ != nullptr && t < kDraftRowsMax)
+                    rdd = {m_draw_rows_ + t, step_ + (size_t) t * 4, m_qids_rows_ + (size_t) t * basalt::kernels::kDraftDrawQ,
+                           m_qp_rows_ + (size_t) t * basalt::kernels::kDraftDrawQ};
+                const basalt::kernels::DraftDrawArgs* rdp = rdd.draw != nullptr ? &rdd : nullptr;
                 if (sub && proxy_ != nullptr && nv == n_tier1_)
                     all = head_->type() == 13
                               ? basalt::kernels::q5k_proxy_top1(proxy_, dhead_, xr, (int) nv, n_tier1_, dvocab_, out_ids_ + t,
-                                                                probs_ + t, proxy_scratch_, cs)
+                                                                probs_ + t, proxy_scratch_, cs, rdp)
                           : head_->type() == GGML_Q8_0
                               ? basalt::kernels::q80_proxy_top1(proxy_, head_->weights(), xr, (int) nv, n_tier1_, dvocab_,
-                                                                out_ids_ + t, probs_ + t, proxy_scratch_, cs, true)
+                                                                out_ids_ + t, probs_ + t, proxy_scratch_, cs, true, rdp)
                               : basalt::kernels::q6k_proxy_top1(proxy_, rows_mapped_ ? head_->weights() : (const void*) dhead_,
                                                                 xr, (int) nv, n_tier1_, dvocab_, out_ids_ + t, probs_ + t,
-                                                                proxy_scratch_, cs, rows_mapped_);
-                else if (head_->type() == 13 && top_scratch_ != nullptr)
+                                                                proxy_scratch_, cs, rows_mapped_, rdp);
+                else if (head_->type() == 13 && top_scratch_ != nullptr) {
                     all = q5k_head_top1(sub ? dhead_ : head_->weights(), xr, head_logits_ + (size_t) t * (size_t) nv, (int) N,
                                         (int) nv, sub ? dvocab_ : nullptr, out_ids_ + t, probs_ + t, top_scratch_, cs);
+                    if (all && rdp != nullptr) basalt::kernels::draft_q_onehot(out_ids_ + t, rdd, cs);   // the argmax pick
+                }
                 else
                     all = false;
             }

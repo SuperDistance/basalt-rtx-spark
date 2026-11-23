@@ -347,6 +347,15 @@ public:
     /// A slot's sampling (temperature / top_p / top_k / min_p / seed / penalties, the histories by set_batch_history):
     /// its row is drawn again on the last stage with Philox(seed, position), as a solo window draws it.  Greedy by
     /// default.  Set on the first stage, it reaches the last.
+    const basalt::kernels::SamplerParams* slot_sampling(int slot) const {
+        return slot >= 0 && slot < (int) slot_sp_.size() ? &slot_sp_[(size_t) slot] : nullptr;
+    }
+    /// The next batch window's segment sg carries drafts its slot's drafter drew (speculative sampling): draft j's
+    /// proposal is q_ids/q_p[j * q_n ..], host arrays read when the window's rows are sampled.  Cleared after it.
+    void set_seg_drawn(int sg, const int32_t* q_ids, const float* q_p, int q_n) {
+        if (sg < 0 || sg >= (int) (sizeof(seg_dq_ids_) / sizeof(seg_dq_ids_[0]))) return;
+        seg_dq_ids_[sg] = q_ids; seg_dq_p_[sg] = q_p; seg_dq_n_ = q_n;
+    }
     void set_slot_sampling(int slot, const basalt::kernels::SamplerParams& sp) {
         if (slot >= 0 && slot < (int) slot_sp_.size()) slot_sp_[(size_t) slot] = sp;
         if (next_) next_->set_slot_sampling(slot, sp);
@@ -512,6 +521,13 @@ private:
     int32_t b_out_[8] = {};
     std::vector<basalt::kernels::SamplerParams> slot_sp_;
     bool sample_rows(int S, std::string& err);   ///< the sampled slots' rows of the last batch window
+    const int32_t* seg_dq_ids_[16] = {};   ///< set_seg_drawn, per segment of the next batch window
+    const float* seg_dq_p_[16] = {};
+    int seg_dq_n_ = 0;
+    uint8_t drawn_row_[32] = {};   ///< sample_rows: rows sampled with their drawn segment
+    bool any_drawn_ = false;
+    int32_t* h_dq_ids_ = nullptr; int32_t* m_dq_ids_ = nullptr;   ///< the drawn segments' proposals, per window row
+    float* h_dq_p_ = nullptr; float* m_dq_p_ = nullptr;
     int32_t* h_commitb_ = nullptr; int32_t* m_commitb_ = nullptr;   // per slot [1, 0, pos, -1 ..], stride 2 + max_t
     int32_t* commitb_ = nullptr;
     float* tail_snap_b_ = nullptr;         ///< per (slot, QSA layer) indexer tail snapshot

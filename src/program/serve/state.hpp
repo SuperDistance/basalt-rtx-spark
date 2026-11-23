@@ -273,6 +273,10 @@ public:
         int32_t dr[basalt::spec::DraftPolicy::kMaxT] = {};
         float dprob[basalt::spec::DraftPolicy::kMaxT] = {};
         int n_dr = 0;
+        // drafts the drafter drew (speculative sampling): draft j's proposal at qids/qp[j * (its size / kMaxT)]
+        bool drawn = false;
+        std::vector<int32_t> qids;
+        std::vector<float> qp;
         basalt::core::DraftCumAdapt cum;
         std::unique_ptr<basalt::spec::SuffixDrafter> sfx;
         int32_t sbuf[basalt::spec::DraftPolicy::kMaxT] = {};

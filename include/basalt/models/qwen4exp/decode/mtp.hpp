@@ -102,6 +102,14 @@ public:
         }
     }
     bool can_draw() const { return h_draw_ != nullptr; }
+    /// draft_batch's rows: row s draws under d[s] (n rows; the rest keep the argmax pick).  Each step's proposal of row
+    /// s is copied to the caller's q_ids[s] / q_p[s] at j * kDraftDrawQ (draft_batch).
+    void set_draw_rows(const basalt::kernels::DraftDraw* d, int n) {
+        if (h_draw_rows_ == nullptr) return;
+        for (int s = 0; s < kDraftRowsMax; ++s)
+            std::memcpy((void*) (h_draw_rows_ + s), s < n ? (const void*) (d + s) : (const void*) &kNoDraw, sizeof(kNoDraw));
+        std::atomic_thread_fence(std::memory_order_seq_cst);
+    }
     const int32_t* draft_q_ids() const { return m_qids_; }
     const float* draft_q_p() const { return m_qp_; }
     /// The threshold the host waits by: draft() returns after the drafts this rule keeps while the device (a lower
@@ -189,7 +197,7 @@ public:
     bool seg_on() const { return seg_on_; }
     bool draft_batch(int S, const int* ids, const float* R_rows, const int* r0s, const int* Ts, const int32_t* const* toks,
                      const int64_t* p0s, const int* as, const float* cum_ths, int32_t* const* drafts, float* const* probs,
-                     int* n_drafts, std::string& err);
+                     int* n_drafts, std::string& err, int32_t* const* q_ids = nullptr, float* const* q_p = nullptr);
     /// The K/V cells [cell0, cell0 + n) of sequence `id` from window rows, no draft (`prefill` on that sequence).
     bool catch_up(int id, const float* R_rows, const int32_t* next_tokens, int64_t n, int64_t cell0, std::string& err);
     /// The same, later: the rows are kept and their cells are computed by the next `draft_seq` (or `flush`) of the
@@ -378,6 +386,10 @@ private:
     float *h_prob_ = nullptr, *m_prob_ = nullptr;   // each draft's probability under the draft layer
     // speculative sampling: the request's draw (mapped) and each chain step's proposal (mapped, kDraftDrawQ per step)
     basalt::kernels::DraftDraw *h_draw_ = nullptr, *m_draw_ = nullptr;
+    static constexpr basalt::kernels::DraftDraw kNoDraw{};
+    basalt::kernels::DraftDraw *h_draw_rows_ = nullptr, *m_draw_rows_ = nullptr;   ///< [kDraftRowsMax]: draft_batch's rows
+    int32_t *h_qids_rows_ = nullptr, *m_qids_rows_ = nullptr;   ///< [kDraftRowsMax][kDraftDrawQ]: a step's proposals
+    float *h_qp_rows_ = nullptr, *m_qp_rows_ = nullptr;
     int32_t *h_qids_ = nullptr, *m_qids_ = nullptr;
     float *h_qp_ = nullptr, *m_qp_ = nullptr;
     // batched drafts: the current step's draft and probability of each row (one row per sequence), polled by the host
