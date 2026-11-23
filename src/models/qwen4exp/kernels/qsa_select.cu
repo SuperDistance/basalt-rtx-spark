@@ -163,7 +163,7 @@ __global__ void __launch_bounds__(TOPK_T) block_topk_kernel(const float* __restr
 // Blocks < n_bid only; the tail block n_bid (the `dead` key, +1e9) is scored by the warp kernel's own code.
 constexpr int TC_QT = 16;                 // queries per CTA (one m16 tile per indexer head)
 constexpr int TC_NB = 32;                 // blocks per tile (4 warps x n8)
-constexpr int TC_ITER = 4;                // tiles per CTA (the query tile is loaded once)
+constexpr int TC_ITER = 16;               // tiles per CTA (the query tile is loaded once)
 constexpr int TC_QS = IDX_HEADS * IDX_DIM + 4;   // query row stride in floats
 constexpr int TC_KS = IDX_DIM + 4;               // key row stride
 

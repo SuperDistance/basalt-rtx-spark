@@ -1147,6 +1147,11 @@ add_executable(qsa_scores_parity tests/models/qwen4exp/kernels/qsa_scores_parity
 target_include_directories(qsa_scores_parity PRIVATE ${_gpu_include_directories})
 target_link_libraries(qsa_scores_parity PRIVATE model_qwen4exp_kernels ${_gpu_runtime_target})
 basalt_gpu_test(NAME qsa_scores_parity COMMAND qsa_scores_parity 20)
+# the prompt path's block scores on tensor cores against FP64 (GPU, synthetic, no model); a hash and a microbench line
+add_executable(qsa_scores_tc_parity tests/models/qwen4exp/kernels/qsa_scores_tc_parity.cpp)
+target_include_directories(qsa_scores_tc_parity PRIVATE ${_gpu_include_directories})
+target_link_libraries(qsa_scores_tc_parity PRIVATE model_qwen4exp_kernels ${_gpu_runtime_target})
+basalt_gpu_test(NAME qsa_scores_tc_parity COMMAND qsa_scores_tc_parity 5)
 endif()
 add_executable(dequant_f16_parity tests/kernels/dequant_f16_parity.cpp)
 target_include_directories(dequant_f16_parity PRIVATE ${_gpu_include_directories})
