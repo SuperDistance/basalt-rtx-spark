@@ -79,7 +79,7 @@ def main() -> int:
     ap.add_argument("--out", type=Path, default=Path("dist"))
     ap.add_argument("--cuda", type=Path, help="a CUDA 13 toolkit whose cuBLAS DLLs go into bin/ (Windows only)")
     a = ap.parse_args()
-    if not re.fullmatch(r"v\d+\.\d+\.\d+(-[0-9A-Za-z.]+)?", a.tag):
+    if not re.fullmatch(r"v\d+\.\d+\.\d+(-[0-9A-Za-z.-]+)?", a.tag):   # a semver pre-release may hold hyphens
         sys.exit(f"package_release: tag {a.tag!r} is not of the form v0.3.1")
     cmake_text = (a.root / "CMakeLists.txt").read_text(encoding="utf-8")
     version = re.search(r"project\(basalt VERSION (\S+)", cmake_text)
