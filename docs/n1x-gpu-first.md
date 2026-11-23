@@ -312,6 +312,11 @@ bitwise-equal embeddings every vision mode gives today.
 - The KLD gate for experts computed on the GPU instead of the CPU.
 - NVFP4 and IQ3 on equivalent placements, and Qwen3.8-27B.
 - The same deferred commit for one-stream windows (their lazy commit still reads the state a second time).
-- The hyper-connection reads (about 14% of a four-stream window under the profiler, which turns PDL off and so counts
-  launch gaps into short stages) measured without the profiler.
-- A BF16 GDN state would halve the state traffic (about 6% at four streams) but changes the numbers: it needs the KLD gate.
+- The hyper-connection reads: about 14% of a four-stream window, the same without the profiler (105 us a layer cold at
+  8 rows, 53 us with the weights in L2); the chain inside the read, not its bytes, is the cost.
+- A BF16 GDN state would halve the state traffic (about 6% at four streams) but is not lossless. With the stores rounded
+  to BF16 (an emulation, same build otherwise), the KLD gate's first 35 chunks against the FP32 state: ln(PPL/base)
+  0.00106 -> 0.00225, KLD 0.12618 -> 0.12679, same top-1 90.59% -> 90.33%, and only 1.2% of rows bit-identical. The
+  error compounds with context length, which 512-token chunks do not show; at most an opt-in.
+- The hyper-connection read with its matrices prefetched into L2 before its dependency wait was slower cold (8 rows with
+  the router 108 -> 119 us): a cold read moves about 90 GB/s, bound by its down, up, router and top-10 chain, not bytes.
