@@ -191,6 +191,14 @@ did not change the cached path. The unbuffered path is at the drive's limit: a p
 of the copy reached 133K reads/s from one thread (5.6 us of CPU per read) and 306-314K reads/s from four to eight
 threads, and 512-byte reads were no faster.
 
+### Request overhead
+
+A request's first token also waits for the server to hand the engine its prompt, the prefix match and the run, one
+command each over the engine's stdin. On Windows the engine polled that pipe at the 15.6 ms system tick, so a short
+request spent 66-71 ms beyond its prompt read and generation (median, about 70-token prompts). The pipe is now polled
+every millisecond within 2 s of the last command, at the tick when idle: 21-27 ms, and short requests' wall time fell
+from about 400 to 360 ms. The idle engine's CPU did not rise (0.8% of a core against 2.0%).
+
 ### Where a prompt chunk goes
 
 One 6.8K-token chunk with every stage synchronized (diagnostic build, about 2.1 GHz), 3.3 s in all:
