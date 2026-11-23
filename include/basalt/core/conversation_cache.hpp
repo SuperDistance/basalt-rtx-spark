@@ -80,8 +80,9 @@ struct PooledAlloc {
     }
     template <class U>
     void construct(U* p) noexcept { ::new (static_cast<void*>(p)) U; }   // resize leaves new bytes as they are
-    template <class U, class... A>
-    void construct(U* p, A&&... a) { ::new (static_cast<void*>(p)) U(std::forward<A>(a)...); }
+    // No construct(p, args...): with one, the standard library copies a vector of these element by element (a
+    // 112 MiB checkpoint in ~30 ms on the N1X) instead of as one memmove (~4 ms); without, allocator_traits
+    // constructs from arguments by placement new itself.
     /// Allocates `count` blocks of `bytes` now, their pages written, for checkpoints to take.  False when they cannot
     /// be allocated (none is kept then).  With `pin`, each block is page-locked before its pages are written; one the
     /// driver refuses stays ordinary memory.
