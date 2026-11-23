@@ -1,100 +1,158 @@
 # basalt-rtx-spark
 
-A fork of the [Basalt](https://github.com/jesdga95/basalt) inference engine tuned for the **NVIDIA RTX Spark** (N1X:
-Arm64 CPU with an integrated Blackwell GPU, compute capability 12.1), running Qwen3.8-Flash-Next natively on Windows on
-Arm64. It serves an OpenAI- and Anthropic-compatible API, like Basalt.
+### A 120B-class model at ~98 tokens/s on your RTX Spark laptop.
 
-- **Native on Windows on Arm64.** No Linux or WSL: built with MSVC for ARM64 and run as a Windows process, with the
-  Windows-specific work done (commit-aware memory placement, NTFS reads of the n-gram table, a millisecond pipe wait).
-- **Made for unified memory.** It places the model's experts and KV across the GPU split, pinned RAM and Windows commit
-  by itself, so it runs at whatever split the laptop has, with no firmware change. The GPU reads RAM-pinned experts in
-  place instead of copying them. A larger split is still faster: at the 96 GB split every routed expert of the IQ3 pack
-  sits on the GPU, and an earlier build measured 92 against 74 tok/s decode and 1,218 against 697 tok/s prefill at
-  2K tokens there compared with the 64 GB split.
-- **Lossless speedups.** Every change keeps the same greedy text as before it (checked by output hashes), passes the
-  KLD gate against the BF16 model where it changes rounding, or (speculative sampling) keeps the sampling distribution.
-  The quantized pack itself is as lossy as it is in Basalt.
-- **The fastest single stream we have measured on the RTX Spark**, against Basalt with the Arm64 port and vLLM for RTX
-  Spark (below), and much faster first tokens and multi-stream output than Basalt on the same laptop.
+Native on Windows on Arm. Lossless. Ready for your chat app and your coding agent.
 
-## Results
+[Install](#install) · [Use it](#use-it-from-your-tools) · [Hardware](#hardware) · [Results](#results) · [Benchmarks](benchmarks) · [Docs](#documentation)
 
-Same laptop, same model pack, same settings, run back to back with BetterBench 0.6.1 (the
-config of the community runs: temperature 0.7, cold prefix cache, 20 passes per category, 48 requests per concurrency
-level). Qwen3.8-Flash-Next UD-IQ3_XXS, int8 KV, four 262,144-token slots, MTP window 8, 96 GB GPU split. The GPU drew
-41-42 W on average while busy in both runs, at about 2.07 GHz.
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+![Windows on Arm64](https://img.shields.io/badge/Windows-Arm64-0078D4)
+![RTX Spark N1X](https://img.shields.io/badge/NVIDIA-RTX%20Spark%20N1X-76B900)
 
-| | Basalt + Arm64 port (2ec7a84) | basalt-rtx-spark | |
-| --- | ---: | ---: | ---: |
-| Single-stream decode, weighted median (tok/s) | 87.5 | **97.9** | +12% |
-| First token, short prompts, p50 (ms) | 622 | **284** | 2.2x faster |
-| Aggregate output, 1 stream (tok/s) | 74.6 | **86.5** | +16% |
-| Aggregate output, 2 streams (tok/s) | 81.1 | **99.4** | +23% |
-| Aggregate output, 3 streams (tok/s) | 85.7 | **110.8** | +29% |
-| Aggregate output, 4 streams (tok/s) | 85.3 | **113.1** | +33% |
-| First token at 4 streams, p50 (ms) | 727 | **430** | 1.7x faster |
-| Prefill at 2K tokens (tok/s) | 983 | **1,724** | +75% |
-| Prefill at 8K tokens (tok/s) | 1,506 | **2,077** | +38% |
-| Prefill at 16K / 32K / 64K tokens (tok/s) | 2,055 / 1,951 / 2,095 | **2,149 / 2,295 / 2,342** | +5% / +18% / +12% |
+**Run Qwen3.8-Flash-Next, a ~120B-parameter mixture-of-experts model, locally on an NVIDIA RTX Spark laptop** with
+**98 tok/s** single-stream decode, a **0.28 s** first token and **113 tok/s** across four parallel requests
+([BetterBench](benchmarks), GPU at ~42 W). The goal: a capable large model fast enough at a laptop's power draw that
+local LLM workflows (chat, documents, coding agents) feel seamless, with nothing leaving the machine.
 
-Against vLLM for RTX Spark (FP4-Local, MTP 7) on the same laptop and benchmark (an earlier build, both without the
-sustained-power controller), single-stream decode was 60% faster (88.2 against 55.1 tok/s) and so was output at one
-stream; vLLM led on short-prompt first token, at three and four streams, and on prefill. The details, and why the GPU's power state matters for any
-comparison on this laptop, are in [docs/n1x-vs-vllm.md](docs/n1x-vs-vllm.md) and [docs/n1x-gpu-power.md](docs/n1x-gpu-power.md).
+It is a fork of the [Basalt](https://github.com/jesdga95/basalt) inference engine, built on its Arm64 port and tuned
+for the RTX Spark:
 
-The raw results, the benchmark config and how to add your own machine's results are in [benchmarks/](benchmarks).
+- **Native on Windows on Arm64.** No Linux, no WSL: a Windows process, with the Windows-specific work done (memory
+  placement that respects Windows commit, fast reads of the model's tables on NTFS, millisecond command handling).
+- **Made for unified memory.** It spreads the model across the GPU's share of memory and pinned system RAM by itself,
+  at whatever split your laptop has, and the GPU reads RAM-resident experts in place instead of copying them.
+- **Lossless.** Every speedup keeps the output: the same greedy text as before it (checked by hashes), the KLD gate
+  against the BF16 model where rounding changes, and speculative decoding that keeps the sampling distribution.
+- **Long context, many requests.** Four 262,144-token conversations at once, with an int8 KV cache that grows on demand.
+- **Drop-in API.** OpenAI- and Anthropic-compatible endpoints, so existing clients and agents work unchanged.
 
-## What changed
+## Install
 
-On top of Basalt and the Arm64 / sm_121 port:
+You need the hardware and software in [Hardware](#hardware). Then, from a Developer PowerShell for Visual Studio:
 
-- **Memory placement on a unified-memory laptop.** Expert placement budgets the GPU, private RAM and Windows commit
-  together (counting the page file's room to grow), so every routed expert of the IQ3 pack gets a GPU home; experts
-  pinned in RAM are read in place by the GPU, in prompt reads and in decode windows.
-- **Decode.** Batch slots draft in one pass and draw their MTP drafts from the draft head (speculative sampling, at
-  every concurrency); a slot's GDN state rows are committed by its next window; the CPU pool sleeps when parked.
-- **Prompt path.** The n-gram embedding table read from its own unbuffered copy; FP16 copies of the dense projections
-  kept in VRAM; faster tensor-core indexer scores, int8 sparse attention (two blocks per SM) and GDN recurrence; a
-  cold prompt read beside decoding slots; the prompt's expert loan sized to what it stages.
-- **Requests.** The engine answers the server's commands within a millisecond on Windows; conversation checkpoints
-  copy in 4 ms instead of 30 (a resumed thinking turn restores in 8-13 ms); batch admission moves checkpoints instead
-  of copying them.
-- **Conversion.** NVFP4 experts with CSF-encoded block scales, and FP4-Local's norms and NVFP4 n-gram table.
+**1. Get the CUDA toolkit and the source**
 
-The measurements behind each change: [performance notes](docs/n1x-performance.md),
-[GPU-first placement](docs/n1x-gpu-first.md), [prompt path](docs/n1x-prompt-path.md),
-[GPU power](docs/n1x-gpu-power.md).
+```powershell
+git clone https://github.com/SuperDistance/basalt-rtx-spark
+cd basalt-rtx-spark
+python tools\port\fetch_cuda.py windows-arm64 C:\cuda-13.5
+```
 
-## Building and running
+`fetch_cuda.py` assembles CUDA 13.5 from NVIDIA's redistributable archives (checked against NVIDIA's SHA-256), with no
+installer and no driver change.
 
-Tested on Windows 11 on Arm64 (RTX Spark N1X, 128 GB, 96 GB GPU split) with MSVC, CUDA 13.5 and `sm_121`. The Linux
-Arm64 build of the port is kept but untested here. The build guide is [docs/arm64.md](docs/arm64.md#building)
-(`tools/port/fetch_cuda.py` assembles the CUDA toolkit; `tools/port/build-win-arm64.cmd` builds).
+**2. Build**
 
-A server config like the one measured above:
+```powershell
+tools\port\build-win-arm64.cmd build C:\cuda-13.5
+pip install -r requirements.txt
+```
+
+**3. Download the model** (about 82 GiB)
+
+```powershell
+pip install -U huggingface_hub
+hf download jesdga/Qwen3.8-Flash-Next-Basalt Qwen3.8-FN-UD-IQ3_XXS.basalt --local-dir models
+```
+
+**Run it.** Save this as `config.json`:
 
 ```json
 {
   "version": 2,
-  "models": [{ "model": "Qwen3.8-FN-UD-IQ3_XXS.basalt", "alias": "flash-next", "kv": "int8", "parallel": 4,
+  "models": [{ "model": "models/Qwen3.8-FN-UD-IQ3_XXS.basalt", "alias": "flash-next", "kv": "int8", "parallel": 4,
                "max-context": 262144, "slot-full-context": true, "gpu": "0" }],
   "engine": { "spec": 8 },
-  "server": { "host": "127.0.0.1", "port": 8080 }
+  "server": { "port": 8080 }
 }
 ```
 
+```powershell
+$env:PATH = "C:\cuda-13.5\bin\arm64;C:\cuda-13.5\bin;$env:PATH"
+bin\basalt.exe serve --config config.json
 ```
-basalt serve --config config.json --python <python with requirements.txt>
-```
 
-The rest of the documentation is Basalt's: [README.basalt.md](README.basalt.md), [running](docs/running.md),
-[configuration](docs/configuration), [model files](docs/model-file.md).
+The first start writes a copy of the model's n-gram table next to it (about 29 GB, once). The server is ready when it
+prints `weights loaded`; open `http://127.0.0.1:8080/` for its web UI and live stats. Build details and tests:
+[Arm64 build guide](docs/arm64.md#building).
 
-## Credits and license
+## Use it from your tools
 
-- [Basalt](https://github.com/jesdga95/basalt) by Jesus Gulfo and contributors (MIT): the engine this fork is built on.
-- [basalt-arm-sm121](https://github.com/yanmindi/basalt-arm-sm121) (MIT): the Arm64 and compute capability 12.1 port
-  this work builds on.
-- The projects Basalt credits in [README.basalt.md](README.basalt.md) and [THIRD_PARTY_LICENSES](THIRD_PARTY_LICENSES).
+| Client speaks | Point it at |
+| --- | --- |
+| OpenAI API (`/v1/chat/completions`, `/v1/responses`) | base URL `http://127.0.0.1:8080/v1`, model `flash-next`, any API key |
+| Anthropic API (`/v1/messages`) | base URL `http://127.0.0.1:8080`, model `flash-next` |
 
-MIT License, see [LICENSE](LICENSE).
+That covers most chat front ends, IDE assistants and coding agents that let you set a base URL. Thinking, tool calls
+and structured output (JSON schema) work as in Basalt; images and documents with its `--vision` option
+([running](docs/running.md)).
+
+## Hardware
+
+| | Tested | Notes |
+| --- | --- | --- |
+| Machine | HP OmniBook X with RTX Spark N1X, 128 GB | other N1X laptops should work; results welcome in [benchmarks](benchmarks) |
+| GPU memory split | 96 GB | runs at any split; a larger one is faster (an earlier build: 92 against 74 tok/s decode at 96 and 64 GB) |
+| OS | Windows 11 on Arm64 (build 28000) | Linux Arm64 builds too (from the port), untested here |
+| Driver | NVIDIA 621.24 | |
+| Disk | ~120 GB free | the pack (88 GB) plus its n-gram table copy (29 GB) |
+| Build tools | Visual Studio 2026 (or Build Tools) with ARM64 C++, Python 3.10+ | CMake and Ninja come with Visual Studio |
+
+The GPU's power state moves every number: it boosts to 55-60 W and on some laptops settles at 22-28 W after about eight
+minutes under load. The results here held the budget up (~42 W while busy); see [GPU power](docs/n1x-gpu-power.md).
+
+## Results
+
+BetterBench 0.6.1, the same laptop, model pack and settings, run back to back (the
+[raw results](benchmarks/results/2026-11-23-hp-omnibook-x-n1x-128gb)):
+
+| | Basalt + Arm64 port | **basalt-rtx-spark** | |
+| --- | ---: | ---: | ---: |
+| Single-stream decode, weighted median (tok/s) | 87.5 | **97.9** | +12% |
+| First token, short prompts, p50 | 622 ms | **284 ms** | 2.2x faster |
+| Output at 1 / 2 / 3 / 4 streams (tok/s) | 74.6 / 81.1 / 85.7 / 85.3 | **86.5 / 99.4 / 110.8 / 113.1** | up to +33% |
+| First token at 4 streams, p50 | 727 ms | **430 ms** | 1.7x faster |
+| Prefill at 2K / 8K / 64K tokens (tok/s) | 983 / 1,506 / 2,095 | **1,724 / 2,077 / 2,342** | +75% / +38% / +12% |
+
+Against vLLM for RTX Spark (FP4-Local, MTP 7) on the same laptop and benchmark, in an earlier run of both without the
+power budget held up, single-stream decode was 60% faster (88.2 against 55.1 tok/s); vLLM led on short-prompt first
+token, at three and four streams, and on prefill ([details](docs/n1x-vs-vllm.md)).
+
+**Have an RTX Spark (or a DGX Spark)?** Run the [benchmark](benchmarks) and send your numbers.
+
+## What changed from Basalt
+
+- **Memory:** expert placement budgets the GPU, pinned RAM and Windows commit together (counting the page file's room
+  to grow), so every routed expert of the IQ3 pack gets a GPU home at the 96 GB split; RAM-pinned experts are read in
+  place in prompts and in decode.
+- **Decode:** batch slots draft in one pass and draw their MTP drafts from the draft head at every concurrency; a
+  slot's GDN state rows are committed by its next window; the CPU pool sleeps when idle.
+- **Prompts:** the n-gram table read from its own unbuffered copy; FP16 copies of the dense projections in VRAM;
+  faster long-context indexer scores, int8 sparse attention and GDN recurrence kernels; cold prompts read beside
+  decoding requests; the prompt's memory loan sized to what it uses.
+- **Requests:** commands answered within a millisecond; conversation checkpoints copied in 4 ms instead of 30, so a
+  resumed thinking turn restores in 8-13 ms; batch admission moves checkpoints instead of copying them.
+
+The measurements behind each: [performance notes](docs/n1x-performance.md), [GPU-first placement](docs/n1x-gpu-first.md),
+[prompt path](docs/n1x-prompt-path.md).
+
+## Documentation
+
+- **This fork:** [Arm64 build guide](docs/arm64.md), [benchmarks](benchmarks), [GPU power](docs/n1x-gpu-power.md),
+  [against vLLM](docs/n1x-vs-vllm.md), [performance notes](docs/n1x-performance.md).
+- **Basalt's:** [README](README.basalt.md), [running](docs/running.md), [configuration](docs/configuration/index.md),
+  [Flash-Next](docs/models/qwen38-flash-next.md), [precision](docs/precision/index.md), [the `.basalt` file](docs/model-file.md),
+  [contributing](CONTRIBUTING.md).
+
+## Credits
+
+- [Basalt](https://github.com/jesdga95/basalt) by Jesus Gulfo and contributors (MIT): the engine this fork builds on.
+- [basalt-arm-sm121](https://github.com/yanmindi/basalt-arm-sm121) (MIT): the Arm64 and compute capability 12.1 port it
+  builds on.
+- The projects and models Basalt credits in [README.basalt.md](README.basalt.md) and
+  [THIRD_PARTY_LICENSES](THIRD_PARTY_LICENSES): Qwen's model, Unsloth's UD-IQ3_XXS quantization, and more.
+
+## License
+
+MIT, see [LICENSE](LICENSE).
