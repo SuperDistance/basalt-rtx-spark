@@ -1720,6 +1720,7 @@ class LoadProgress(unittest.TestCase):
         from serve.engine.progress import engine_warning, load_progress, load_total
         self.assertEqual(load_progress("basalt load: weights 10 100"), ("weights", 10, 100))
         self.assertEqual(load_progress("basalt load: ngram 1073741824 3221225472"), ("ngram", 1 << 30, 3 << 30))
+        self.assertEqual(load_progress("basalt load: ngram-copy 1 2"), ("ngram-copy", 1, 2))   # the table's copy on disk
         self.assertIsNone(load_progress("basalt load: total 100"))
         self.assertIsNone(load_progress("basalt load: weights ten 100"))
         self.assertIsNone(load_progress("basalt load: cuda0 10 100"))        # no per-device lines any more

@@ -68,7 +68,9 @@ class LoadBars:
     WIDTH = 24
     WEIGHTS = "weights"                                # every model byte placed: the one bar
     TABLE = "ngram"                                    # the n-gram table locked into RAM: its own row, outside the total
-    LABELS = {WEIGHTS: "loading model weights", TABLE: "loading the n-gram table into system ram"}
+    COPY = "ngram-copy"                                # the table's copy written beside the model, once: its own row
+    LABELS = {WEIGHTS: "loading model weights", TABLE: "loading the n-gram table into system ram",
+              COPY: "writing the n-gram table's copy beside the model (once)"}
     STILL = 1.0                                        # s without new bytes: the stretch of movement ended
     WINDOW = 1.0                                       # s floor of the window a moving row's rate covers
     MIN_SPAN = 0.5                                     # s: a shorter span gives no rate
@@ -346,9 +348,11 @@ def server_line(text: str) -> None:
 
 
 def load_progress(line: str):
-    """(target, done, total) from an engine `basalt load: <target> <done> <total>` line (`weights`, or `ngram`), else None."""
+    """(target, done, total) from an engine `basalt load: <target> <done> <total>` line (`weights`, `ngram` or
+    `ngram-copy`), else None."""
     parts = line.split()
-    if parts[:2] != ["basalt", "load:"] or len(parts) != 5 or parts[2] not in (LoadBars.WEIGHTS, LoadBars.TABLE):
+    if parts[:2] != ["basalt", "load:"] or len(parts) != 5 or parts[2] not in (LoadBars.WEIGHTS, LoadBars.TABLE,
+                                                                               LoadBars.COPY):
         return None
     try:
         return parts[2], int(parts[3]), int(parts[4])

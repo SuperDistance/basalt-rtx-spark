@@ -78,7 +78,7 @@ bool write_copy(const std::string& src, uint64_t offset, uint64_t bytes, const s
     bool ok = in >= 0 && out >= 0 && buf != nullptr;
     if (!ok) why = "cannot open " + part;
     const uint64_t total = round_page(bytes);
-    basalt::core::LoadProgress prog("ngram", total);
+    basalt::core::LoadProgress prog("ngram-copy", total);   // the server's own row: a copy on disk, not a RAM load
     for (uint64_t at = 0; ok && at < total; at += COPY_CHUNK) {
         const uint64_t n = std::min(COPY_CHUNK, total - at), have = std::min(n, bytes - std::min(bytes, at));
         if (have < n) std::memset(buf + have, 0, (size_t) (n - have));
