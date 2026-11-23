@@ -187,7 +187,27 @@ The wait fell to 0.31-0.36 s. An alternating A/B against the previous build at t
 At matched power (35-40 W) the 6.8K and 13.6K reads took 3,811 and 7,400 ms before and 3,413 and 6,521 ms after. The
 previous build's arms also drew less GPU power, consistent with its CPU-heavy reads taking from a shared budget. Decode
 (95.2 and 95.9 tok/s) and the greedy text are unchanged. A deeper queue (`--ple-inflight` 1024) or more issuing threads
-did not change the cached path.
+did not change the cached path. The unbuffered path is at the drive's limit: a probe of random 4 KiB unbuffered reads
+of the copy reached 133K reads/s from one thread (5.6 us of CPU per read) and 306-314K reads/s from four to eight
+threads, and 512-byte reads were no faster.
+
+### Where a prompt chunk goes
+
+One 6.8K-token chunk with every stage synchronized (diagnostic build, about 2.1 GHz), 3.3 s in all:
+
+| Stage | ms | Against the hardware |
+| --- | ---: | --- |
+| Routed experts | 825-857 | 51 TFLOP/s in the v2 kernel; 26 of 48 layers have IQ2_S gate/up rows, which v2 does not take |
+| GDN | 716-744 | projections about 59 TFLOP/s; recurrence about 4.7 ms per layer |
+| QSA | 400-409 | projections 161, attention 175 (a block per query and KV head), indexer 32, KV and norms 42 |
+| Hyper-connection read and write | 640 | moves the FP32 residual of four streams, at the memory limit |
+| PLE rows wait | 310-346 | first chunk only; the drive's random-read limit |
+| Combine | 177 | reads ten FP32 expert rows per token |
+| Shared expert, router, PLE compute | 120 | |
+
+`mma.sync` peaks at 230 TFLOP/s for int8 m16n8k32 and FP8 m16n8k32 and at 115 TFLOP/s for int8 m16n8k16 and BF16 on
+this GPU. The quantized products run at about a quarter of that: each 32-value block's scales are applied with two FP32
+FMAs per output after every int8 product. The remaining prompt-speed work is in those kernels.
 
 ## CPU experts and quantization
 
