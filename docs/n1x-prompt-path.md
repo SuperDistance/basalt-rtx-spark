@@ -35,8 +35,13 @@ from about 400 to 360 ms. The idle engine's CPU did not rise (0.8% of a core aga
 A request that continues a conversation from an idle slot's checkpoint (every thinking turn whose reply was
 re-templated) restores the sessions from it and puts the checkpoint into the main session's chain. That was a
 host-to-host copy of the 112 MiB GDN state, 31-35 ms of the 35-46 ms restore; the restores themselves (state 2-4 ms,
-K/V 2-3 ms) were cheap. The chain's copy is now saved from the restored sessions into a page-locked block (4-6 ms,
-byte-identical): the restore is 8.6-13.9 ms, the conversation's reuse and replies unchanged (10b4873).
+K/V 2-3 ms) were cheap. The copy was slow for a reason of its own: the checkpoint allocator's forwarding
+`construct(p, args...)` made the standard library copy its vectors byte by byte (30-32 ms for 112 MiB, against
+4.3 ms for a memcpy into the same pooled block). Without it a copy is one memmove (4.4 ms), which speeds every
+checkpoint copy (7a5c886): the slot restore is 8.3-12.9 ms, and a batch admission that keeps the root and turn
+checkpoints 70-77 -> 15-21 ms. A request read in its own slot hands its chain back after admission, so its two
+checkpoints move instead (9d2ee53): 38-58 -> 3-8 ms. Reuse and replies unchanged. (10b4873 saved the chain's copy
+from the device instead; with the memmove it gained nothing and was reverted.)
 
 ## Where a prompt chunk goes
 
