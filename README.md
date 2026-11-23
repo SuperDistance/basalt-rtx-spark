@@ -4,8 +4,18 @@ A fork of the [Basalt](https://github.com/jesdga95/basalt) inference engine tune
 Arm64 CPU with an integrated Blackwell GPU, compute capability 12.1), running Qwen3.8-Flash-Next natively on Windows on
 Arm64. It serves an OpenAI- and Anthropic-compatible API, like Basalt.
 
-Changes are lossless: the same greedy text as before the change (checked by output hashes), the KLD gate against the
-BF16 model for the few that change rounding, and speculative sampling that keeps the sampling distribution.
+- **Native on Windows on Arm64.** No Linux or WSL: built with MSVC for ARM64 and run as a Windows process, with the
+  Windows-specific work done (commit-aware memory placement, NTFS reads of the n-gram table, a millisecond pipe wait).
+- **Made for unified memory.** It places the model's experts and KV across the GPU split, pinned RAM and Windows commit
+  by itself, so it runs at whatever split the laptop has, with no firmware change. The GPU reads RAM-pinned experts in
+  place instead of copying them. A larger split is still faster: at the 96 GB split every routed expert of the IQ3 pack
+  sits on the GPU, and an earlier build measured 92 against 74 tok/s decode and 1,218 against 697 tok/s prefill at
+  2K tokens there compared with the 64 GB split.
+- **Lossless speedups.** Every change keeps the same greedy text as before it (checked by output hashes), passes the
+  KLD gate against the BF16 model where it changes rounding, or (speculative sampling) keeps the sampling distribution.
+  The quantized pack itself is as lossy as it is in Basalt.
+- **The fastest single stream we have measured on the RTX Spark**, against Basalt with the Arm64 port and vLLM for RTX
+  Spark (below), and much faster first tokens and multi-stream output than Basalt on the same laptop.
 
 ## Results
 
@@ -31,6 +41,8 @@ Against vLLM for RTX Spark (FP4-Local, MTP 7) on the same laptop and benchmark (
 sustained-power controller), single-stream decode was 60% faster (88.2 against 55.1 tok/s) and so was output at one
 stream; vLLM led on short-prompt first token, at three and four streams, and on prefill. The details, and why the GPU's power state matters for any
 comparison on this laptop, are in [docs/n1x-vs-vllm.md](docs/n1x-vs-vllm.md) and [docs/n1x-gpu-power.md](docs/n1x-gpu-power.md).
+
+The raw results, the benchmark config and how to add your own machine's results are in [benchmarks/](benchmarks).
 
 ## What changed
 
