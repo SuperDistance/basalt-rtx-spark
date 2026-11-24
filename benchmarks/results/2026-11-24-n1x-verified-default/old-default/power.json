@@ -1,0 +1,214 @@
+{
+  "decode": {
+    "total": {
+      "duration_s": 827.8,
+      "gpu_samples": 821,
+      "busy_samples": 810,
+      "busy_gpu_w": 35.05,
+      "median_busy_mhz": 2015.0,
+      "mean_busy_gpu_c": 76.18,
+      "whole_interval_gpu_w": 35.03,
+      "busy_rail_sum_w": 41.05
+    },
+    "workloads": {
+      "chat": {
+        "duration_s": 76.44,
+        "gpu_samples": 76,
+        "busy_samples": 75,
+        "busy_gpu_w": 34.0,
+        "median_busy_mhz": 2041,
+        "mean_busy_gpu_c": 74.48,
+        "whole_interval_gpu_w": 33.68,
+        "busy_rail_sum_w": 45.7
+      },
+      "code": {
+        "duration_s": 131.52,
+        "gpu_samples": 130,
+        "busy_samples": 130,
+        "busy_gpu_w": 30.69,
+        "median_busy_mhz": 1907.5,
+        "mean_busy_gpu_c": 72.69,
+        "whole_interval_gpu_w": 30.69,
+        "busy_rail_sum_w": 35.18
+      },
+      "file_edit": {
+        "duration_s": 85.34,
+        "gpu_samples": 85,
+        "busy_samples": 85,
+        "busy_gpu_w": 45.08,
+        "median_busy_mhz": 2197,
+        "mean_busy_gpu_c": 80.78,
+        "whole_interval_gpu_w": 45.08,
+        "busy_rail_sum_w": 52.19
+      },
+      "json": {
+        "duration_s": 56.28,
+        "gpu_samples": 56,
+        "busy_samples": 54,
+        "busy_gpu_w": 39.55,
+        "median_busy_mhz": 2102.5,
+        "mean_busy_gpu_c": 79.81,
+        "whole_interval_gpu_w": 39.58,
+        "busy_rail_sum_w": 44.84
+      },
+      "math": {
+        "duration_s": 107.55,
+        "gpu_samples": 106,
+        "busy_samples": 105,
+        "busy_gpu_w": 33.41,
+        "median_busy_mhz": 2008,
+        "mean_busy_gpu_c": 76.07,
+        "whole_interval_gpu_w": 33.42,
+        "busy_rail_sum_w": 37.5
+      },
+      "prose": {
+        "duration_s": 148.3,
+        "gpu_samples": 147,
+        "busy_samples": 145,
+        "busy_gpu_w": 37.89,
+        "median_busy_mhz": 2216,
+        "mean_busy_gpu_c": 76.78,
+        "whole_interval_gpu_w": 37.99,
+        "busy_rail_sum_w": 43.22
+      },
+      "reasoning": {
+        "duration_s": 175.26,
+        "gpu_samples": 174,
+        "busy_samples": 172,
+        "busy_gpu_w": 33.02,
+        "median_busy_mhz": 2002.0,
+        "mean_busy_gpu_c": 76.93,
+        "whole_interval_gpu_w": 33.02,
+        "busy_rail_sum_w": 39.55
+      },
+      "summarization": {
+        "duration_s": 47.12,
+        "gpu_samples": 47,
+        "busy_samples": 44,
+        "busy_gpu_w": 27.28,
+        "median_busy_mhz": 1781.0,
+        "mean_busy_gpu_c": 71.5,
+        "whole_interval_gpu_w": 27.36,
+        "busy_rail_sum_w": 30.48
+      }
+    }
+  },
+  "prefill": {
+    "total": {
+      "duration_s": 584.06,
+      "gpu_samples": 576,
+      "busy_samples": 560,
+      "busy_gpu_w": 30.3,
+      "median_busy_mhz": 1222.0,
+      "mean_busy_gpu_c": 84.16,
+      "whole_interval_gpu_w": 30.4,
+      "busy_rail_sum_w": 41.31
+    },
+    "workloads": {
+      "2000": {
+        "duration_s": 12.95,
+        "gpu_samples": 12,
+        "busy_samples": 10,
+        "busy_gpu_w": 27.71,
+        "median_busy_mhz": 1576.0,
+        "mean_busy_gpu_c": 70.15,
+        "whole_interval_gpu_w": 27.63,
+        "busy_rail_sum_w": 29.7
+      },
+      "8000": {
+        "duration_s": 32.29,
+        "gpu_samples": 32,
+        "busy_samples": 31,
+        "busy_gpu_w": 44.51,
+        "median_busy_mhz": 2002,
+        "mean_busy_gpu_c": 75.58,
+        "whole_interval_gpu_w": 43.93,
+        "busy_rail_sum_w": 52.69
+      },
+      "16000": {
+        "duration_s": 64.72,
+        "gpu_samples": 64,
+        "busy_samples": 61,
+        "busy_gpu_w": 39.35,
+        "median_busy_mhz": 1742,
+        "mean_busy_gpu_c": 79.01,
+        "whole_interval_gpu_w": 39.46,
+        "busy_rail_sum_w": 50.87
+      },
+      "32000": {
+        "duration_s": 121.38,
+        "gpu_samples": 121,
+        "busy_samples": 115,
+        "busy_gpu_w": 40.16,
+        "median_busy_mhz": 1651,
+        "mean_busy_gpu_c": 88.58,
+        "whole_interval_gpu_w": 40.09,
+        "busy_rail_sum_w": 51.31
+      },
+      "64000": {
+        "duration_s": 352.72,
+        "gpu_samples": 347,
+        "busy_samples": 343,
+        "busy_gpu_w": 24.18,
+        "median_busy_mhz": 1111,
+        "mean_busy_gpu_c": 84.78,
+        "whole_interval_gpu_w": 24.19,
+        "busy_rail_sum_w": 35.44
+      }
+    }
+  },
+  "concurrency": {
+    "total": {
+      "duration_s": 775.38,
+      "gpu_samples": 768,
+      "busy_samples": 748,
+      "busy_gpu_w": 38.63,
+      "median_busy_mhz": 2125.0,
+      "mean_busy_gpu_c": 78.42,
+      "whole_interval_gpu_w": 38.54,
+      "busy_rail_sum_w": 43.73
+    },
+    "workloads": {
+      "1": {
+        "duration_s": 224.99,
+        "gpu_samples": 223,
+        "busy_samples": 219,
+        "busy_gpu_w": 38.72,
+        "median_busy_mhz": 2138,
+        "mean_busy_gpu_c": 82.36,
+        "whole_interval_gpu_w": 38.8,
+        "busy_rail_sum_w": 44.12
+      },
+      "2": {
+        "duration_s": 196.96,
+        "gpu_samples": 195,
+        "busy_samples": 185,
+        "busy_gpu_w": 36.89,
+        "median_busy_mhz": 1963,
+        "mean_busy_gpu_c": 75.9,
+        "whole_interval_gpu_w": 36.75,
+        "busy_rail_sum_w": 42.35
+      },
+      "3": {
+        "duration_s": 178.95,
+        "gpu_samples": 177,
+        "busy_samples": 175,
+        "busy_gpu_w": 38.28,
+        "median_busy_mhz": 2112,
+        "mean_busy_gpu_c": 77.65,
+        "whole_interval_gpu_w": 38.25,
+        "busy_rail_sum_w": 42.82
+      },
+      "4": {
+        "duration_s": 174.47,
+        "gpu_samples": 173,
+        "busy_samples": 169,
+        "busy_gpu_w": 40.8,
+        "median_busy_mhz": 2223,
+        "mean_busy_gpu_c": 76.88,
+        "whole_interval_gpu_w": 40.53,
+        "busy_rail_sum_w": 45.68
+      }
+    }
+  }
+}

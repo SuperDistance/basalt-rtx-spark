@@ -1,0 +1,1468 @@
+{
+  "A1": {
+    "C": 4,
+    "cap": 1024,
+    "rows": [
+      {
+        "usage": {
+          "prompt_tokens": 130,
+          "completion_tokens": 1024,
+          "total_tokens": 1154,
+          "prompt_tokens_details": {
+            "cached_tokens": 123
+          }
+        },
+        "timings": {
+          "cache_n": 123,
+          "prompt_n": 7,
+          "prompt_ms": 153.5,
+          "prompt_per_token_ms": 21.929,
+          "prompt_per_second": 45.6,
+          "predicted_n": 1024,
+          "predicted_ms": 27952.1,
+          "predicted_per_token_ms": 27.297,
+          "predicted_per_second": 36.6,
+          "draft_n": 520,
+          "draft_n_accepted": 506
+        },
+        "finish": "length",
+        "text_hash": "75471161f80f0ef54ca8c270f16b7b192ccbf1203d93f7b7a6812850af6ee7ef",
+        "content_bytes": 2565,
+        "latency_s": 28.53756070000236
+      },
+      {
+        "usage": {
+          "prompt_tokens": 130,
+          "completion_tokens": 1024,
+          "total_tokens": 1154,
+          "prompt_tokens_details": {
+            "cached_tokens": 123
+          }
+        },
+        "timings": {
+          "cache_n": 123,
+          "prompt_n": 7,
+          "prompt_ms": 154.2,
+          "prompt_per_token_ms": 22.029,
+          "prompt_per_second": 45.4,
+          "predicted_n": 1024,
+          "predicted_ms": 27905.5,
+          "predicted_per_token_ms": 27.251,
+          "predicted_per_second": 36.7,
+          "draft_n": 532,
+          "draft_n_accepted": 504
+        },
+        "finish": "length",
+        "text_hash": "bc54f408a5e7e87f329c3fd3c16fb4d8586cb3278e1e0436c8a2fdd1e74de9dc",
+        "content_bytes": 2566,
+        "latency_s": 28.74578600001405
+      },
+      {
+        "usage": {
+          "prompt_tokens": 130,
+          "completion_tokens": 1024,
+          "total_tokens": 1154,
+          "prompt_tokens_details": {
+            "cached_tokens": 0
+          }
+        },
+        "timings": {
+          "cache_n": 0,
+          "prompt_n": 130,
+          "prompt_ms": 318.6,
+          "prompt_per_token_ms": 2.451,
+          "prompt_per_second": 408.0,
+          "predicted_n": 1024,
+          "predicted_ms": 27951.8,
+          "predicted_per_token_ms": 27.323,
+          "predicted_per_second": 36.6,
+          "draft_n": 529,
+          "draft_n_accepted": 507
+        },
+        "finish": "length",
+        "text_hash": "d21bb613617923f466be206589c9e338f8331f5dc916c1e26ac0b4af69cbae64",
+        "content_bytes": 2229,
+        "latency_s": 28.3232224000094
+      },
+      {
+        "usage": {
+          "prompt_tokens": 130,
+          "completion_tokens": 1024,
+          "total_tokens": 1154,
+          "prompt_tokens_details": {
+            "cached_tokens": 123
+          }
+        },
+        "timings": {
+          "cache_n": 123,
+          "prompt_n": 7,
+          "prompt_ms": 111.8,
+          "prompt_per_token_ms": 15.971,
+          "prompt_per_second": 62.6,
+          "predicted_n": 1024,
+          "predicted_ms": 27596.8,
+          "predicted_per_token_ms": 26.95,
+          "predicted_per_second": 37.1,
+          "draft_n": 527,
+          "draft_n_accepted": 508
+        },
+        "finish": "length",
+        "text_hash": "cd18867b9f63ed29cb487e244a5627040005063ae423113cfd35aa9230838a90",
+        "content_bytes": 2558,
+        "latency_s": 28.69688460000907
+      }
+    ],
+    "wall_s": 28.74578600001405,
+    "wave_start_epoch": 1795547938.007468,
+    "wave_end_epoch": 1795547966.753254,
+    "observed_wave_end_epoch": 1795547966.7536943,
+    "aggregate_tps": 142.49045060023747,
+    "approx_full_slot_tps": 146.05958477060994,
+    "native": {
+      "placement": [
+        "basalt generate: token graph hit path: 24576 resident experts, decided on the device",
+        "basalt generate: resident RAM mode: 1.00 GiB of experts in RAM (page-locked), 24576 in the GPU cache; adaptive swaps exchange them with the GPU cache (no file reads)"
+      ],
+      "slots": [
+        "basalt generate: --batch: 4 slot sessions on CUDA0 (0.37 GiB in all); 84.09 GiB free",
+        "basalt generate: --batch 4: 0.12 GiB of KV cache and state per slot (262144 tokens), 0.49 GiB in all; the slots beyond the solo one take 0.37 GiB of VRAM on CUDA0 that the expert cache would otherwise hold"
+      ],
+      "prompt_reads": [
+        "basalt serve: prompt 15 tokens = 0 reused + 15 read in 96 ms (155.4 tok/s), 3 generated in 70 ms (42.8 tok/s), drafts accepted 1 of 1, 1 checkpoints",
+        "basalt serve: prompt 130 tokens = 0 reused + 130 read in 318 ms (408.3 tok/s), 1 generated in 37 ms (27.1 tok/s), drafts accepted 0 of 0, 1 checkpoints",
+        "basalt serve: prompt 131 tokens = 130 reused + 1 read in 0 ms (5608.5 tok/s), 0 generated in 0 ms (0.0 tok/s), drafts accepted 0 of 0, 1 checkpoints",
+        "basalt serve: prompt 130 tokens = 123 reused + 7 read in 154 ms (45.6 tok/s), 0 generated in 0 ms (0.0 tok/s), drafts accepted 0 of 0, 1 checkpoints",
+        "basalt serve: prompt 130 tokens = 123 reused + 7 read in 154 ms (45.4 tok/s), 0 generated in 0 ms (0.0 tok/s), drafts accepted 0 of 0, 1 checkpoints",
+        "basalt serve: prompt 130 tokens = 123 reused + 7 read in 112 ms (62.6 tok/s), 1 generated in 38 ms (26.6 tok/s), drafts accepted 0 of 0, 1 checkpoints"
+      ],
+      "elastic_kv": [
+        "basalt generate: elastic KV: 4096 cells backed per session, the other 13.73 GiB of KV are the expert cache's last 7155 slots until a request needs them",
+        "basalt serve: elastic KV: about 1048576 cells fit in the 4 sessions (1048576 at full context) before the expert cache reaches the 599 slots a prompt chunk needs",
+        "basalt serve: elastic KV: 8192 cells backed (+48 MiB), the expert cache 24576 -> 24576 slots, in 7.9 ms",
+        "basalt serve: elastic KV: 8192 cells backed (+48 MiB), the expert cache 24576 -> 24576 slots, in 7.4 ms",
+        "basalt serve: elastic KV: 8192 cells backed (+48 MiB), the expert cache 24576 -> 24576 slots, in 6.5 ms",
+        "basalt serve: elastic KV: 8192 cells backed (+48 MiB), the expert cache 24576 -> 24576 slots, in 6.4 ms"
+      ],
+      "scratch": [],
+      "batch_timing": [
+        "basalt batch: 524 windows, avg 7.97 rows, 53.35 ms/window = run 49.40 (CUDA0 GPU-reach wait 0.00 + CPU experts 0.00) + commit 0.04 + emit 0.09; per layer-window: CPU experts 0.00, VRAM hits 0.00, PCIe 0.00; 147.2 rows/s over 28376 ms of wall time (admissions included)"
+      ],
+      "batch_spec": [
+        "basalt batch spec: 1.98 tokens/window/slot (3.95 slots/window, 7.97 rows/window), drafts 2025 accepted of 2108, draft 3.83 ms/window (0.97 ms/slot-window), 144.3 tokens/s"
+      ],
+      "adaptive_swaps": []
+    },
+    "ttft_s_reported": [
+      0.4,
+      0.6,
+      1.1,
+      0.9
+    ],
+    "telemetry": {
+      "window_start_unix_s": 1795547938.007468,
+      "window_end_unix_s": 1795547966.753254,
+      "nvidia_samples": 56,
+      "nvidia_busy_samples": 54,
+      "gpu": [
+        "NVIDIA RTX Spark N1X (6144-core Blackwell RTX GPU)"
+      ],
+      "gpu_limit_w": [
+        "[N/A]"
+      ],
+      "phase_gpu_draw_w": {
+        "mean": 43.666607142857146,
+        "median": 40.644999999999996,
+        "minimum": 12.66,
+        "maximum": 65.55
+      },
+      "busy_gpu_draw_w": {
+        "mean": 43.8937037037037,
+        "median": 40.644999999999996,
+        "minimum": 12.66,
+        "maximum": 65.55
+      },
+      "busy_sm_clock_mhz": {
+        "mean": 2203.0185185185187,
+        "median": 2190.0,
+        "minimum": 624.0,
+        "maximum": 2476.0
+      },
+      "busy_gpu_temp_c": {
+        "mean": 75.71814814814815,
+        "median": 75.6,
+        "minimum": 64.54,
+        "maximum": 79.95
+      },
+      "spark_busy_samples": 14,
+      "spark_gpu_draw_w": {
+        "mean": 45.11271428571428,
+        "median": 40.4505,
+        "minimum": 37.922,
+        "maximum": 65.637
+      },
+      "spark_cpu_draw_w": {
+        "mean": 6.726428571428571,
+        "median": 6.0275,
+        "minimum": 2.21,
+        "maximum": 19.663
+      },
+      "spark_npu_draw_w": {
+        "mean": 1.0202857142857142,
+        "median": 1.058,
+        "minimum": 0.794,
+        "maximum": 1.058
+      },
+      "spark_measured_soc_w": {
+        "mean": 52.85942857142857,
+        "median": 47.965,
+        "minimum": 43.015,
+        "maximum": 76.656
+      },
+      "spark_ac": [
+        "1"
+      ]
+    }
+  },
+  "B1": {
+    "C": 4,
+    "cap": 1024,
+    "rows": [
+      {
+        "usage": {
+          "prompt_tokens": 130,
+          "completion_tokens": 1024,
+          "total_tokens": 1154,
+          "prompt_tokens_details": {
+            "cached_tokens": 0
+          }
+        },
+        "timings": {
+          "cache_n": 0,
+          "prompt_n": 130,
+          "prompt_ms": 325.2,
+          "prompt_per_token_ms": 2.502,
+          "prompt_per_second": 399.8,
+          "predicted_n": 1024,
+          "predicted_ms": 25251.1,
+          "predicted_per_token_ms": 24.683,
+          "predicted_per_second": 40.5,
+          "draft_n": 716,
+          "draft_n_accepted": 670
+        },
+        "finish": "length",
+        "text_hash": "eb7a902b1e8de7f3a49c9b215296d8744ac94181638d0ae414aaac296b797c5c",
+        "content_bytes": 2513,
+        "latency_s": 25.631566700001713
+      },
+      {
+        "usage": {
+          "prompt_tokens": 130,
+          "completion_tokens": 1024,
+          "total_tokens": 1154,
+          "prompt_tokens_details": {
+            "cached_tokens": 123
+          }
+        },
+        "timings": {
+          "cache_n": 123,
+          "prompt_n": 7,
+          "prompt_ms": 156.5,
+          "prompt_per_token_ms": 22.357,
+          "prompt_per_second": 44.7,
+          "predicted_n": 1024,
+          "predicted_ms": 25315.0,
+          "predicted_per_token_ms": 24.722,
+          "predicted_per_second": 40.5,
+          "draft_n": 731,
+          "draft_n_accepted": 668
+        },
+        "finish": "length",
+        "text_hash": "bc54f408a5e7e87f329c3fd3c16fb4d8586cb3278e1e0436c8a2fdd1e74de9dc",
+        "content_bytes": 2566,
+        "latency_s": 25.910820799996145
+      },
+      {
+        "usage": {
+          "prompt_tokens": 130,
+          "completion_tokens": 1024,
+          "total_tokens": 1154,
+          "prompt_tokens_details": {
+            "cached_tokens": 123
+          }
+        },
+        "timings": {
+          "cache_n": 123,
+          "prompt_n": 7,
+          "prompt_ms": 108.9,
+          "prompt_per_token_ms": 15.557,
+          "prompt_per_second": 64.3,
+          "predicted_n": 1024,
+          "predicted_ms": 24819.6,
+          "predicted_per_token_ms": 24.238,
+          "predicted_per_second": 41.3,
+          "draft_n": 737,
+          "draft_n_accepted": 673
+        },
+        "finish": "length",
+        "text_hash": "d21bb613617923f466be206589c9e338f8331f5dc916c1e26ac0b4af69cbae64",
+        "content_bytes": 2229,
+        "latency_s": 25.910536399984267
+      },
+      {
+        "usage": {
+          "prompt_tokens": 130,
+          "completion_tokens": 1024,
+          "total_tokens": 1154,
+          "prompt_tokens_details": {
+            "cached_tokens": 123
+          }
+        },
+        "timings": {
+          "cache_n": 123,
+          "prompt_n": 7,
+          "prompt_ms": 155.9,
+          "prompt_per_token_ms": 22.271,
+          "prompt_per_second": 44.9,
+          "predicted_n": 1024,
+          "predicted_ms": 25231.5,
+          "predicted_per_token_ms": 24.64,
+          "predicted_per_second": 40.6,
+          "draft_n": 725,
+          "draft_n_accepted": 667
+        },
+        "finish": "length",
+        "text_hash": "3bd41a50a4dfcdf4d3a42a8befe0ca215f1b22c9cc323126235fd871558ccf05",
+        "content_bytes": 2437,
+        "latency_s": 26.06454630001099
+      }
+    ],
+    "wall_s": 26.06454630001099,
+    "wave_start_epoch": 1795547992.030368,
+    "wave_end_epoch": 1795548018.0949144,
+    "observed_wave_end_epoch": 1795548018.0953906,
+    "aggregate_tps": 157.1483329444439,
+    "approx_full_slot_tps": 163.42266768752668,
+    "native": {
+      "placement": [
+        "basalt generate: token graph hit path: 24576 resident experts, decided on the device",
+        "basalt generate: resident RAM mode: 1.00 GiB of experts in RAM (page-locked), 24576 in the GPU cache; adaptive swaps exchange them with the GPU cache (no file reads)"
+      ],
+      "slots": [
+        "basalt generate: --batch: 4 slot sessions on CUDA0 (0.37 GiB in all); 84.19 GiB free",
+        "basalt generate: --batch 4: 0.12 GiB of KV cache and state per slot (262144 tokens), 0.49 GiB in all; the slots beyond the solo one take 0.37 GiB of VRAM on CUDA0 that the expert cache would otherwise hold"
+      ],
+      "prompt_reads": [
+        "basalt serve: prompt 15 tokens = 0 reused + 15 read in 94 ms (159.8 tok/s), 3 generated in 63 ms (47.4 tok/s), drafts accepted 1 of 1, 1 checkpoints",
+        "basalt serve: prompt 130 tokens = 0 reused + 130 read in 325 ms (400.0 tok/s), 1 generated in 38 ms (26.3 tok/s), drafts accepted 0 of 0, 1 checkpoints",
+        "basalt serve: prompt 131 tokens = 130 reused + 1 read in 0 ms (5192.1 tok/s), 0 generated in 0 ms (0.0 tok/s), drafts accepted 0 of 0, 1 checkpoints",
+        "basalt serve: prompt 130 tokens = 123 reused + 7 read in 157 ms (44.7 tok/s), 0 generated in 0 ms (0.0 tok/s), drafts accepted 0 of 0, 1 checkpoints",
+        "basalt serve: prompt 130 tokens = 123 reused + 7 read in 156 ms (44.9 tok/s), 0 generated in 0 ms (0.0 tok/s), drafts accepted 0 of 0, 1 checkpoints",
+        "basalt serve: prompt 130 tokens = 123 reused + 7 read in 109 ms (64.3 tok/s), 1 generated in 38 ms (26.2 tok/s), drafts accepted 0 of 0, 1 checkpoints"
+      ],
+      "elastic_kv": [
+        "basalt generate: elastic KV: 4096 cells backed per session, the other 13.73 GiB of KV are the expert cache's last 7155 slots until a request needs them",
+        "basalt serve: elastic KV: about 1048576 cells fit in the 4 sessions (1048576 at full context) before the expert cache reaches the 599 slots a prompt chunk needs",
+        "basalt serve: elastic KV: 8192 cells backed (+48 MiB), the expert cache 24576 -> 24576 slots, in 7.1 ms",
+        "basalt serve: elastic KV: 8192 cells backed (+48 MiB), the expert cache 24576 -> 24576 slots, in 8.9 ms",
+        "basalt serve: elastic KV: 8192 cells backed (+48 MiB), the expert cache 24576 -> 24576 slots, in 6.7 ms",
+        "basalt serve: elastic KV: 8192 cells backed (+48 MiB), the expert cache 24576 -> 24576 slots, in 6.0 ms"
+      ],
+      "scratch": [],
+      "batch_timing": [
+        "basalt batch: 361 windows, avg 11.98 rows, 70.00 ms/window = run 64.40 (CUDA0 GPU-reach wait 0.00 + CPU experts 0.00) + commit 0.05 + emit 0.09; per layer-window: CPU experts 0.00, VRAM hits 0.00, PCIe 0.00; 168.4 rows/s over 25686 ms of wall time (admissions included)"
+      ],
+      "batch_spec": [
+        "basalt batch spec: 2.89 tokens/window/slot (3.92 slots/window, 11.98 rows/window), drafts 2678 accepted of 2909, draft 5.46 ms/window (1.39 ms/slot-window), 159.4 tokens/s"
+      ],
+      "adaptive_swaps": []
+    },
+    "ttft_s_reported": [
+      0.4,
+      1.1,
+      0.6,
+      0.9
+    ],
+    "telemetry": {
+      "window_start_unix_s": 1795547992.030368,
+      "window_end_unix_s": 1795548018.0949144,
+      "nvidia_samples": 51,
+      "nvidia_busy_samples": 49,
+      "gpu": [
+        "NVIDIA RTX Spark N1X (6144-core Blackwell RTX GPU)"
+      ],
+      "gpu_limit_w": [
+        "[N/A]"
+      ],
+      "phase_gpu_draw_w": {
+        "mean": 41.57529411764706,
+        "median": 38.67,
+        "minimum": 13.66,
+        "maximum": 66.48
+      },
+      "busy_gpu_draw_w": {
+        "mean": 42.36571428571428,
+        "median": 38.7,
+        "minimum": 34.32,
+        "maximum": 66.48
+      },
+      "busy_sm_clock_mhz": {
+        "mean": 2145.061224489796,
+        "median": 2106.0,
+        "minimum": 1943.0,
+        "maximum": 2470.0
+      },
+      "busy_gpu_temp_c": {
+        "mean": 73.71,
+        "median": 73.3,
+        "minimum": 70.3,
+        "maximum": 78.57
+      },
+      "spark_busy_samples": 12,
+      "spark_gpu_draw_w": {
+        "mean": 41.76675,
+        "median": 38.8185,
+        "minimum": 34.376,
+        "maximum": 64.39
+      },
+      "spark_cpu_draw_w": {
+        "mean": 5.66625,
+        "median": 3.963,
+        "minimum": 1.523,
+        "maximum": 17.466
+      },
+      "spark_npu_draw_w": {
+        "mean": 0.97,
+        "median": 0.97,
+        "minimum": 0.882,
+        "maximum": 1.058
+      },
+      "spark_measured_soc_w": {
+        "mean": 48.403,
+        "median": 43.510000000000005,
+        "minimum": 40.845,
+        "maximum": 75.278
+      },
+      "spark_ac": [
+        "1"
+      ]
+    }
+  },
+  "B2": {
+    "C": 4,
+    "cap": 1024,
+    "rows": [
+      {
+        "usage": {
+          "prompt_tokens": 130,
+          "completion_tokens": 1024,
+          "total_tokens": 1154,
+          "prompt_tokens_details": {
+            "cached_tokens": 123
+          }
+        },
+        "timings": {
+          "cache_n": 123,
+          "prompt_n": 7,
+          "prompt_ms": 165.1,
+          "prompt_per_token_ms": 23.586,
+          "prompt_per_second": 42.4,
+          "predicted_n": 1024,
+          "predicted_ms": 26908.5,
+          "predicted_per_token_ms": 26.278,
+          "predicted_per_second": 38.1,
+          "draft_n": 712,
+          "draft_n_accepted": 631
+        },
+        "finish": "length",
+        "text_hash": "75471161f80f0ef54ca8c270f16b7b192ccbf1203d93f7b7a6812850af6ee7ef",
+        "content_bytes": 2565,
+        "latency_s": 27.726701600011438
+      },
+      {
+        "usage": {
+          "prompt_tokens": 130,
+          "completion_tokens": 1024,
+          "total_tokens": 1154,
+          "prompt_tokens_details": {
+            "cached_tokens": 123
+          }
+        },
+        "timings": {
+          "cache_n": 123,
+          "prompt_n": 7,
+          "prompt_ms": 105.6,
+          "prompt_per_token_ms": 15.086,
+          "prompt_per_second": 66.3,
+          "predicted_n": 1024,
+          "predicted_ms": 26763.8,
+          "predicted_per_token_ms": 26.137,
+          "predicted_per_second": 38.3,
+          "draft_n": 715,
+          "draft_n_accepted": 632
+        },
+        "finish": "length",
+        "text_hash": "5ed23c0b7d0947c770bd13e5df39602a038aceb063b1cd361d414d2dec15fd28",
+        "content_bytes": 2497,
+        "latency_s": 27.82364210000378
+      },
+      {
+        "usage": {
+          "prompt_tokens": 130,
+          "completion_tokens": 1024,
+          "total_tokens": 1154,
+          "prompt_tokens_details": {
+            "cached_tokens": 0
+          }
+        },
+        "timings": {
+          "cache_n": 0,
+          "prompt_n": 130,
+          "prompt_ms": 314.0,
+          "prompt_per_token_ms": 2.415,
+          "prompt_per_second": 414.0,
+          "predicted_n": 1024,
+          "predicted_ms": 26410.0,
+          "predicted_per_token_ms": 25.816,
+          "predicted_per_second": 38.7,
+          "draft_n": 710,
+          "draft_n_accepted": 644
+        },
+        "finish": "length",
+        "text_hash": "d21bb613617923f466be206589c9e338f8331f5dc916c1e26ac0b4af69cbae64",
+        "content_bytes": 2229,
+        "latency_s": 26.777499999996508
+      },
+      {
+        "usage": {
+          "prompt_tokens": 130,
+          "completion_tokens": 1024,
+          "total_tokens": 1154,
+          "prompt_tokens_details": {
+            "cached_tokens": 123
+          }
+        },
+        "timings": {
+          "cache_n": 123,
+          "prompt_n": 7,
+          "prompt_ms": 166.7,
+          "prompt_per_token_ms": 23.814,
+          "prompt_per_second": 42.0,
+          "predicted_n": 1024,
+          "predicted_ms": 27053.5,
+          "predicted_per_token_ms": 26.419,
+          "predicted_per_second": 37.9,
+          "draft_n": 710,
+          "draft_n_accepted": 631
+        },
+        "finish": "length",
+        "text_hash": "3bd41a50a4dfcdf4d3a42a8befe0ca215f1b22c9cc323126235fd871558ccf05",
+        "content_bytes": 2437,
+        "latency_s": 27.618122599989874
+      }
+    ],
+    "wall_s": 27.82364210000378,
+    "wave_start_epoch": 1795548043.283144,
+    "wave_end_epoch": 1795548071.106786,
+    "observed_wave_end_epoch": 1795548071.1072526,
+    "aggregate_tps": 147.21293442742507,
+    "approx_full_slot_tps": 152.33813890761294,
+    "native": {
+      "placement": [
+        "basalt generate: token graph hit path: 24576 resident experts, decided on the device",
+        "basalt generate: resident RAM mode: 1.00 GiB of experts in RAM (page-locked), 24576 in the GPU cache; adaptive swaps exchange them with the GPU cache (no file reads)"
+      ],
+      "slots": [
+        "basalt generate: --batch: 4 slot sessions on CUDA0 (0.37 GiB in all); 84.28 GiB free",
+        "basalt generate: --batch 4: 0.12 GiB of KV cache and state per slot (262144 tokens), 0.49 GiB in all; the slots beyond the solo one take 0.37 GiB of VRAM on CUDA0 that the expert cache would otherwise hold"
+      ],
+      "prompt_reads": [
+        "basalt serve: prompt 15 tokens = 0 reused + 15 read in 58 ms (257.1 tok/s), 3 generated in 64 ms (46.7 tok/s), drafts accepted 1 of 1, 1 checkpoints",
+        "basalt serve: prompt 130 tokens = 0 reused + 130 read in 313 ms (414.9 tok/s), 1 generated in 38 ms (26.1 tok/s), drafts accepted 0 of 0, 1 checkpoints",
+        "basalt serve: prompt 131 tokens = 130 reused + 1 read in 1 ms (1524.2 tok/s), 0 generated in 0 ms (0.0 tok/s), drafts accepted 0 of 0, 1 checkpoints",
+        "basalt serve: prompt 130 tokens = 123 reused + 7 read in 167 ms (42.0 tok/s), 0 generated in 0 ms (0.0 tok/s), drafts accepted 0 of 0, 1 checkpoints",
+        "basalt serve: prompt 130 tokens = 123 reused + 7 read in 165 ms (42.4 tok/s), 0 generated in 0 ms (0.0 tok/s), drafts accepted 0 of 0, 1 checkpoints",
+        "basalt serve: prompt 130 tokens = 123 reused + 7 read in 106 ms (66.3 tok/s), 1 generated in 38 ms (26.2 tok/s), drafts accepted 0 of 0, 1 checkpoints"
+      ],
+      "elastic_kv": [
+        "basalt generate: elastic KV: 4096 cells backed per session, the other 13.73 GiB of KV are the expert cache's last 7155 slots until a request needs them",
+        "basalt serve: elastic KV: about 1048576 cells fit in the 4 sessions (1048576 at full context) before the expert cache reaches the 599 slots a prompt chunk needs",
+        "basalt serve: elastic KV: 8192 cells backed (+48 MiB), the expert cache 24576 -> 24576 slots, in 7.7 ms",
+        "basalt serve: elastic KV: 8192 cells backed (+48 MiB), the expert cache 24576 -> 24576 slots, in 9.6 ms",
+        "basalt serve: elastic KV: 8192 cells backed (+48 MiB), the expert cache 24576 -> 24576 slots, in 9.0 ms",
+        "basalt serve: elastic KV: 8192 cells backed (+48 MiB), the expert cache 24576 -> 24576 slots, in 8.7 ms"
+      ],
+      "scratch": [],
+      "batch_timing": [
+        "basalt batch: 398 windows, avg 11.06 rows, 67.91 ms/window = run 62.64 (CUDA0 GPU-reach wait 0.00 + CPU experts 0.00) + commit 0.05 + emit 0.09; per layer-window: CPU experts 0.00, VRAM hits 0.00, PCIe 0.00; 160.4 rows/s over 27458 ms of wall time (admissions included)"
+      ],
+      "batch_spec": [
+        "basalt batch spec: 2.63 tokens/window/slot (3.91 slots/window, 11.06 rows/window), drafts 2538 accepted of 2847, draft 5.13 ms/window (1.31 ms/slot-window), 149.1 tokens/s"
+      ],
+      "adaptive_swaps": []
+    },
+    "ttft_s_reported": [
+      0.4,
+      0.6,
+      0.8,
+      1.0
+    ],
+    "telemetry": {
+      "window_start_unix_s": 1795548043.283144,
+      "window_end_unix_s": 1795548071.106786,
+      "nvidia_samples": 55,
+      "nvidia_busy_samples": 53,
+      "gpu": [
+        "NVIDIA RTX Spark N1X (6144-core Blackwell RTX GPU)"
+      ],
+      "gpu_limit_w": [
+        "[N/A]"
+      ],
+      "phase_gpu_draw_w": {
+        "mean": 35.81090909090909,
+        "median": 33.76,
+        "minimum": 13.98,
+        "maximum": 60.03
+      },
+      "busy_gpu_draw_w": {
+        "mean": 36.32207547169811,
+        "median": 33.79,
+        "minimum": 29.0,
+        "maximum": 60.03
+      },
+      "busy_sm_clock_mhz": {
+        "mean": 2039.8490566037735,
+        "median": 1995.0,
+        "minimum": 1859.0,
+        "maximum": 2476.0
+      },
+      "busy_gpu_temp_c": {
+        "mean": 70.59207547169811,
+        "median": 70.27,
+        "minimum": 69.27,
+        "maximum": 75.77
+      },
+      "spark_busy_samples": 13,
+      "spark_gpu_draw_w": {
+        "mean": 35.01307692307692,
+        "median": 33.625,
+        "minimum": 30.483,
+        "maximum": 57.099
+      },
+      "spark_cpu_draw_w": {
+        "mean": 5.878461538461538,
+        "median": 3.866,
+        "minimum": 2.431,
+        "maximum": 19.908
+      },
+      "spark_npu_draw_w": {
+        "mean": 0.9970769230769231,
+        "median": 0.97,
+        "minimum": 0.882,
+        "maximum": 1.058
+      },
+      "spark_measured_soc_w": {
+        "mean": 41.888615384615385,
+        "median": 38.613,
+        "minimum": 35.09,
+        "maximum": 77.977
+      },
+      "spark_ac": [
+        "1"
+      ]
+    }
+  },
+  "A2": {
+    "C": 4,
+    "cap": 1024,
+    "rows": [
+      {
+        "usage": {
+          "prompt_tokens": 130,
+          "completion_tokens": 1024,
+          "total_tokens": 1154,
+          "prompt_tokens_details": {
+            "cached_tokens": 123
+          }
+        },
+        "timings": {
+          "cache_n": 123,
+          "prompt_n": 7,
+          "prompt_ms": 108.4,
+          "prompt_per_token_ms": 15.486,
+          "prompt_per_second": 64.6,
+          "predicted_n": 1024,
+          "predicted_ms": 28898.7,
+          "predicted_per_token_ms": 28.221,
+          "predicted_per_second": 35.4,
+          "draft_n": 527,
+          "draft_n_accepted": 512
+        },
+        "finish": "length",
+        "text_hash": "eb7a902b1e8de7f3a49c9b215296d8744ac94181638d0ae414aaac296b797c5c",
+        "content_bytes": 2513,
+        "latency_s": 29.967646100005368
+      },
+      {
+        "usage": {
+          "prompt_tokens": 130,
+          "completion_tokens": 1024,
+          "total_tokens": 1154,
+          "prompt_tokens_details": {
+            "cached_tokens": 0
+          }
+        },
+        "timings": {
+          "cache_n": 0,
+          "prompt_n": 130,
+          "prompt_ms": 308.6,
+          "prompt_per_token_ms": 2.374,
+          "prompt_per_second": 421.3,
+          "predicted_n": 1024,
+          "predicted_ms": 29665.1,
+          "predicted_per_token_ms": 28.998,
+          "predicted_per_second": 34.5,
+          "draft_n": 525,
+          "draft_n_accepted": 503
+        },
+        "finish": "length",
+        "text_hash": "5ed23c0b7d0947c770bd13e5df39602a038aceb063b1cd361d414d2dec15fd28",
+        "content_bytes": 2497,
+        "latency_s": 30.026374099979876
+      },
+      {
+        "usage": {
+          "prompt_tokens": 130,
+          "completion_tokens": 1024,
+          "total_tokens": 1154,
+          "prompt_tokens_details": {
+            "cached_tokens": 123
+          }
+        },
+        "timings": {
+          "cache_n": 123,
+          "prompt_n": 7,
+          "prompt_ms": 160.0,
+          "prompt_per_token_ms": 22.857,
+          "prompt_per_second": 43.8,
+          "predicted_n": 1024,
+          "predicted_ms": 29267.4,
+          "predicted_per_token_ms": 28.581,
+          "predicted_per_second": 35.0,
+          "draft_n": 518,
+          "draft_n_accepted": 507
+        },
+        "finish": "length",
+        "text_hash": "e44ed744e70d1e76e7923144e72f8dbe62bbcd2e7977676c83f86de98dd6acdb",
+        "content_bytes": 2292,
+        "latency_s": 30.085576899989974
+      },
+      {
+        "usage": {
+          "prompt_tokens": 130,
+          "completion_tokens": 1024,
+          "total_tokens": 1154,
+          "prompt_tokens_details": {
+            "cached_tokens": 123
+          }
+        },
+        "timings": {
+          "cache_n": 123,
+          "prompt_n": 7,
+          "prompt_ms": 156.8,
+          "prompt_per_token_ms": 22.4,
+          "prompt_per_second": 44.6,
+          "predicted_n": 1024,
+          "predicted_ms": 29668.2,
+          "predicted_per_token_ms": 28.973,
+          "predicted_per_second": 34.5,
+          "draft_n": 532,
+          "draft_n_accepted": 502
+        },
+        "finish": "length",
+        "text_hash": "3bd41a50a4dfcdf4d3a42a8befe0ca215f1b22c9cc323126235fd871558ccf05",
+        "content_bytes": 2437,
+        "latency_s": 30.241389400005573
+      }
+    ],
+    "wall_s": 30.241389400005573,
+    "wave_start_epoch": 1795548096.0698485,
+    "wave_end_epoch": 1795548126.311238,
+    "observed_wave_end_epoch": 1795548126.3116994,
+    "aggregate_tps": 135.44351239362186,
+    "approx_full_slot_tps": 138.7599895259034,
+    "native": {
+      "placement": [
+        "basalt generate: token graph hit path: 24576 resident experts, decided on the device",
+        "basalt generate: resident RAM mode: 1.00 GiB of experts in RAM (page-locked), 24576 in the GPU cache; adaptive swaps exchange them with the GPU cache (no file reads)"
+      ],
+      "slots": [
+        "basalt generate: --batch: 4 slot sessions on CUDA0 (0.37 GiB in all); 84.28 GiB free",
+        "basalt generate: --batch 4: 0.12 GiB of KV cache and state per slot (262144 tokens), 0.49 GiB in all; the slots beyond the solo one take 0.37 GiB of VRAM on CUDA0 that the expert cache would otherwise hold"
+      ],
+      "prompt_reads": [
+        "basalt serve: prompt 15 tokens = 0 reused + 15 read in 55 ms (273.0 tok/s), 3 generated in 61 ms (49.1 tok/s), drafts accepted 1 of 1, 1 checkpoints",
+        "basalt serve: prompt 130 tokens = 0 reused + 130 read in 309 ms (421.3 tok/s), 1 generated in 37 ms (26.7 tok/s), drafts accepted 0 of 0, 1 checkpoints",
+        "basalt serve: prompt 131 tokens = 130 reused + 1 read in 0 ms (7320.6 tok/s), 0 generated in 0 ms (0.0 tok/s), drafts accepted 0 of 0, 1 checkpoints",
+        "basalt serve: prompt 130 tokens = 123 reused + 7 read in 157 ms (44.6 tok/s), 0 generated in 0 ms (0.0 tok/s), drafts accepted 0 of 0, 1 checkpoints",
+        "basalt serve: prompt 130 tokens = 123 reused + 7 read in 160 ms (43.8 tok/s), 0 generated in 0 ms (0.0 tok/s), drafts accepted 0 of 0, 1 checkpoints",
+        "basalt serve: prompt 130 tokens = 123 reused + 7 read in 108 ms (64.6 tok/s), 1 generated in 37 ms (26.9 tok/s), drafts accepted 0 of 0, 1 checkpoints"
+      ],
+      "elastic_kv": [
+        "basalt generate: elastic KV: 4096 cells backed per session, the other 13.73 GiB of KV are the expert cache's last 7155 slots until a request needs them",
+        "basalt serve: elastic KV: about 1048576 cells fit in the 4 sessions (1048576 at full context) before the expert cache reaches the 599 slots a prompt chunk needs",
+        "basalt serve: elastic KV: 8192 cells backed (+48 MiB), the expert cache 24576 -> 24576 slots, in 6.6 ms",
+        "basalt serve: elastic KV: 8192 cells backed (+48 MiB), the expert cache 24576 -> 24576 slots, in 6.3 ms",
+        "basalt serve: elastic KV: 8192 cells backed (+48 MiB), the expert cache 24576 -> 24576 slots, in 6.2 ms",
+        "basalt serve: elastic KV: 8192 cells backed (+48 MiB), the expert cache 24576 -> 24576 slots, in 7.2 ms"
+      ],
+      "scratch": [],
+      "batch_timing": [
+        "basalt batch: 524 windows, avg 7.96 rows, 56.22 ms/window = run 51.99 (CUDA0 GPU-reach wait 0.00 + CPU experts 0.00) + commit 0.04 + emit 0.10; per layer-window: CPU experts 0.00, VRAM hits 0.00, PCIe 0.00; 139.6 rows/s over 29882 ms of wall time (admissions included)"
+      ],
+      "batch_spec": [
+        "basalt batch spec: 1.98 tokens/window/slot (3.95 slots/window, 7.96 rows/window), drafts 2024 accepted of 2102, draft 4.09 ms/window (1.04 ms/slot-window), 137.0 tokens/s"
+      ],
+      "adaptive_swaps": []
+    },
+    "ttft_s_reported": [
+      1.0,
+      0.3,
+      0.9,
+      0.6
+    ],
+    "telemetry": {
+      "window_start_unix_s": 1795548096.0698485,
+      "window_end_unix_s": 1795548126.311238,
+      "nvidia_samples": 60,
+      "nvidia_busy_samples": 57,
+      "gpu": [
+        "NVIDIA RTX Spark N1X (6144-core Blackwell RTX GPU)"
+      ],
+      "gpu_limit_w": [
+        "[N/A]"
+      ],
+      "phase_gpu_draw_w": {
+        "mean": 29.609666666666666,
+        "median": 28.305,
+        "minimum": 7.93,
+        "maximum": 54.43
+      },
+      "busy_gpu_draw_w": {
+        "mean": 29.907719298245613,
+        "median": 28.33,
+        "minimum": 22.64,
+        "maximum": 54.43
+      },
+      "busy_sm_clock_mhz": {
+        "mean": 1908.9298245614036,
+        "median": 1891.0,
+        "minimum": 1332.0,
+        "maximum": 2444.0
+      },
+      "busy_gpu_temp_c": {
+        "mean": 67.3240350877193,
+        "median": 67.12,
+        "minimum": 66.07,
+        "maximum": 71.77
+      },
+      "spark_busy_samples": 13,
+      "spark_gpu_draw_w": {
+        "mean": 30.53069230769231,
+        "median": 28.648,
+        "minimum": 27.094,
+        "maximum": 54.146
+      },
+      "spark_cpu_draw_w": {
+        "mean": 4.8406153846153845,
+        "median": 2.356,
+        "minimum": 1.699,
+        "maximum": 17.188
+      },
+      "spark_npu_draw_w": {
+        "mean": 0.9226153846153846,
+        "median": 0.97,
+        "minimum": 0.794,
+        "maximum": 1.058
+      },
+      "spark_measured_soc_w": {
+        "mean": 36.29392307692308,
+        "median": 32.268,
+        "minimum": 30.635,
+        "maximum": 72.128
+      },
+      "spark_ac": [
+        "1"
+      ]
+    }
+  },
+  "row-trace": {
+    "C": 4,
+    "cap": 1024,
+    "rows": [
+      {
+        "usage": {
+          "prompt_tokens": 130,
+          "completion_tokens": 1024,
+          "total_tokens": 1154,
+          "prompt_tokens_details": {
+            "cached_tokens": 0
+          }
+        },
+        "timings": {
+          "cache_n": 0,
+          "prompt_n": 130,
+          "prompt_ms": 452.0,
+          "prompt_per_token_ms": 3.477,
+          "prompt_per_second": 287.6,
+          "predicted_n": 1024,
+          "predicted_ms": 23819.8,
+          "predicted_per_token_ms": 23.262,
+          "predicted_per_second": 43.0,
+          "draft_n": 728,
+          "draft_n_accepted": 685
+        },
+        "finish": "length",
+        "text_hash": "75471161f80f0ef54ca8c270f16b7b192ccbf1203d93f7b7a6812850af6ee7ef",
+        "content_bytes": 2565,
+        "latency_s": 24.285950300021796
+      },
+      {
+        "usage": {
+          "prompt_tokens": 130,
+          "completion_tokens": 1024,
+          "total_tokens": 1154,
+          "prompt_tokens_details": {
+            "cached_tokens": 123
+          }
+        },
+        "timings": {
+          "cache_n": 123,
+          "prompt_n": 7,
+          "prompt_ms": 110.4,
+          "prompt_per_token_ms": 15.771,
+          "prompt_per_second": 63.4,
+          "predicted_n": 1024,
+          "predicted_ms": 23583.3,
+          "predicted_per_token_ms": 23.031,
+          "predicted_per_second": 43.4,
+          "draft_n": 727,
+          "draft_n_accepted": 682
+        },
+        "finish": "length",
+        "text_hash": "5ed23c0b7d0947c770bd13e5df39602a038aceb063b1cd361d414d2dec15fd28",
+        "content_bytes": 2497,
+        "latency_s": 24.79903729999205
+      },
+      {
+        "usage": {
+          "prompt_tokens": 130,
+          "completion_tokens": 1024,
+          "total_tokens": 1154,
+          "prompt_tokens_details": {
+            "cached_tokens": 123
+          }
+        },
+        "timings": {
+          "cache_n": 123,
+          "prompt_n": 7,
+          "prompt_ms": 167.2,
+          "prompt_per_token_ms": 23.886,
+          "prompt_per_second": 41.9,
+          "predicted_n": 1024,
+          "predicted_ms": 23381.7,
+          "predicted_per_token_ms": 22.834,
+          "predicted_per_second": 43.8,
+          "draft_n": 727,
+          "draft_n_accepted": 691
+        },
+        "finish": "length",
+        "text_hash": "e44ed744e70d1e76e7923144e72f8dbe62bbcd2e7977676c83f86de98dd6acdb",
+        "content_bytes": 2292,
+        "latency_s": 24.077023299993016
+      },
+      {
+        "usage": {
+          "prompt_tokens": 130,
+          "completion_tokens": 1024,
+          "total_tokens": 1154,
+          "prompt_tokens_details": {
+            "cached_tokens": 123
+          }
+        },
+        "timings": {
+          "cache_n": 123,
+          "prompt_n": 7,
+          "prompt_ms": 156.3,
+          "prompt_per_token_ms": 22.329,
+          "prompt_per_second": 44.8,
+          "predicted_n": 1024,
+          "predicted_ms": 23842.7,
+          "predicted_per_token_ms": 23.284,
+          "predicted_per_second": 42.9,
+          "draft_n": 726,
+          "draft_n_accepted": 679
+        },
+        "finish": "length",
+        "text_hash": "3bd41a50a4dfcdf4d3a42a8befe0ca215f1b22c9cc323126235fd871558ccf05",
+        "content_bytes": 2437,
+        "latency_s": 24.798005199991167
+      }
+    ],
+    "wall_s": 24.79903729999205,
+    "wave_start_epoch": 1795548151.529373,
+    "wave_end_epoch": 1795548176.3284101,
+    "observed_wave_end_epoch": 1795548176.3288858,
+    "aggregate_tps": 165.16770189306152,
+    "approx_full_slot_tps": 174.2545702101513,
+    "native": {
+      "placement": [
+        "basalt generate: token graph hit path: 24576 resident experts, decided on the device",
+        "basalt generate: resident RAM mode: 1.00 GiB of experts in RAM (page-locked), 24576 in the GPU cache; adaptive swaps exchange them with the GPU cache (no file reads)"
+      ],
+      "slots": [
+        "basalt generate: --batch: 4 slot sessions on CUDA0 (0.37 GiB in all); 84.25 GiB free",
+        "basalt generate: --batch 4: 0.12 GiB of KV cache and state per slot (262144 tokens), 0.49 GiB in all; the slots beyond the solo one take 0.37 GiB of VRAM on CUDA0 that the expert cache would otherwise hold"
+      ],
+      "prompt_reads": [
+        "basalt serve: prompt 15 tokens = 0 reused + 15 read in 51 ms (294.5 tok/s), 3 generated in 61 ms (49.1 tok/s), drafts accepted 1 of 1, 1 checkpoints",
+        "basalt serve: prompt 130 tokens = 0 reused + 130 read in 452 ms (287.6 tok/s), 0 generated in 0 ms (0.0 tok/s), drafts accepted 0 of 0, 1 checkpoints",
+        "basalt serve: prompt 130 tokens = 123 reused + 7 read in 167 ms (41.9 tok/s), 0 generated in 0 ms (0.0 tok/s), drafts accepted 0 of 0, 1 checkpoints",
+        "basalt serve: prompt 130 tokens = 123 reused + 7 read in 156 ms (44.8 tok/s), 0 generated in 0 ms (0.0 tok/s), drafts accepted 0 of 0, 1 checkpoints",
+        "basalt serve: prompt 130 tokens = 123 reused + 7 read in 110 ms (63.4 tok/s), 1 generated in 39 ms (25.7 tok/s), drafts accepted 0 of 0, 1 checkpoints"
+      ],
+      "elastic_kv": [
+        "basalt generate: elastic KV: 4096 cells backed per session, the other 13.73 GiB of KV are the expert cache's last 7155 slots until a request needs them",
+        "basalt serve: elastic KV: about 1048576 cells fit in the 4 sessions (1048576 at full context) before the expert cache reaches the 599 slots a prompt chunk needs",
+        "basalt serve: elastic KV: 8192 cells backed (+48 MiB), the expert cache 24576 -> 24576 slots, in 7.2 ms",
+        "basalt serve: elastic KV: 8192 cells backed (+48 MiB), the expert cache 24576 -> 24576 slots, in 8.6 ms",
+        "basalt serve: elastic KV: 8192 cells backed (+48 MiB), the expert cache 24576 -> 24576 slots, in 6.9 ms",
+        "basalt serve: elastic KV: 8192 cells backed (+48 MiB), the expert cache 24576 -> 24576 slots, in 7.9 ms"
+      ],
+      "scratch": [],
+      "batch_timing": [
+        "basalt batch: 349 windows, avg 12.22 rows, 68.53 ms/window = run 62.85 (CUDA0 GPU-reach wait 0.00 + CPU experts 0.00) + commit 0.05 + emit 0.08; per layer-window: CPU experts 0.00, VRAM hits 0.00, PCIe 0.00; 175.3 rows/s over 24335 ms of wall time (admissions included)"
+      ],
+      "batch_spec": [
+        "basalt batch spec: 3.02 tokens/window/slot (3.89 slots/window, 12.22 rows/window), drafts 2737 accepted of 2908, draft 5.54 ms/window (1.42 ms/slot-window), 168.3 tokens/s"
+      ],
+      "adaptive_swaps": []
+    },
+    "ttft_s_reported": [
+      0.7,
+      0.5,
+      1.0,
+      1.2
+    ],
+    "telemetry": {
+      "window_start_unix_s": 1795548151.529373,
+      "window_end_unix_s": 1795548176.3284101,
+      "nvidia_samples": 49,
+      "nvidia_busy_samples": 47,
+      "gpu": [
+        "NVIDIA RTX Spark N1X (6144-core Blackwell RTX GPU)"
+      ],
+      "gpu_limit_w": [
+        "[N/A]"
+      ],
+      "phase_gpu_draw_w": {
+        "mean": 54.313265306122446,
+        "median": 52.01,
+        "minimum": 6.33,
+        "maximum": 68.21
+      },
+      "busy_gpu_draw_w": {
+        "mean": 55.302340425531916,
+        "median": 52.15,
+        "minimum": 6.33,
+        "maximum": 68.21
+      },
+      "busy_sm_clock_mhz": {
+        "mean": 2327.574468085106,
+        "median": 2320.0,
+        "minimum": 910.0,
+        "maximum": 2483.0
+      },
+      "busy_gpu_temp_c": {
+        "mean": 75.86085106382978,
+        "median": 76.63,
+        "minimum": 58.04,
+        "maximum": 79.92
+      },
+      "spark_busy_samples": 12,
+      "spark_gpu_draw_w": {
+        "mean": 56.02616666666667,
+        "median": 52.082499999999996,
+        "minimum": 43.808,
+        "maximum": 68.515
+      },
+      "spark_cpu_draw_w": {
+        "mean": 6.384833333333333,
+        "median": 5.592499999999999,
+        "minimum": 2.479,
+        "maximum": 18.552
+      },
+      "spark_npu_draw_w": {
+        "mean": 0.9921666666666666,
+        "median": 0.97,
+        "minimum": 0.705,
+        "maximum": 1.5
+      },
+      "spark_measured_soc_w": {
+        "mean": 63.403166666666664,
+        "median": 57.391,
+        "minimum": 51.549,
+        "maximum": 79.383
+      },
+      "spark_ac": [
+        "1"
+      ]
+    },
+    "row_decisions": {
+      "eligible_windows": 280,
+      "transitions": {
+        "8->8": 65,
+        "8->16": 30,
+        "16->16": 156,
+        "16->8": 29
+      },
+      "budget_groups": {
+        "8": {
+          "windows": 95,
+          "actual_widths": {
+            "8": 95
+          },
+          "committed_tok_per_window": 7.7368421052631575,
+          "mean_verify_ms": 46.99783157894737
+        },
+        "16": {
+          "windows": 185,
+          "actual_widths": {
+            "16": 183,
+            "15": 2
+          },
+          "committed_tok_per_window": 15.31891891891892,
+          "mean_verify_ms": 76.80814054054053
+        }
+      }
+    },
+    "adaptive_widths_verified": true
+  },
+  "cold-join": {
+    "prompt_tokens": 16672,
+    "output_tokens": 32,
+    "output_sha256": "64920a382497d9538b69b944549c55be34da3488c8331fe1282dc8ee0dcbceff",
+    "join_submit_unix_s": 1795548200.2972832,
+    "join_first_token_unix_s": 1795548227.2545404,
+    "join_ttft_s": 26.957257299975026,
+    "ongoing": [
+      {
+        "output_tokens": 768,
+        "output_sha256": "29220327f4f1e411f37046443483545cfb167782ccbd293d94e89e3b81d3557e",
+        "tokens_before_join": 74,
+        "tokens_during_join_prefill": 252,
+        "active_past_join_ttft": true,
+        "max_gap_during_join_s": 0.38256769999861717
+      },
+      {
+        "output_tokens": 768,
+        "output_sha256": "29220327f4f1e411f37046443483545cfb167782ccbd293d94e89e3b81d3557e",
+        "tokens_before_join": 39,
+        "tokens_during_join_prefill": 249,
+        "active_past_join_ttft": true,
+        "max_gap_during_join_s": 0.3825680000009015
+      },
+      {
+        "output_tokens": 768,
+        "output_sha256": "29220327f4f1e411f37046443483545cfb167782ccbd293d94e89e3b81d3557e",
+        "tokens_before_join": 16,
+        "tokens_during_join_prefill": 214,
+        "active_past_join_ttft": true,
+        "max_gap_during_join_s": 0.38261210001655854
+      }
+    ],
+    "cold_read_verified": true,
+    "overlapped_windows": 90,
+    "chunk_jobs": 66,
+    "batched_drafts_accepted": 1385,
+    "batched_drafts_offered": 1451,
+    "checkpoint_reuse_observed": true,
+    "kv_growth_observed": true,
+    "separate_prompt_scratch_observed": true,
+    "passed": true,
+    "telemetry": {
+      "window_start_unix_s": 1795548198.7148361,
+      "window_end_unix_s": 1795548237.2929995,
+      "nvidia_samples": 76,
+      "nvidia_busy_samples": 60,
+      "gpu": [
+        "NVIDIA RTX Spark N1X (6144-core Blackwell RTX GPU)"
+      ],
+      "gpu_limit_w": [
+        "[N/A]"
+      ],
+      "phase_gpu_draw_w": {
+        "mean": 43.45855263157895,
+        "median": 44.7,
+        "minimum": 8.35,
+        "maximum": 50.36
+      },
+      "busy_gpu_draw_w": {
+        "mean": 43.475833333333334,
+        "median": 45.01,
+        "minimum": 8.35,
+        "maximum": 50.36
+      },
+      "busy_sm_clock_mhz": {
+        "mean": 2108.65,
+        "median": 2180.5,
+        "minimum": 598.0,
+        "maximum": 2444.0
+      },
+      "busy_gpu_temp_c": {
+        "mean": 75.583,
+        "median": 76.42,
+        "minimum": 63.33,
+        "maximum": 79.75
+      },
+      "spark_busy_samples": 12,
+      "spark_gpu_draw_w": {
+        "mean": 44.7665,
+        "median": 44.8475,
+        "minimum": 37.336,
+        "maximum": 48.094
+      },
+      "spark_cpu_draw_w": {
+        "mean": 9.86925,
+        "median": 4.5265,
+        "minimum": 2.436,
+        "maximum": 28.897
+      },
+      "spark_npu_draw_w": {
+        "mean": 1.0509166666666667,
+        "median": 0.97,
+        "minimum": 0.882,
+        "maximum": 1.941
+      },
+      "spark_measured_soc_w": {
+        "mean": 55.68666666666667,
+        "median": 51.539,
+        "minimum": 46.975,
+        "maximum": 77.961
+      },
+      "spark_ac": [
+        "1"
+      ]
+    },
+    "native": {
+      "placement": [
+        "basalt generate: token graph hit path: 24576 resident experts, decided on the device",
+        "basalt generate: resident RAM mode: 1.00 GiB of experts in RAM (page-locked), 24576 in the GPU cache; adaptive swaps exchange them with the GPU cache (no file reads)"
+      ],
+      "slots": [
+        "basalt generate: --batch: 4 slot sessions on CUDA0 (0.37 GiB in all); 84.31 GiB free",
+        "basalt generate: --batch 4: 0.12 GiB of KV cache and state per slot (262144 tokens), 0.49 GiB in all; the slots beyond the solo one take 0.37 GiB of VRAM on CUDA0 that the expert cache would otherwise hold"
+      ],
+      "prompt_reads": [
+        "basalt serve: prompt 98 tokens = 0 reused + 98 read in 293 ms (334.0 tok/s), 20 generated in 212 ms (94.2 tok/s), drafts accepted 15 of 23, 1 checkpoints",
+        "basalt serve: prompt 118 tokens = 117 reused + 1 read in 0 ms (11695.9 tok/s), 1 generated in 21 ms (48.1 tok/s), drafts accepted 0 of 0, 1 checkpoints",
+        "basalt serve: prompt 98 tokens = 91 reused + 7 read in 153 ms (45.7 tok/s), 0 generated in 0 ms (0.0 tok/s), drafts accepted 0 of 0, 1 checkpoints",
+        "basalt serve: prompt 98 tokens = 91 reused + 7 read in 153 ms (45.7 tok/s), 0 generated in 0 ms (0.0 tok/s), drafts accepted 0 of 0, 1 checkpoints",
+        "basalt serve: prompt 16672 tokens = 0 reused + 16672 read in 26793 ms (622.2 tok/s), 0 generated in 0 ms (0.0 tok/s), drafts accepted 0 of 0, 1 checkpoints",
+        "basalt serve: prompt 795 tokens = 794 reused + 1 read in 0 ms (2190.1 tok/s), 71 generated in 495 ms (143.4 tok/s), drafts accepted 62 of 65, 1 checkpoints"
+      ],
+      "elastic_kv": [
+        "basalt generate: elastic KV: 4096 cells backed per session, the other 13.73 GiB of KV are the expert cache's last 7155 slots until a request needs them",
+        "basalt serve: elastic KV: about 1048576 cells fit in the 4 sessions (1048576 at full context) before the expert cache reaches the 599 slots a prompt chunk needs",
+        "basalt serve: elastic KV: 8192 cells backed (+48 MiB), the expert cache 24576 -> 24576 slots, in 7.8 ms",
+        "basalt serve: elastic KV: 8192 cells backed (+48 MiB), the expert cache 24576 -> 24576 slots, in 7.2 ms",
+        "basalt serve: elastic KV: 8192 cells backed (+48 MiB), the expert cache 24576 -> 24576 slots, in 6.7 ms",
+        "basalt serve: elastic KV: 24576 cells backed (+268 MiB), the expert cache 24576 -> 24576 slots, in 27.8 ms"
+      ],
+      "scratch": [],
+      "batch_timing": [
+        "basalt batch: 290 windows, avg 7.97 rows, 65.63 ms/window = run 53.37 (CUDA0 GPU-reach wait 0.00 + CPU experts 0.00) + commit 1.65 + emit 0.08; per layer-window: CPU experts 0.00, VRAM hits 0.00, PCIe 0.00; 61.6 rows/s over 37524 ms of wall time (admissions included)"
+      ],
+      "batch_spec": [
+        "basalt batch spec: 2.61 tokens/window/slot (2.96 slots/window, 7.97 rows/window), drafts 1385 accepted of 1451, draft 10.54 ms/window (3.56 ms/slot-window), 59.8 tokens/s"
+      ],
+      "adaptive_swaps": []
+    },
+    "source_sha256": "ee46bcd110d27568b22e1df3b3b98fd4fb4278d332ac0704270c7519b93e11a6",
+    "join_prefill_telemetry": {
+      "window_start_unix_s": 1795548200.2972832,
+      "window_end_unix_s": 1795548227.2545404,
+      "nvidia_samples": 53,
+      "nvidia_busy_samples": 38,
+      "gpu": [
+        "NVIDIA RTX Spark N1X (6144-core Blackwell RTX GPU)"
+      ],
+      "gpu_limit_w": [
+        "[N/A]"
+      ],
+      "phase_gpu_draw_w": {
+        "mean": 44.26811320754717,
+        "median": 45.4,
+        "minimum": 28.98,
+        "maximum": 50.36
+      },
+      "busy_gpu_draw_w": {
+        "mean": 44.504473684210524,
+        "median": 45.715,
+        "minimum": 28.98,
+        "maximum": 50.36
+      },
+      "busy_sm_clock_mhz": {
+        "mean": 2067.1052631578946,
+        "median": 2106.0,
+        "minimum": 1514.0,
+        "maximum": 2444.0
+      },
+      "busy_gpu_temp_c": {
+        "mean": 75.66052631578947,
+        "median": 76.055,
+        "minimum": 71.45,
+        "maximum": 79.75
+      },
+      "spark_busy_samples": 7,
+      "spark_gpu_draw_w": {
+        "mean": 45.06557142857143,
+        "median": 45.776,
+        "minimum": 37.336,
+        "maximum": 48.094
+      },
+      "spark_cpu_draw_w": {
+        "mean": 14.797285714285714,
+        "median": 6.043,
+        "minimum": 4.225,
+        "maximum": 28.897
+      },
+      "spark_npu_draw_w": {
+        "mean": 1.0835714285714286,
+        "median": 0.97,
+        "minimum": 0.882,
+        "maximum": 1.941
+      },
+      "spark_measured_soc_w": {
+        "mean": 60.94642857142857,
+        "median": 54.69,
+        "minimum": 51.504,
+        "maximum": 77.961
+      },
+      "spark_ac": [
+        "1"
+      ]
+    }
+  },
+  "short-during-prefill": {
+    "prompt_tokens": 49966,
+    "read_at_arrival": 2730,
+    "short_ttft_s": 1.6586317000037525,
+    "long_ttft_s": 60.71688690001611,
+    "short_output_tokens": 16,
+    "long_output_tokens": 30,
+    "short_sha256": "3e4dc2c92c99d56d99a873b307bc5fe0750123db0eccc494a44888b19eb6ee9a",
+    "long_sha256": "cb70635dfad2f4d527daa105697d24ec7fbe7f81710447ec52bfb5c76bd38680",
+    "short_finished_before_long_ttft": true,
+    "yield_at": 4096,
+    "initial_read_cold": true,
+    "resumed_from_yield": true,
+    "passed": true,
+    "telemetry": {
+      "window_start_unix_s": 1795548261.260292,
+      "window_end_unix_s": 1795548322.4213815,
+      "nvidia_samples": 120,
+      "nvidia_busy_samples": 115,
+      "gpu": [
+        "NVIDIA RTX Spark N1X (6144-core Blackwell RTX GPU)"
+      ],
+      "gpu_limit_w": [
+        "[N/A]"
+      ],
+      "phase_gpu_draw_w": {
+        "mean": 41.058083333333336,
+        "median": 40.25,
+        "minimum": 3.53,
+        "maximum": 67.83
+      },
+      "busy_gpu_draw_w": {
+        "mean": 41.67591304347826,
+        "median": 40.28,
+        "minimum": 28.55,
+        "maximum": 67.83
+      },
+      "busy_sm_clock_mhz": {
+        "mean": 2000.3478260869565,
+        "median": 1989.0,
+        "minimum": 1690.0,
+        "maximum": 2392.0
+      },
+      "busy_gpu_temp_c": {
+        "mean": 74.00904347826086,
+        "median": 74.01,
+        "minimum": 69.89,
+        "maximum": 79.48
+      },
+      "spark_busy_samples": 30,
+      "spark_gpu_draw_w": {
+        "mean": 43.037,
+        "median": 40.347,
+        "minimum": 34.517,
+        "maximum": 70.71
+      },
+      "spark_cpu_draw_w": {
+        "mean": 5.4317,
+        "median": 2.9299999999999997,
+        "minimum": 1.026,
+        "maximum": 27.124
+      },
+      "spark_npu_draw_w": {
+        "mean": 1.0199666666666667,
+        "median": 0.97,
+        "minimum": 0.705,
+        "maximum": 1.588
+      },
+      "spark_measured_soc_w": {
+        "mean": 49.48866666666667,
+        "median": 44.984,
+        "minimum": 37.903,
+        "maximum": 87.484
+      },
+      "spark_ac": [
+        "1"
+      ]
+    },
+    "native": {
+      "placement": [
+        "basalt generate: token graph hit path: 24576 resident experts, decided on the device",
+        "basalt generate: resident RAM mode: 1.00 GiB of experts in RAM (page-locked), 24576 in the GPU cache; adaptive swaps exchange them with the GPU cache (no file reads)"
+      ],
+      "slots": [
+        "basalt generate: --batch: 4 slot sessions on CUDA0 (0.37 GiB in all); 84.31 GiB free",
+        "basalt generate: --batch 4: 0.12 GiB of KV cache and state per slot (262144 tokens), 0.49 GiB in all; the slots beyond the solo one take 0.37 GiB of VRAM on CUDA0 that the expert cache would otherwise hold"
+      ],
+      "prompt_reads": [
+        "basalt serve: prompt 49966 tokens = 0 reused + 4096 of 49966 read in 2319 ms (1766.0 tok/s), 0 generated in 0 ms (0.0 tok/s), drafts accepted 0 of 0, 0 checkpoints (cancelled)",
+        "basalt serve: prompt 98 tokens = 0 reused + 98 read in 409 ms (239.7 tok/s), 0 generated in 0 ms (0.0 tok/s), drafts accepted 0 of 0, 0 checkpoints",
+        "basalt serve: prompt 49966 tokens = 4096 reused + 45870 read in 57891 ms (792.4 tok/s), 1 generated in 37 ms (27.3 tok/s), drafts accepted 0 of 0, 3 checkpoints"
+      ],
+      "elastic_kv": [
+        "basalt generate: elastic KV: 4096 cells backed per session, the other 13.73 GiB of KV are the expert cache's last 7155 slots until a request needs them",
+        "basalt serve: elastic KV: about 1048576 cells fit in the 4 sessions (1048576 at full context) before the expert cache reaches the 599 slots a prompt chunk needs",
+        "basalt serve: elastic KV: 57344 cells backed (+708 MiB), the expert cache 24576 -> 24576 slots, in 59.8 ms",
+        "basalt serve: elastic KV: 8192 cells backed (+48 MiB), the expert cache 24576 -> 24576 slots, in 7.2 ms"
+      ],
+      "scratch": [],
+      "batch_timing": [
+        "basalt batch: 4 windows, avg 5.00 rows, 56.14 ms/window = run 48.83 (CUDA0 GPU-reach wait 0.00 + CPU experts 0.00) + commit 1.87 + emit 0.07; per layer-window: CPU experts 0.00, VRAM hits 0.00, PCIe 0.00; 39.5 rows/s over 506 ms of wall time (admissions included)",
+        "basalt batch: 13 windows, avg 2.85 rows, 31.95 ms/window = run 29.09 (CUDA0 GPU-reach wait 0.00 + CPU experts 0.00) + commit 0.12 + emit 0.05; per layer-window: CPU experts 0.00, VRAM hits 0.00, PCIe 0.00; 89.1 rows/s over 415 ms of wall time (admissions included)"
+      ],
+      "batch_spec": [
+        "basalt batch spec: 4.00 tokens/window/slot (1.00 slots/window, 5.00 rows/window), drafts 12 accepted of 16, draft 5.37 ms/window (5.37 ms/slot-window), 31.6 tokens/s",
+        "basalt batch spec: 2.23 tokens/window/slot (1.00 slots/window, 2.85 rows/window), drafts 16 accepted of 24, draft 2.68 ms/window (2.68 ms/slot-window), 69.8 tokens/s"
+      ],
+      "adaptive_swaps": []
+    },
+    "source_sha256": "ee46bcd110d27568b22e1df3b3b98fd4fb4278d332ac0704270c7519b93e11a6",
+    "previous_greedy_outputs_match": true
+  }
+}

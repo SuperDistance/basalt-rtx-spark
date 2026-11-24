@@ -1,0 +1,30 @@
+{
+  "purpose": "Representative deep-prompt scratch and residency evidence; file-read counters are native counters and may be served by the OS cache.",
+  "old_default": {
+    "build": "0cb0b207",
+    "prompt_tokens": 47103,
+    "gpu_groups_total": 24576,
+    "chunks": 4,
+    "staged_blobs_per_chunk": 745,
+    "staged_blobs_total": 2980,
+    "suite_cumulative_expert_file_reads": 56662,
+    "gpu_w_at_64k_prefill": 24.18,
+    "gpu_sm_mhz_at_64k_prefill": 1111,
+    "initial_gpu_expert_groups": 24576,
+    "gpu_expert_groups_resident_during_prompt": 22509
+  },
+  "candidate": {
+    "build": "3b27d149",
+    "prompt_tokens": 47162,
+    "gpu_groups_total": 24576,
+    "chunks": 4,
+    "staged_blobs_per_chunk": 0,
+    "staged_blobs_total": 0,
+    "suite_cumulative_expert_file_reads": 1,
+    "gpu_w_at_64k_prefill": 41.62,
+    "gpu_sm_mhz_at_64k_prefill": 1846,
+    "initial_gpu_expert_groups": 24576,
+    "gpu_expert_groups_resident_during_prompt": 24576
+  },
+  "caveat": "The 64K nominal prefill rate change (1280 to 2190 tok/s, +71%) is confounded by different GPU power and clock (24.18 W / 1111 MHz vs 41.62 W / 1846 MHz); it does not isolate the engine change."
+}

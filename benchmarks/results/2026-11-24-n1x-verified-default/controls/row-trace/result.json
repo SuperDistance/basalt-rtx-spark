@@ -1,0 +1,879 @@
+{
+  "C": 4,
+  "cap": 1024,
+  "rows": [
+    {
+      "usage": {
+        "prompt_tokens": 130,
+        "completion_tokens": 1024,
+        "total_tokens": 1154,
+        "prompt_tokens_details": {
+          "cached_tokens": 0
+        }
+      },
+      "timings": {
+        "cache_n": 0,
+        "prompt_n": 130,
+        "prompt_ms": 452.0,
+        "prompt_per_token_ms": 3.477,
+        "prompt_per_second": 287.6,
+        "predicted_n": 1024,
+        "predicted_ms": 23819.8,
+        "predicted_per_token_ms": 23.262,
+        "predicted_per_second": 43.0,
+        "draft_n": 728,
+        "draft_n_accepted": 685
+      },
+      "finish": "length",
+      "text_hash": "75471161f80f0ef54ca8c270f16b7b192ccbf1203d93f7b7a6812850af6ee7ef",
+      "content_bytes": 2565,
+      "latency_s": 24.285950300021796
+    },
+    {
+      "usage": {
+        "prompt_tokens": 130,
+        "completion_tokens": 1024,
+        "total_tokens": 1154,
+        "prompt_tokens_details": {
+          "cached_tokens": 123
+        }
+      },
+      "timings": {
+        "cache_n": 123,
+        "prompt_n": 7,
+        "prompt_ms": 110.4,
+        "prompt_per_token_ms": 15.771,
+        "prompt_per_second": 63.4,
+        "predicted_n": 1024,
+        "predicted_ms": 23583.3,
+        "predicted_per_token_ms": 23.031,
+        "predicted_per_second": 43.4,
+        "draft_n": 727,
+        "draft_n_accepted": 682
+      },
+      "finish": "length",
+      "text_hash": "5ed23c0b7d0947c770bd13e5df39602a038aceb063b1cd361d414d2dec15fd28",
+      "content_bytes": 2497,
+      "latency_s": 24.79903729999205
+    },
+    {
+      "usage": {
+        "prompt_tokens": 130,
+        "completion_tokens": 1024,
+        "total_tokens": 1154,
+        "prompt_tokens_details": {
+          "cached_tokens": 123
+        }
+      },
+      "timings": {
+        "cache_n": 123,
+        "prompt_n": 7,
+        "prompt_ms": 167.2,
+        "prompt_per_token_ms": 23.886,
+        "prompt_per_second": 41.9,
+        "predicted_n": 1024,
+        "predicted_ms": 23381.7,
+        "predicted_per_token_ms": 22.834,
+        "predicted_per_second": 43.8,
+        "draft_n": 727,
+        "draft_n_accepted": 691
+      },
+      "finish": "length",
+      "text_hash": "e44ed744e70d1e76e7923144e72f8dbe62bbcd2e7977676c83f86de98dd6acdb",
+      "content_bytes": 2292,
+      "latency_s": 24.077023299993016
+    },
+    {
+      "usage": {
+        "prompt_tokens": 130,
+        "completion_tokens": 1024,
+        "total_tokens": 1154,
+        "prompt_tokens_details": {
+          "cached_tokens": 123
+        }
+      },
+      "timings": {
+        "cache_n": 123,
+        "prompt_n": 7,
+        "prompt_ms": 156.3,
+        "prompt_per_token_ms": 22.329,
+        "prompt_per_second": 44.8,
+        "predicted_n": 1024,
+        "predicted_ms": 23842.7,
+        "predicted_per_token_ms": 23.284,
+        "predicted_per_second": 42.9,
+        "draft_n": 726,
+        "draft_n_accepted": 679
+      },
+      "finish": "length",
+      "text_hash": "3bd41a50a4dfcdf4d3a42a8befe0ca215f1b22c9cc323126235fd871558ccf05",
+      "content_bytes": 2437,
+      "latency_s": 24.798005199991167
+    }
+  ],
+  "wall_s": 24.79903729999205,
+  "wave_start_epoch": 1795548151.529373,
+  "wave_end_epoch": 1795548176.3284101,
+  "observed_wave_end_epoch": 1795548176.3288858,
+  "samples": [
+    [
+      0.0020794000010937452,
+      [
+        [
+          0,
+          "idle",
+          0
+        ],
+        [
+          1,
+          "idle",
+          0
+        ],
+        [
+          2,
+          "idle",
+          0
+        ],
+        [
+          3,
+          "idle",
+          0
+        ]
+      ]
+    ],
+    [
+      1.0311189999920316,
+      [
+        [
+          0,
+          "prefill",
+          0
+        ],
+        [
+          1,
+          "decoding",
+          20
+        ],
+        [
+          2,
+          "decoding",
+          5
+        ],
+        [
+          3,
+          "decoding",
+          1
+        ]
+      ]
+    ],
+    [
+      2.0526315000024624,
+      [
+        [
+          0,
+          "decoding",
+          31
+        ],
+        [
+          1,
+          "decoding",
+          61
+        ],
+        [
+          2,
+          "decoding",
+          44
+        ],
+        [
+          3,
+          "decoding",
+          39
+        ]
+      ]
+    ],
+    [
+      3.084093599987682,
+      [
+        [
+          0,
+          "decoding",
+          72
+        ],
+        [
+          1,
+          "decoding",
+          104
+        ],
+        [
+          2,
+          "decoding",
+          86
+        ],
+        [
+          3,
+          "decoding",
+          75
+        ]
+      ]
+    ],
+    [
+      4.102394599991385,
+      [
+        [
+          0,
+          "decoding",
+          113
+        ],
+        [
+          1,
+          "decoding",
+          150
+        ],
+        [
+          2,
+          "decoding",
+          132
+        ],
+        [
+          3,
+          "decoding",
+          116
+        ]
+      ]
+    ],
+    [
+      5.121357500000158,
+      [
+        [
+          0,
+          "decoding",
+          159
+        ],
+        [
+          1,
+          "decoding",
+          199
+        ],
+        [
+          2,
+          "decoding",
+          177
+        ],
+        [
+          3,
+          "decoding",
+          160
+        ]
+      ]
+    ],
+    [
+      6.132762199995341,
+      [
+        [
+          0,
+          "decoding",
+          206
+        ],
+        [
+          1,
+          "decoding",
+          247
+        ],
+        [
+          2,
+          "decoding",
+          225
+        ],
+        [
+          3,
+          "decoding",
+          206
+        ]
+      ]
+    ],
+    [
+      7.148957600002177,
+      [
+        [
+          0,
+          "decoding",
+          250
+        ],
+        [
+          1,
+          "decoding",
+          289
+        ],
+        [
+          2,
+          "decoding",
+          272
+        ],
+        [
+          3,
+          "decoding",
+          251
+        ]
+      ]
+    ],
+    [
+      8.18122779999976,
+      [
+        [
+          0,
+          "decoding",
+          291
+        ],
+        [
+          1,
+          "decoding",
+          335
+        ],
+        [
+          2,
+          "decoding",
+          317
+        ],
+        [
+          3,
+          "decoding",
+          294
+        ]
+      ]
+    ],
+    [
+      9.199298499996075,
+      [
+        [
+          0,
+          "decoding",
+          339
+        ],
+        [
+          1,
+          "decoding",
+          382
+        ],
+        [
+          2,
+          "decoding",
+          366
+        ],
+        [
+          3,
+          "decoding",
+          344
+        ]
+      ]
+    ],
+    [
+      10.216618299979018,
+      [
+        [
+          0,
+          "decoding",
+          387
+        ],
+        [
+          1,
+          "decoding",
+          427
+        ],
+        [
+          2,
+          "decoding",
+          408
+        ],
+        [
+          3,
+          "decoding",
+          384
+        ]
+      ]
+    ],
+    [
+      11.249691599979997,
+      [
+        [
+          0,
+          "decoding",
+          430
+        ],
+        [
+          1,
+          "decoding",
+          469
+        ],
+        [
+          2,
+          "decoding",
+          454
+        ],
+        [
+          3,
+          "decoding",
+          429
+        ]
+      ]
+    ],
+    [
+      12.28473689997918,
+      [
+        [
+          0,
+          "decoding",
+          474
+        ],
+        [
+          1,
+          "decoding",
+          515
+        ],
+        [
+          2,
+          "decoding",
+          500
+        ],
+        [
+          3,
+          "decoding",
+          475
+        ]
+      ]
+    ],
+    [
+      13.30172489999677,
+      [
+        [
+          0,
+          "decoding",
+          520
+        ],
+        [
+          1,
+          "decoding",
+          564
+        ],
+        [
+          2,
+          "decoding",
+          549
+        ],
+        [
+          3,
+          "decoding",
+          523
+        ]
+      ]
+    ],
+    [
+      14.333085099991877,
+      [
+        [
+          0,
+          "decoding",
+          558
+        ],
+        [
+          1,
+          "decoding",
+          603
+        ],
+        [
+          2,
+          "decoding",
+          592
+        ],
+        [
+          3,
+          "decoding",
+          566
+        ]
+      ]
+    ],
+    [
+      15.364086499990663,
+      [
+        [
+          0,
+          "decoding",
+          607
+        ],
+        [
+          1,
+          "decoding",
+          651
+        ],
+        [
+          2,
+          "decoding",
+          641
+        ],
+        [
+          3,
+          "decoding",
+          610
+        ]
+      ]
+    ],
+    [
+      16.38225500000408,
+      [
+        [
+          0,
+          "decoding",
+          645
+        ],
+        [
+          1,
+          "decoding",
+          693
+        ],
+        [
+          2,
+          "decoding",
+          684
+        ],
+        [
+          3,
+          "decoding",
+          653
+        ]
+      ]
+    ],
+    [
+      17.400257899978897,
+      [
+        [
+          0,
+          "decoding",
+          690
+        ],
+        [
+          1,
+          "decoding",
+          736
+        ],
+        [
+          2,
+          "decoding",
+          732
+        ],
+        [
+          3,
+          "decoding",
+          702
+        ]
+      ]
+    ],
+    [
+      18.4320727000013,
+      [
+        [
+          0,
+          "decoding",
+          738
+        ],
+        [
+          1,
+          "decoding",
+          784
+        ],
+        [
+          2,
+          "decoding",
+          780
+        ],
+        [
+          3,
+          "decoding",
+          746
+        ]
+      ]
+    ],
+    [
+      19.43944289998035,
+      [
+        [
+          0,
+          "decoding",
+          778
+        ],
+        [
+          1,
+          "decoding",
+          825
+        ],
+        [
+          2,
+          "decoding",
+          825
+        ],
+        [
+          3,
+          "decoding",
+          789
+        ]
+      ]
+    ],
+    [
+      20.465149499999825,
+      [
+        [
+          0,
+          "decoding",
+          825
+        ],
+        [
+          1,
+          "decoding",
+          868
+        ],
+        [
+          2,
+          "decoding",
+          871
+        ],
+        [
+          3,
+          "decoding",
+          837
+        ]
+      ]
+    ],
+    [
+      21.499011099978816,
+      [
+        [
+          0,
+          "decoding",
+          871
+        ],
+        [
+          1,
+          "decoding",
+          911
+        ],
+        [
+          2,
+          "decoding",
+          918
+        ],
+        [
+          3,
+          "decoding",
+          880
+        ]
+      ]
+    ],
+    [
+      22.51752199998009,
+      [
+        [
+          0,
+          "decoding",
+          916
+        ],
+        [
+          1,
+          "decoding",
+          954
+        ],
+        [
+          2,
+          "decoding",
+          964
+        ],
+        [
+          3,
+          "decoding",
+          926
+        ]
+      ]
+    ],
+    [
+      23.532699400006095,
+      [
+        [
+          0,
+          "decoding",
+          956
+        ],
+        [
+          1,
+          "decoding",
+          994
+        ],
+        [
+          2,
+          "decoding",
+          1003
+        ],
+        [
+          3,
+          "decoding",
+          965
+        ]
+      ]
+    ],
+    [
+      24.564485599985346,
+      [
+        [
+          0,
+          "decoding",
+          1006
+        ],
+        [
+          1,
+          "idle",
+          0
+        ],
+        [
+          2,
+          "idle",
+          0
+        ],
+        [
+          3,
+          "decoding",
+          1008
+        ]
+      ]
+    ]
+  ],
+  "aggregate_tps": 165.16770189306152,
+  "approx_full_slot_tps": 174.2545702101513,
+  "native": {
+    "placement": [
+      "basalt generate: token graph hit path: 24576 resident experts, decided on the device",
+      "basalt generate: resident RAM mode: 1.00 GiB of experts in RAM (page-locked), 24576 in the GPU cache; adaptive swaps exchange them with the GPU cache (no file reads)"
+    ],
+    "slots": [
+      "basalt generate: --batch: 4 slot sessions on CUDA0 (0.37 GiB in all); 84.25 GiB free",
+      "basalt generate: --batch 4: 0.12 GiB of KV cache and state per slot (262144 tokens), 0.49 GiB in all; the slots beyond the solo one take 0.37 GiB of VRAM on CUDA0 that the expert cache would otherwise hold"
+    ],
+    "prompt_reads": [
+      "basalt serve: prompt 15 tokens = 0 reused + 15 read in 51 ms (294.5 tok/s), 3 generated in 61 ms (49.1 tok/s), drafts accepted 1 of 1, 1 checkpoints",
+      "basalt serve: prompt 130 tokens = 0 reused + 130 read in 452 ms (287.6 tok/s), 0 generated in 0 ms (0.0 tok/s), drafts accepted 0 of 0, 1 checkpoints",
+      "basalt serve: prompt 130 tokens = 123 reused + 7 read in 167 ms (41.9 tok/s), 0 generated in 0 ms (0.0 tok/s), drafts accepted 0 of 0, 1 checkpoints",
+      "basalt serve: prompt 130 tokens = 123 reused + 7 read in 156 ms (44.8 tok/s), 0 generated in 0 ms (0.0 tok/s), drafts accepted 0 of 0, 1 checkpoints",
+      "basalt serve: prompt 130 tokens = 123 reused + 7 read in 110 ms (63.4 tok/s), 1 generated in 39 ms (25.7 tok/s), drafts accepted 0 of 0, 1 checkpoints"
+    ],
+    "elastic_kv": [
+      "basalt generate: elastic KV: 4096 cells backed per session, the other 13.73 GiB of KV are the expert cache's last 7155 slots until a request needs them",
+      "basalt serve: elastic KV: about 1048576 cells fit in the 4 sessions (1048576 at full context) before the expert cache reaches the 599 slots a prompt chunk needs",
+      "basalt serve: elastic KV: 8192 cells backed (+48 MiB), the expert cache 24576 -> 24576 slots, in 7.2 ms",
+      "basalt serve: elastic KV: 8192 cells backed (+48 MiB), the expert cache 24576 -> 24576 slots, in 8.6 ms",
+      "basalt serve: elastic KV: 8192 cells backed (+48 MiB), the expert cache 24576 -> 24576 slots, in 6.9 ms",
+      "basalt serve: elastic KV: 8192 cells backed (+48 MiB), the expert cache 24576 -> 24576 slots, in 7.9 ms"
+    ],
+    "scratch": [],
+    "batch_timing": [
+      "basalt batch: 349 windows, avg 12.22 rows, 68.53 ms/window = run 62.85 (CUDA0 GPU-reach wait 0.00 + CPU experts 0.00) + commit 0.05 + emit 0.08; per layer-window: CPU experts 0.00, VRAM hits 0.00, PCIe 0.00; 175.3 rows/s over 24335 ms of wall time (admissions included)"
+    ],
+    "batch_spec": [
+      "basalt batch spec: 3.02 tokens/window/slot (3.89 slots/window, 12.22 rows/window), drafts 2737 accepted of 2908, draft 5.54 ms/window (1.42 ms/slot-window), 168.3 tokens/s"
+    ],
+    "adaptive_swaps": []
+  },
+  "ttft_s_reported": [
+    0.7,
+    0.5,
+    1.0,
+    1.2
+  ],
+  "telemetry": {
+    "window_start_unix_s": 1795548151.529373,
+    "window_end_unix_s": 1795548176.3284101,
+    "nvidia_samples": 49,
+    "nvidia_busy_samples": 47,
+    "gpu": [
+      "NVIDIA RTX Spark N1X (6144-core Blackwell RTX GPU)"
+    ],
+    "gpu_limit_w": [
+      "[N/A]"
+    ],
+    "phase_gpu_draw_w": {
+      "mean": 54.313265306122446,
+      "median": 52.01,
+      "minimum": 6.33,
+      "maximum": 68.21
+    },
+    "busy_gpu_draw_w": {
+      "mean": 55.302340425531916,
+      "median": 52.15,
+      "minimum": 6.33,
+      "maximum": 68.21
+    },
+    "busy_sm_clock_mhz": {
+      "mean": 2327.574468085106,
+      "median": 2320.0,
+      "minimum": 910.0,
+      "maximum": 2483.0
+    },
+    "busy_gpu_temp_c": {
+      "mean": 75.86085106382978,
+      "median": 76.63,
+      "minimum": 58.04,
+      "maximum": 79.92
+    },
+    "spark_busy_samples": 12,
+    "spark_gpu_draw_w": {
+      "mean": 56.02616666666667,
+      "median": 52.082499999999996,
+      "minimum": 43.808,
+      "maximum": 68.515
+    },
+    "spark_cpu_draw_w": {
+      "mean": 6.384833333333333,
+      "median": 5.592499999999999,
+      "minimum": 2.479,
+      "maximum": 18.552
+    },
+    "spark_npu_draw_w": {
+      "mean": 0.9921666666666666,
+      "median": 0.97,
+      "minimum": 0.705,
+      "maximum": 1.5
+    },
+    "spark_measured_soc_w": {
+      "mean": 63.403166666666664,
+      "median": 57.391,
+      "minimum": 51.549,
+      "maximum": 79.383
+    },
+    "spark_ac": [
+      "1"
+    ]
+  },
+  "row_decisions": {
+    "eligible_windows": 280,
+    "transitions": {
+      "8->8": 65,
+      "8->16": 30,
+      "16->16": 156,
+      "16->8": 29
+    },
+    "budget_groups": {
+      "8": {
+        "windows": 95,
+        "actual_widths": {
+          "8": 95
+        },
+        "committed_tok_per_window": 7.7368421052631575,
+        "mean_verify_ms": 46.99783157894737
+      },
+      "16": {
+        "windows": 185,
+        "actual_widths": {
+          "16": 183,
+          "15": 2
+        },
+        "committed_tok_per_window": 15.31891891891892,
+        "mean_verify_ms": 76.80814054054053
+      }
+    }
+  },
+  "adaptive_widths_verified": true
+}

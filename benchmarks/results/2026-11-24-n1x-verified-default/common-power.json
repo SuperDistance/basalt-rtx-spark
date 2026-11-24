@@ -1,0 +1,128 @@
+{
+  "basalt": {
+    "decode": {
+      "start": "2026-11-24T10:44:06.243000-08:00",
+      "end": "2026-11-24T10:57:52.528000-08:00",
+      "samples": 411,
+      "busy_samples": 409,
+      "mean_busy_gpu_w": 35.83,
+      "median_busy_gpu_w": 34.75,
+      "median_busy_sm_mhz": 2073.0,
+      "mean_busy_rails_w": 46.29
+    },
+    "prefill": {
+      "start": "2026-11-24T10:57:52.528000-08:00",
+      "end": "2026-11-24T11:06:02.919000-08:00",
+      "samples": 244,
+      "busy_samples": 236,
+      "mean_busy_gpu_w": 35.54,
+      "median_busy_gpu_w": 29.82,
+      "median_busy_sm_mhz": 1511.0,
+      "mean_busy_rails_w": 39.25
+    },
+    "concurrency": {
+      "start": "2026-11-24T11:06:02.919000-08:00",
+      "end": "2026-11-24T11:18:30.724000-08:00",
+      "samples": 373,
+      "busy_samples": 364,
+      "mean_busy_gpu_w": 39.71,
+      "median_busy_gpu_w": 38.73,
+      "median_busy_sm_mhz": 2132.0,
+      "mean_busy_rails_w": 44.71
+    },
+    "C4": {
+      "start": "2026-11-24T11:15:42.520000-08:00",
+      "end": "2026-11-24T11:18:30.724000-08:00",
+      "samples": 84,
+      "busy_samples": 83,
+      "mean_busy_gpu_w": 39.33,
+      "median_busy_gpu_w": 35.06,
+      "median_busy_sm_mhz": 2034.0,
+      "mean_busy_rails_w": 44.19
+    }
+  },
+  "vllm": {
+    "decode": {
+      "start": "2026-11-24T11:32:15.224000-08:00",
+      "end": "2026-11-24T11:54:40.743000-08:00",
+      "samples": 670,
+      "busy_samples": 664,
+      "mean_busy_gpu_w": 35.02,
+      "median_busy_gpu_w": 35.17,
+      "median_busy_sm_mhz": 2275.0,
+      "mean_busy_rails_w": 44.29
+    },
+    "prefill": {
+      "start": "2026-11-24T11:54:40.743000-08:00",
+      "end": "2026-11-24T12:02:23.976000-08:00",
+      "samples": 231,
+      "busy_samples": 189,
+      "mean_busy_gpu_w": 41.52,
+      "median_busy_gpu_w": 38.66,
+      "median_busy_sm_mhz": 1826.0,
+      "mean_busy_rails_w": 49.34
+    },
+    "concurrency": {
+      "start": "2026-11-24T12:02:23.976000-08:00",
+      "end": "2026-11-24T12:19:15.037000-08:00",
+      "samples": 503,
+      "busy_samples": 501,
+      "mean_busy_gpu_w": 35.71,
+      "median_busy_gpu_w": 35.37,
+      "median_busy_sm_mhz": 2249.0,
+      "mean_busy_rails_w": 43.62
+    },
+    "C4": {
+      "start": "2026-11-24T12:16:04.250000-08:00",
+      "end": "2026-11-24T12:19:15.037000-08:00",
+      "samples": 95,
+      "busy_samples": 94,
+      "mean_busy_gpu_w": 34.46,
+      "median_busy_gpu_w": 30.47,
+      "median_busy_sm_mhz": 2060.0,
+      "mean_busy_rails_w": 41.9
+    }
+  },
+  "old-default": {
+    "decode": {
+      "start": "2026-11-24T12:19:51.726000-08:00",
+      "end": "2026-11-24T12:33:39.530000-08:00",
+      "samples": 411,
+      "busy_samples": 404,
+      "mean_busy_gpu_w": 35.27,
+      "median_busy_gpu_w": 33.81,
+      "median_busy_sm_mhz": 2011.5,
+      "mean_busy_rails_w": 41.05
+    },
+    "prefill": {
+      "start": "2026-11-24T12:33:39.530000-08:00",
+      "end": "2026-11-24T12:43:23.592000-08:00",
+      "samples": 288,
+      "busy_samples": 282,
+      "mean_busy_gpu_w": 30.6,
+      "median_busy_gpu_w": 27.48,
+      "median_busy_sm_mhz": 1235.0,
+      "mean_busy_rails_w": 41.31
+    },
+    "concurrency": {
+      "start": "2026-11-24T12:43:23.592000-08:00",
+      "end": "2026-11-24T12:56:18.976000-08:00",
+      "samples": 386,
+      "busy_samples": 378,
+      "mean_busy_gpu_w": 39.08,
+      "median_busy_gpu_w": 39.95,
+      "median_busy_sm_mhz": 2125.0,
+      "mean_busy_rails_w": 43.73
+    },
+    "C4": {
+      "start": "2026-11-24T12:53:24.495000-08:00",
+      "end": "2026-11-24T12:56:18.976000-08:00",
+      "samples": 87,
+      "busy_samples": 86,
+      "mean_busy_gpu_w": 41.45,
+      "median_busy_gpu_w": 45.03,
+      "median_busy_sm_mhz": 2232.5,
+      "mean_busy_rails_w": 45.68
+    }
+  }
+}

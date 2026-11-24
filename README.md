@@ -1,6 +1,6 @@
 # basalt-rtx-spark
 
-### A 120B-class model at ~98 tokens/s on your RTX Spark laptop.
+### A 120B-class model at 90.79 tokens/s on your RTX Spark laptop.
 
 Native on Windows on Arm. Lossless speedups. Ready for your chat app and your coding agent.
 
@@ -11,8 +11,8 @@ Native on Windows on Arm. Lossless speedups. Ready for your chat app and your co
 ![RTX Spark N1X](https://img.shields.io/badge/NVIDIA-RTX%20Spark%20N1X-76B900)
 
 **Run Qwen3.8-Flash-Next, a ~120B-parameter mixture-of-experts model, locally on an NVIDIA RTX Spark laptop** with
-**98 tok/s** single-stream decode, a **0.28 s** first token and **113 tok/s** across four parallel requests
-([BetterBench](benchmarks), GPU at ~42 W). The goal: a capable large model fast enough at a laptop's power draw that
+**90.79 tok/s** single-stream decode, a **289 ms** first token and **110.50 tok/s** across four parallel requests
+([BetterBench](benchmarks/results/2026-11-24-n1x-verified-default), November 24, 2026; complete cross-engine C4 power from SparkHelper). The goal: a capable large model fast enough at a laptop's power draw that
 local LLM workflows (chat, documents, coding agents) feel seamless, with nothing leaving the machine.
 
 It is a fork of the [Basalt](https://github.com/jesdga95/basalt) inference engine, built on its Arm64 port and tuned
@@ -36,6 +36,9 @@ With a source checkout, serving Flash-Next on one RTX Spark N1X automatically co
 **Prebuilt (easiest).** Download `basalt-...-windows-arm64.zip` from [Releases](https://github.com/SuperDistance/basalt-rtx-spark/releases),
 unzip it, run `setup.cmd` (it makes the Python environment and offers to download the model), then `start.cmd`. The
 CUDA libraries the engine needs are in the zip; a current NVIDIA driver is enough.
+
+The release ZIP may predate the engine used for the performance results below. To reproduce them, build from this
+source at `b3f15e6a` (the validated native engine snapshot from `3b27d149`) using the instructions below.
 
 **Docker (Linux hosts: DGX Spark, RTX Spark under Linux).** `docker compose up -d` builds the image for the host's
 architecture (Arm64: sm_121) and serves with the Spark recipes' flags; the mounts and the unified-memory notes are in
@@ -119,11 +122,17 @@ minutes under load. The results here held the budget up (~42 W while busy); see 
 
 ### Basalt and vLLM on the same N1X
 
-In the November 22–23 BetterBench runs, weighted single-stream decode was **88.2 tok/s on Basalt** and **55.1 on vLLM**. Four mixed streams reached **98.3 and 104.4 tok/s**, respectively. Basalt used UD-IQ3_XXS, INT8 KV and MTP 8. vLLM for RTX Spark 0.2.0 used FP4-Local, FP8 KV and MTP 7. Both settled at 22–28 GPU W after the initial boost. The runs used different quantizations and were taken several hours apart. [Measurements and model quality](benchmarks/results/2026-11-22-hp-omnibook-x-n1x-128gb-vllm)
+The November 24 BetterBench 0.6.1 rerun compared the verified four-slot Basalt build with vLLM for RTX Spark 0.2.0 on the same N1X using the same 392-request preset and corpus hash. Basalt weighted **90.79 tok/s** versus **54.19 tok/s** for vLLM; mixed C4 throughput was **110.50 versus 100.75 tok/s**. The two engines used different weight and KV formats: Basalt used UD-IQ3_XXS, INT8 KV and MTP window 8; vLLM used FP4-Local, FP8 target KV, BF16 draft KV and block MTP 7. [Full measurements, model-quality context, power conditions and raw data](benchmarks/results/2026-11-24-n1x-verified-default). The earlier November 22–23 power-floor comparison remains in its [original result folder](benchmarks/results/2026-11-22-hp-omnibook-x-n1x-128gb-vllm).
 
-![Basalt and vLLM single-stream decode by scenario](benchmarks/img/vllm-decode.svg)
+![Basalt and vLLM single-stream decode by scenario](benchmarks/img/verified-default-decode.svg)
 
-![Basalt and vLLM aggregate output at one through four streams](benchmarks/img/vllm-concurrency.svg)
+![Basalt and vLLM aggregate output at one through four streams](benchmarks/img/verified-default-concurrency.svg)
+
+![Basalt and vLLM cold prefill by prompt depth](benchmarks/img/verified-default-prefill.svg)
+
+### Verified default scheduler control
+
+The same-day A/B/B/A fixed-output control compared baseline `bd70ac59` with the `3b27d149` scheduler. This control baseline is distinct from the separate replay of the former local default `0cb0b207`. Four structured replies of 1,024 tokens averaged **138.97 → 152.18 tok/s (+9.5%)**. The clock and power measurements declined across the session, so read the control with its per-arm conditions rather than as a power-neutral engine-only result. The default trace captured both 8-row and 16-row verifier budgets. [Per-arm measurements, row trace and arrival checks](benchmarks/results/2026-11-24-n1x-verified-default/controls).
 
 ### Four-stream scheduler on the performance branch
 
@@ -135,7 +144,7 @@ The combined research build measured **100.18 → 100.34 tok/s** on four mixed B
 
 When a 16,672-token cold prompt arrived after three streams were decoding, baseline/scheduler mean first-token time was **29.14/30.29 s**. The mean longest gap on the ongoing streams was **403/375 ms**. All three streams kept generating during every cold read. [Cold-join chart and power readings](benchmarks/results/2026-11-24-n1x-four-stream-scheduler#cold-prompt-arriving-during-three-decodes)
 
-### Earlier sustained-power comparison
+### Historical: earlier sustained-power comparison (November 23)
 
 BetterBench 0.6.1, the same laptop, model pack and settings, run back to back (the
 [raw results](benchmarks/results/2026-11-23-hp-omnibook-x-n1x-128gb)):

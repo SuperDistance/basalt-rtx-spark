@@ -1,0 +1,15 @@
+{
+  "hardware": "HP OmniBook X, RTX Spark N1X, 128 GiB system memory, 96 GiB GPU memory split",
+  "os": "Windows 11 on Arm64",
+  "gpu_driver": "621.24",
+  "windows_power_scheme": "Balanced",
+  "ac_power": true,
+  "engine": "vLLM for RTX Spark 0.2.0 (vLLM 0.32.0)",
+  "weights": "NVIDIA Qwen3.8-Flash-Next FP4-Local",
+  "target_kv_cache": "FP8",
+  "draft_kv_cache": "BF16",
+  "speculative_decoding": "MTP block verification, window 7",
+  "betterbench_max_model_len": 262144,
+  "betterbench": "0.6.1",
+  "corpus_hash": "e332dceff176d033"
+}

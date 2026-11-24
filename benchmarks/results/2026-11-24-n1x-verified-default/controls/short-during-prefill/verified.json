@@ -1,0 +1,112 @@
+{
+  "prompt_tokens": 49966,
+  "read_at_arrival": 2730,
+  "short_ttft_s": 1.6586317000037525,
+  "long_ttft_s": 60.71688690001611,
+  "short_output_tokens": 16,
+  "long_output_tokens": 30,
+  "short_sha256": "3e4dc2c92c99d56d99a873b307bc5fe0750123db0eccc494a44888b19eb6ee9a",
+  "long_sha256": "cb70635dfad2f4d527daa105697d24ec7fbe7f81710447ec52bfb5c76bd38680",
+  "short_finished_before_long_ttft": true,
+  "yield_at": 4096,
+  "initial_read_cold": true,
+  "resumed_from_yield": true,
+  "passed": true,
+  "telemetry": {
+    "window_start_unix_s": 1795548261.260292,
+    "window_end_unix_s": 1795548322.4213815,
+    "nvidia_samples": 120,
+    "nvidia_busy_samples": 115,
+    "gpu": [
+      "NVIDIA RTX Spark N1X (6144-core Blackwell RTX GPU)"
+    ],
+    "gpu_limit_w": [
+      "[N/A]"
+    ],
+    "phase_gpu_draw_w": {
+      "mean": 41.058083333333336,
+      "median": 40.25,
+      "minimum": 3.53,
+      "maximum": 67.83
+    },
+    "busy_gpu_draw_w": {
+      "mean": 41.67591304347826,
+      "median": 40.28,
+      "minimum": 28.55,
+      "maximum": 67.83
+    },
+    "busy_sm_clock_mhz": {
+      "mean": 2000.3478260869565,
+      "median": 1989.0,
+      "minimum": 1690.0,
+      "maximum": 2392.0
+    },
+    "busy_gpu_temp_c": {
+      "mean": 74.00904347826086,
+      "median": 74.01,
+      "minimum": 69.89,
+      "maximum": 79.48
+    },
+    "spark_busy_samples": 30,
+    "spark_gpu_draw_w": {
+      "mean": 43.037,
+      "median": 40.347,
+      "minimum": 34.517,
+      "maximum": 70.71
+    },
+    "spark_cpu_draw_w": {
+      "mean": 5.4317,
+      "median": 2.9299999999999997,
+      "minimum": 1.026,
+      "maximum": 27.124
+    },
+    "spark_npu_draw_w": {
+      "mean": 1.0199666666666667,
+      "median": 0.97,
+      "minimum": 0.705,
+      "maximum": 1.588
+    },
+    "spark_measured_soc_w": {
+      "mean": 49.48866666666667,
+      "median": 44.984,
+      "minimum": 37.903,
+      "maximum": 87.484
+    },
+    "spark_ac": [
+      "1"
+    ]
+  },
+  "native": {
+    "placement": [
+      "basalt generate: token graph hit path: 24576 resident experts, decided on the device",
+      "basalt generate: resident RAM mode: 1.00 GiB of experts in RAM (page-locked), 24576 in the GPU cache; adaptive swaps exchange them with the GPU cache (no file reads)"
+    ],
+    "slots": [
+      "basalt generate: --batch: 4 slot sessions on CUDA0 (0.37 GiB in all); 84.31 GiB free",
+      "basalt generate: --batch 4: 0.12 GiB of KV cache and state per slot (262144 tokens), 0.49 GiB in all; the slots beyond the solo one take 0.37 GiB of VRAM on CUDA0 that the expert cache would otherwise hold"
+    ],
+    "prompt_reads": [
+      "basalt serve: prompt 49966 tokens = 0 reused + 4096 of 49966 read in 2319 ms (1766.0 tok/s), 0 generated in 0 ms (0.0 tok/s), drafts accepted 0 of 0, 0 checkpoints (cancelled)",
+      "basalt serve: prompt 98 tokens = 0 reused + 98 read in 409 ms (239.7 tok/s), 0 generated in 0 ms (0.0 tok/s), drafts accepted 0 of 0, 0 checkpoints",
+      "basalt serve: prompt 49966 tokens = 4096 reused + 45870 read in 57891 ms (792.4 tok/s), 1 generated in 37 ms (27.3 tok/s), drafts accepted 0 of 0, 3 checkpoints"
+    ],
+    "elastic_kv": [
+      "basalt generate: elastic KV: 4096 cells backed per session, the other 13.73 GiB of KV are the expert cache's last 7155 slots until a request needs them",
+      "basalt serve: elastic KV: about 1048576 cells fit in the 4 sessions (1048576 at full context) before the expert cache reaches the 599 slots a prompt chunk needs",
+      "basalt serve: elastic KV: 57344 cells backed (+708 MiB), the expert cache 24576 -> 24576 slots, in 59.8 ms",
+      "basalt serve: elastic KV: 8192 cells backed (+48 MiB), the expert cache 24576 -> 24576 slots, in 7.2 ms"
+    ],
+    "scratch": [],
+    "batch_timing": [
+      "basalt batch: 4 windows, avg 5.00 rows, 56.14 ms/window = run 48.83 (CUDA0 GPU-reach wait 0.00 + CPU experts 0.00) + commit 1.87 + emit 0.07; per layer-window: CPU experts 0.00, VRAM hits 0.00, PCIe 0.00; 39.5 rows/s over 506 ms of wall time (admissions included)",
+      "basalt batch: 13 windows, avg 2.85 rows, 31.95 ms/window = run 29.09 (CUDA0 GPU-reach wait 0.00 + CPU experts 0.00) + commit 0.12 + emit 0.05; per layer-window: CPU experts 0.00, VRAM hits 0.00, PCIe 0.00; 89.1 rows/s over 415 ms of wall time (admissions included)"
+    ],
+    "batch_spec": [
+      "basalt batch spec: 4.00 tokens/window/slot (1.00 slots/window, 5.00 rows/window), drafts 12 accepted of 16, draft 5.37 ms/window (5.37 ms/slot-window), 31.6 tokens/s",
+      "basalt batch spec: 2.23 tokens/window/slot (1.00 slots/window, 2.85 rows/window), drafts 16 accepted of 24, draft 2.68 ms/window (2.68 ms/slot-window), 69.8 tokens/s"
+    ],
+    "adaptive_swaps": []
+  },
+  "source_sha256": "ee46bcd110d27568b22e1df3b3b98fd4fb4278d332ac0704270c7519b93e11a6",
+  "previous_greedy_outputs_match": true
+}

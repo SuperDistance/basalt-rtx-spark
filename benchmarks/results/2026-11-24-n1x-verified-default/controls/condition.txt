@@ -1,0 +1,7 @@
+Hardware: HP OmniBook X, RTX Spark N1X, 128 GiB system memory, 96 GiB GPU memory split
+OS: Windows 11 on Arm64
+Power scheme: Balanced
+GPU power limit: unavailable
+Model: Qwen3.8-Flash-Next UD-IQ3_XXS; INT8 KV
+Engine source: 3b27d149 (source tree also at 3c3a4caf)
+BetterBench: 0.6.1

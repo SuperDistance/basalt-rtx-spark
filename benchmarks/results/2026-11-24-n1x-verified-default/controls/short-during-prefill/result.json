@@ -1,0 +1,15 @@
+{
+  "prompt_tokens": 49966,
+  "read_at_arrival": 2730,
+  "short_ttft_s": 1.6586317000037525,
+  "long_ttft_s": 60.71688690001611,
+  "short_output_tokens": 16,
+  "long_output_tokens": 30,
+  "short_sha256": "3e4dc2c92c99d56d99a873b307bc5fe0750123db0eccc494a44888b19eb6ee9a",
+  "long_sha256": "cb70635dfad2f4d527daa105697d24ec7fbe7f81710447ec52bfb5c76bd38680",
+  "short_finished_before_long_ttft": true,
+  "yield_at": 4096,
+  "initial_read_cold": true,
+  "resumed_from_yield": true,
+  "passed": true
+}

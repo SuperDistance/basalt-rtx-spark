@@ -58,3 +58,25 @@ CPU load appears to draw on the same budget. In an alternating A/B of the n-gram
 cores busy during a prompt, against its unbuffered copy, the buffered arms' GPU drew 19-41 W and the unbuffered arms'
 25-47 W over the same prompts ([prompt path](n1x-prompt-path.md#the-n-gram-tables-own-copy)). Builds and other
 CPU-heavy work beside a benchmark likely lower its numbers.
+
+## Power extraction for the November 24 default-engine run
+
+The [verified-default result package](../benchmarks/results/2026-11-24-n1x-verified-default) reports each BetterBench phase separately. `nvidia-smi` samples were aligned to phase boundaries using the benchmark log; a sample counts as busy when GPU utilization is at least 80%. The table gives mean GPU draw and median SM clock over busy samples. SparkHelper telemetry was aligned to the same interval and filtered by its GPU utilization field; `busy_rail_sum_w` is its measured SoC rail aggregate. Component GPU, CPU and NPU draws are also retained in the package. The NVIDIA driver reported no GPU power limit, so these are measured conditions, not TDP values.
+
+| Phase | Busy GPU samples | GPU draw | Median SM clock | Measured SoC rail aggregate |
+| --- | ---: | ---: | ---: | ---: |
+| BetterBench decode | 813 / 819 | 35.62 W | 2,060 MHz | 46.29 W |
+| BetterBench prefill | 474 / 486 | 34.89 W | 1,488 MHz | 39.25 W |
+| BetterBench concurrency | 726 / 742 | 39.33 W | 2,125 MHz | 44.71 W |
+
+The separate four-stream control alternated baseline and candidate (A1/B1/B2/A2). GPU draw, clocks and measured rail power fell over that sequence, so its throughput comparison is reported with per-arm power and clocks and should not be read as a power-neutral isolation of the scheduler.
+
+For the same-day Basalt/vLLM comparison, the [common-power summary](../benchmarks/results/2026-11-24-n1x-verified-default/common-power.json) aligns both engines to SparkHelper samples over the complete BetterBench phases and C4 interval. It applies the same at-least-80% GPU-utilization threshold to both.
+
+| C4 run | Mean busy GPU draw | Median busy GPU draw | Median busy SM clock | Mean busy CPU+GPU+NPU rails | Busy samples / total |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| Former default `0cb0b207` | 41.45 W | 45.03 W | 2,232.5 MHz | 45.68 W | 86 / 87 |
+| Basalt `3b27d149` | 39.33 W | 35.06 W | 2,034 MHz | 44.19 W | 83 / 84 |
+| vLLM for RTX Spark 0.2.0 | 34.46 W | 30.47 W | 2,060 MHz | 41.90 W | 94 / 95 |
+
+The 0cb0b207 and 3b27d149 samples are separate BetterBench replays with different automatic RAM backing (3.32 vs 1.74 GiB); both started with a full cache of 24,576 GPU expert groups; during the deep prompt, old-build scratch loans temporarily reduced residency to 22,509 groups. The NVIDIA CSV is a separate sensor stream. The vLLM C4 file stopped with its final roughly 42 seconds buffered; it contains 148 samples across the roughly 191-second C4 interval. Its NVIDIA C4 mean is therefore incomplete and is not used for the direct power comparison above.

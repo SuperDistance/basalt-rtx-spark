@@ -1,0 +1,17 @@
+{
+  "source_checkout": "3c3a4caf1d7e23ae79ecd34b9bead38c34cb02ae",
+  "native_engine_commit": "3b27d149",
+  "binary_sha256": "8daf057510af8cbe98bbdd2305c2f2e8a9fa047436c049db34c3d4990ddb355a",
+  "previous_default": "0cb0b207",
+  "effective_defaults": {
+    "slots": 4,
+    "context_tokens_per_slot": 262144,
+    "kv_cache": "int8",
+    "speculative_window": 8,
+    "temperature": 1.0,
+    "top_p": 0.95,
+    "top_k": 20,
+    "reply_tokens": 3
+  },
+  "verification": "The installed default executable hash matched the official candidate hash; effective slot contexts and startup flags were read from the live server."
+}

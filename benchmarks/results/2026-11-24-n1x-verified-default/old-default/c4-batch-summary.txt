@@ -1,0 +1,2 @@
+basalt batch: 2403 windows, avg 7.93 rows, 56.91 ms/window = run 52.59 (CUDA0 GPU-reach wait 0.00 + CPU experts 0.00) + commit 0.04 + emit 0.08; per layer-window: CPU experts 0.00, VRAM hits 0.00, PCIe 0.00; 118.0 rows/s over 161423 ms of wall time (admissions included)
+basalt batch spec: 1.87 tokens/window/slot (3.89 slots/window, 7.93 rows/window), drafts 8159 accepted of 9707, draft 4.20 ms/window (1.08 ms/slot-window), 108.4 tokens/s

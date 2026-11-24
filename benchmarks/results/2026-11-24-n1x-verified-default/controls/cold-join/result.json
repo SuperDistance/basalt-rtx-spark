@@ -1,0 +1,43 @@
+{
+  "prompt_tokens": 16672,
+  "output_tokens": 32,
+  "output_sha256": "64920a382497d9538b69b944549c55be34da3488c8331fe1282dc8ee0dcbceff",
+  "join_submit_unix_s": 1795548200.2972832,
+  "join_first_token_unix_s": 1795548227.2545404,
+  "join_ttft_s": 26.957257299975026,
+  "ongoing": [
+    {
+      "output_tokens": 768,
+      "output_sha256": "29220327f4f1e411f37046443483545cfb167782ccbd293d94e89e3b81d3557e",
+      "tokens_before_join": 74,
+      "tokens_during_join_prefill": 252,
+      "active_past_join_ttft": true,
+      "max_gap_during_join_s": 0.38256769999861717
+    },
+    {
+      "output_tokens": 768,
+      "output_sha256": "29220327f4f1e411f37046443483545cfb167782ccbd293d94e89e3b81d3557e",
+      "tokens_before_join": 39,
+      "tokens_during_join_prefill": 249,
+      "active_past_join_ttft": true,
+      "max_gap_during_join_s": 0.3825680000009015
+    },
+    {
+      "output_tokens": 768,
+      "output_sha256": "29220327f4f1e411f37046443483545cfb167782ccbd293d94e89e3b81d3557e",
+      "tokens_before_join": 16,
+      "tokens_during_join_prefill": 214,
+      "active_past_join_ttft": true,
+      "max_gap_during_join_s": 0.38261210001655854
+    }
+  ],
+  "cold_read_verified": true,
+  "overlapped_windows": 90,
+  "chunk_jobs": 66,
+  "batched_drafts_accepted": 1385,
+  "batched_drafts_offered": 1451,
+  "checkpoint_reuse_observed": true,
+  "kv_growth_observed": true,
+  "separate_prompt_scratch_observed": true,
+  "passed": true
+}

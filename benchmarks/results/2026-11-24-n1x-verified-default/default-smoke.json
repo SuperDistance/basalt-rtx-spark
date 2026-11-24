@@ -1,0 +1,12 @@
+{
+  "executable": "basalt.exe",
+  "sha256": "8daf057510af8cbe98bbdd2305c2f2e8a9fa047436c049db34c3d4990ddb355a",
+  "defaults": "[server] flash-next  batch=4 ctx=262144 kv=int8 spec=8 temp=1.0 top_p=0.95 top_k=20",
+  "contexts": [
+    262144,
+    262144,
+    262144,
+    262144
+  ],
+  "completion_tokens": 3
+}

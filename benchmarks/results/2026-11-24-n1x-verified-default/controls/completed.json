@@ -1,0 +1,12 @@
+{
+  "order": [
+    "A1",
+    "B1",
+    "B2",
+    "A2",
+    "row-trace",
+    "cold-join",
+    "short-during-prefill"
+  ],
+  "adaptive_widths_verified": true
+}

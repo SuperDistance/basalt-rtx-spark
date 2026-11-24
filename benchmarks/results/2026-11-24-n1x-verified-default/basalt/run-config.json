@@ -1,0 +1,11 @@
+{
+  "hardware": "HP OmniBook X, RTX Spark N1X, 128 GiB system memory, 96 GiB GPU memory split",
+  "os": "Windows 11 on Arm64",
+  "gpu_driver": "621.24",
+  "gpu_power_limit": "Not reported by driver",
+  "power_scheme": "Balanced",
+  "model": "Qwen3.8-Flash-Next UD-IQ3_XXS",
+  "kv_cache": "INT8",
+  "engine": "3b27d149; four full-context 262144-token slots; speculative window 8",
+  "betterbench": "0.6.1"
+}
