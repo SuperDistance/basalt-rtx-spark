@@ -6,6 +6,8 @@ add a folder under `results/` with your run (see [Contributing a result](#contri
 
 ## Results
 
+The November 24 [four-stream scheduler comparison](results/2026-11-24-n1x-four-stream-scheduler) includes two matched structured runs per build, the complete mixed BetterBench sweep and power measurements. The adopted scheduler gained **8.1%** on four long structured replies. The joint research build measured **+0.2%** at mixed C4.
+
 | Machine | Engine | Power state | Decode, weighted median (tok/s) | First token, short (ms) | Output at 1 / 2 / 3 / 4 streams (tok/s) | Prefill 2K / 8K / 64K (tok/s) |
 | --- | --- | --- | ---: | ---: | --- | --- |
 | [HP OmniBook X, N1X, 128 GB, 96 GB split](results/2026-11-23-hp-omnibook-x-n1x-128gb) | basalt-rtx-spark `25551ed` | sustained, GPU ~42 W while busy | 97.9 | 284 | 86.5 / 99.4 / 110.8 / 113.1 | 1,724 / 2,077 / 2,342 |

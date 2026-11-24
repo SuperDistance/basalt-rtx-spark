@@ -10,5 +10,5 @@ Basalt is a local inference engine built for NVIDIA Blackwell (sm_120) on Linux 
 - **Flag odd numbers.** Sanity-check every result before reporting it (size against speed, run-to-run spread, earlier numbers) and report anything odd with its suspected cause.
 - **Read before answering.** Check the code, docs and existing results before stating a fact about Basalt.
 - **No amends, no force-pushes.** Always make new commits.
-- **Don't push or publish anywhere** (GitHub, HF, any remote) without the user's approval.
+- After each verified performance improvement, update the README and benchmark charts with the measured workload, baseline, candidate and power conditions. Commit and push the tested performance branch to the private `SuperDistance/basalt-rtx-spark` remote, and update the README and charts on its default branch. Other remotes and release publication require separate approval.
 - **Don't write tools nobody asked for.**

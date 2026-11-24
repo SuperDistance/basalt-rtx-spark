@@ -115,6 +115,16 @@ minutes under load. The results here held the budget up (~42 W while busy); see 
 
 ## Results
 
+### Four-stream scheduler on the performance branch
+
+The [tested scheduler](https://github.com/SuperDistance/basalt-rtx-spark/tree/3b27d1494d7b9b4e564b98644c72ac3b36a04580) raised aggregate throughput on four simultaneous 1,024-token structured replies from **129.10 to 139.52 tok/s (+8.1%)**. Mean CPU, GPU and NPU draw was **32.26 → 32.51 W**, yielding **7.2% more tokens per measured joule**. These November 24 runs used Flash-Next UD-IQ3_XXS and fixed expert placement.
+
+![Four structured streams on the N1X, baseline and scheduler](benchmarks/img/scheduler-structured.svg)
+
+The combined research build measured **100.18 → 100.34 tok/s** on four mixed BetterBench streams and **524 → 531 ms** median time to first token, at **21.16 → 21.67 W** busy GPU draw. Its single-stream score rose 6.6%, while fixed-output solo controls remained within 1%. [Benchmark data, charts and power conditions](benchmarks/results/2026-11-24-n1x-four-stream-scheduler)
+
+### Earlier sustained-power comparison
+
 BetterBench 0.6.1, the same laptop, model pack and settings, run back to back (the
 [raw results](benchmarks/results/2026-11-23-hp-omnibook-x-n1x-128gb)):
 

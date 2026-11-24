@@ -1,0 +1,182 @@
+{
+  "concurrency": {
+    "baseline": {
+      "4": {
+        "gpu_w": 21.16,
+        "median_sm": 1631.0,
+        "gpu_wall_w": 21.15,
+        "soc_w": 29.62,
+        "tok_gpu_j": 4.737,
+        "busy": 178,
+        "total_samples": 179,
+        "soc_samples_coverage": 0.999,
+        "observed_tokens": 18248
+      },
+      "3": {
+        "gpu_w": 21.14,
+        "median_sm": 1631.0,
+        "gpu_wall_w": 21.12,
+        "soc_w": 30.28,
+        "tok_gpu_j": 4.598,
+        "busy": 186,
+        "total_samples": 188,
+        "soc_samples_coverage": 1.001,
+        "observed_tokens": 18428
+      },
+      "2": {
+        "gpu_w": 20.62,
+        "median_sm": 1631.0,
+        "gpu_wall_w": 20.54,
+        "soc_w": 31.08,
+        "tok_gpu_j": 4.247,
+        "busy": 195,
+        "total_samples": 205,
+        "soc_samples_coverage": 0.992,
+        "observed_tokens": 18125
+      },
+      "1": {
+        "gpu_w": 21.01,
+        "median_sm": 1631.0,
+        "gpu_wall_w": 19.88,
+        "soc_w": 31.93,
+        "tok_gpu_j": 3.568,
+        "busy": 234,
+        "total_samples": 255,
+        "soc_samples_coverage": 1.003,
+        "observed_tokens": 18391
+      }
+    },
+    "candidate": {
+      "4": {
+        "gpu_w": 21.67,
+        "median_sm": 1631.0,
+        "gpu_wall_w": 21.61,
+        "soc_w": 29.38,
+        "tok_gpu_j": 4.643,
+        "busy": 177,
+        "total_samples": 182,
+        "soc_samples_coverage": 0.995,
+        "observed_tokens": 18553
+      },
+      "3": {
+        "gpu_w": 21.44,
+        "median_sm": 1631.0,
+        "gpu_wall_w": 21.35,
+        "soc_w": 26.95,
+        "tok_gpu_j": 4.531,
+        "busy": 176,
+        "total_samples": 188,
+        "soc_samples_coverage": 0.996,
+        "observed_tokens": 18458
+      },
+      "2": {
+        "gpu_w": 21.16,
+        "median_sm": 1631.0,
+        "gpu_wall_w": 21.11,
+        "soc_w": 29.6,
+        "tok_gpu_j": 4.142,
+        "busy": 202,
+        "total_samples": 208,
+        "soc_samples_coverage": 1.006,
+        "observed_tokens": 18427
+      },
+      "1": {
+        "gpu_w": 21.37,
+        "median_sm": 1631.0,
+        "gpu_wall_w": 20.19,
+        "soc_w": 32.24,
+        "tok_gpu_j": 3.587,
+        "busy": 232,
+        "total_samples": 251,
+        "soc_samples_coverage": 0.992,
+        "observed_tokens": 18390
+      }
+    }
+  },
+  "prefill": {
+    "baseline": {
+      "2000": {
+        "busy_samples": 7,
+        "seconds_with_warmup": 30.11,
+        "gpu_w": 22.05,
+        "measured_soc_w": 31.07,
+        "gpu_c": 57.71,
+        "gpu_mhz": 1586.0
+      },
+      "8000": {
+        "busy_samples": 19,
+        "seconds_with_warmup": 38.1,
+        "gpu_w": 23.76,
+        "measured_soc_w": 31.56,
+        "gpu_c": 61.26,
+        "gpu_mhz": 1306.0
+      },
+      "16000": {
+        "busy_samples": 33,
+        "seconds_with_warmup": 72.67,
+        "gpu_w": 22.97,
+        "measured_soc_w": 29.47,
+        "gpu_c": 62.85,
+        "gpu_mhz": 1287.0
+      },
+      "32000": {
+        "busy_samples": 61,
+        "seconds_with_warmup": 127.37,
+        "gpu_w": 26.72,
+        "measured_soc_w": 29.49,
+        "gpu_c": 64.64,
+        "gpu_mhz": 1410.0
+      },
+      "64000": {
+        "busy_samples": 125,
+        "seconds_with_warmup": 255.05,
+        "gpu_w": 26.94,
+        "measured_soc_w": 29.67,
+        "gpu_c": 64.98,
+        "gpu_mhz": 1417.0
+      }
+    },
+    "candidate": {
+      "2000": {
+        "busy_samples": 6,
+        "seconds_with_warmup": 29.57,
+        "gpu_w": 24.12,
+        "measured_soc_w": 29.65,
+        "gpu_c": 58.0,
+        "gpu_mhz": 1618.0
+      },
+      "8000": {
+        "busy_samples": 18,
+        "seconds_with_warmup": 34.6,
+        "gpu_w": 25.65,
+        "measured_soc_w": 29.29,
+        "gpu_c": 61.11,
+        "gpu_mhz": 1517.5
+      },
+      "16000": {
+        "busy_samples": 31,
+        "seconds_with_warmup": 64.69,
+        "gpu_w": 26.01,
+        "measured_soc_w": 29.22,
+        "gpu_c": 63.32,
+        "gpu_mhz": 1449.0
+      },
+      "32000": {
+        "busy_samples": 61,
+        "seconds_with_warmup": 126.86,
+        "gpu_w": 27.05,
+        "measured_soc_w": 29.81,
+        "gpu_c": 63.7,
+        "gpu_mhz": 1436.0
+      },
+      "64000": {
+        "busy_samples": 125,
+        "seconds_with_warmup": 252.31,
+        "gpu_w": 26.8,
+        "measured_soc_w": 29.36,
+        "gpu_c": 63.81,
+        "gpu_mhz": 1436.0
+      }
+    }
+  }
+}

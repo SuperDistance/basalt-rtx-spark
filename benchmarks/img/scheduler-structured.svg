@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="920" height="420" viewBox="0 0 920 420" font-family="Segoe UI, Helvetica, Arial, sans-serif">
+<rect width="920" height="420" fill="#ffffff"/>
+<text x="64" y="28" font-size="18" font-weight="600" fill="#1f2328">Four structured replies on IQ3, 1,024 output tokens each</text>
+<line x1="64" y1="350.0" x2="900" y2="350.0" stroke="#e5e7eb"/>
+<text x="56" y="354.0" font-size="11" text-anchor="end" fill="#57606a">0</text>
+<line x1="64" y1="292.8" x2="900" y2="292.8" stroke="#e5e7eb"/>
+<text x="56" y="296.8" font-size="11" text-anchor="end" fill="#57606a">32</text>
+<line x1="64" y1="235.6" x2="900" y2="235.6" stroke="#e5e7eb"/>
+<text x="56" y="239.6" font-size="11" text-anchor="end" fill="#57606a">64</text>
+<line x1="64" y1="178.4" x2="900" y2="178.4" stroke="#e5e7eb"/>
+<text x="56" y="182.4" font-size="11" text-anchor="end" fill="#57606a">96</text>
+<line x1="64" y1="121.2" x2="900" y2="121.2" stroke="#e5e7eb"/>
+<text x="56" y="125.2" font-size="11" text-anchor="end" fill="#57606a">128</text>
+<line x1="64" y1="64.0" x2="900" y2="64.0" stroke="#e5e7eb"/>
+<text x="56" y="68.0" font-size="11" text-anchor="end" fill="#57606a">160</text>
+<text x="16" y="207" font-size="12" fill="#57606a" transform="rotate(-90 16 207)" text-anchor="middle">Aggregate tok/s</text>
+<rect x="169.3" y="104.4" width="31.0" height="245.6" rx="2" fill="#76B900"/>
+<text x="184.8" y="100.4" font-size="10" text-anchor="middle" fill="#1f2328">137</text>
+<rect x="203.3" y="118.6" width="31.0" height="231.4" rx="2" fill="#7A8794"/>
+<text x="218.8" y="114.6" font-size="10" text-anchor="middle" fill="#1f2328">129</text>
+<text x="203.3" y="368" font-size="12" text-anchor="middle" fill="#1f2328">First run of each build</text>
+<rect x="448.0" y="96.9" width="31.0" height="253.1" rx="2" fill="#76B900"/>
+<text x="463.5" y="92.9" font-size="10" text-anchor="middle" fill="#1f2328">142</text>
+<rect x="482.0" y="119.8" width="31.0" height="230.2" rx="2" fill="#7A8794"/>
+<text x="497.5" y="115.8" font-size="10" text-anchor="middle" fill="#1f2328">129</text>
+<text x="482.0" y="368" font-size="12" text-anchor="middle" fill="#1f2328">Second run of each build</text>
+<rect x="726.7" y="100.6" width="31.0" height="249.4" rx="2" fill="#76B900"/>
+<text x="742.2" y="96.6" font-size="10" text-anchor="middle" fill="#1f2328">140</text>
+<rect x="760.7" y="119.2" width="31.0" height="230.8" rx="2" fill="#7A8794"/>
+<text x="776.2" y="115.2" font-size="10" text-anchor="middle" fill="#1f2328">129</text>
+<text x="760.7" y="368" font-size="12" text-anchor="middle" fill="#1f2328">Mean</text>
+<rect x="64" y="394" width="12" height="12" rx="2" fill="#76B900"/>
+<text x="82" y="404" font-size="12" fill="#1f2328">Scheduler (3b27d149)</text>
+<rect x="234" y="394" width="12" height="12" rx="2" fill="#7A8794"/>
+<text x="252" y="404" font-size="12" fill="#1f2328">Baseline (bd70ac59)</text>
+</svg>
