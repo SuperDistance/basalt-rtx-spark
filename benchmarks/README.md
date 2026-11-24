@@ -1,5 +1,7 @@
 # Benchmarks
 
+Run the [production feature coverage workloads](feature-coverage.md) alongside each BetterBench comparison. The cold-join check submits an uncached fourth prompt after three streams are producing output and verifies their progress during prefill.
+
 Serving results on RTX Spark machines, measured with [BetterBench](https://github.com/GGZ14/BetterBench) 0.6.1 and
 one shared config, so runs on different laptops (and other Spark machines) can be compared. Contributions are welcome:
 add a folder under `results/` with your run (see [Contributing a result](#contributing-a-result)).

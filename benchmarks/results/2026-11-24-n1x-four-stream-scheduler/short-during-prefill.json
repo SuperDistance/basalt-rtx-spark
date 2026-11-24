@@ -1,0 +1,32 @@
+{
+  "baseline": {
+    "prompt_tokens": 49966,
+    "read_at_arrival": 1877,
+    "short_ttft_s": 2.1861005000246223,
+    "long_ttft_s": 64.07389349999721,
+    "short_output_tokens": 16,
+    "long_output_tokens": 30,
+    "short_sha256": "3e4dc2c92c99d56d99a873b307bc5fe0750123db0eccc494a44888b19eb6ee9a",
+    "long_sha256": "cb70635dfad2f4d527daa105697d24ec7fbe7f81710447ec52bfb5c76bd38680",
+    "short_finished_before_long_ttft": true,
+    "yield_at": 4096,
+    "resumed_from_yield": true,
+    "passed": true,
+    "initial_read_cold": true
+  },
+  "scheduler": {
+    "prompt_tokens": 49966,
+    "read_at_arrival": 1792,
+    "short_ttft_s": 2.3029497000097763,
+    "long_ttft_s": 66.05135139997583,
+    "short_output_tokens": 16,
+    "long_output_tokens": 30,
+    "short_sha256": "3e4dc2c92c99d56d99a873b307bc5fe0750123db0eccc494a44888b19eb6ee9a",
+    "long_sha256": "cb70635dfad2f4d527daa105697d24ec7fbe7f81710447ec52bfb5c76bd38680",
+    "short_finished_before_long_ttft": true,
+    "yield_at": 4096,
+    "resumed_from_yield": true,
+    "passed": true,
+    "initial_read_cold": true
+  }
+}

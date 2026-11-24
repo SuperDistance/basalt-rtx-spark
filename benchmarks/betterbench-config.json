@@ -6,6 +6,8 @@
   "warmup": 3,
   "runs_per_category": 20,
   "unique_nonce": true,
+  "run_single_stream": true,
+  "run_prefill": true,
   "run_concurrency": true,
   "concurrency_levels": [
     1,

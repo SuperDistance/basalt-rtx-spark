@@ -1,0 +1,283 @@
+{
+  "arms": [
+    {
+      "arm": "A1",
+      "commit": "bd70ac59",
+      "sha256": "ef00a145012a5201fd497cff7dafd7afa60328ee7e050d582ca991ab60a85329",
+      "args": [
+        "--model",
+        "Qwen3.8-FN-UD-IQ3_XXS.basalt",
+        "--gpu",
+        "0",
+        "--batch",
+        "4",
+        "--max-context",
+        "262144",
+        "--kv",
+        "int8",
+        "--spec",
+        "8",
+        "--expert-cache",
+        "24576",
+        "--resident-budget-gib",
+        "1"
+      ],
+      "result": {
+        "prompt_tokens": 16672,
+        "output_tokens": 32,
+        "output_sha256": "64920a382497d9538b69b944549c55be34da3488c8331fe1282dc8ee0dcbceff",
+        "join_ttft_s": 28.738734500017017,
+        "ongoing": [
+          {
+            "output_tokens": 768,
+            "output_sha256": "29220327f4f1e411f37046443483545cfb167782ccbd293d94e89e3b81d3557e",
+            "tokens_before_join": 74,
+            "tokens_during_join_prefill": 267,
+            "active_past_join_ttft": true,
+            "max_gap_during_join_s": 0.40682840000954457
+          },
+          {
+            "output_tokens": 768,
+            "output_sha256": "29220327f4f1e411f37046443483545cfb167782ccbd293d94e89e3b81d3557e",
+            "tokens_before_join": 39,
+            "tokens_during_join_prefill": 260,
+            "active_past_join_ttft": true,
+            "max_gap_during_join_s": 0.40698459997656755
+          },
+          {
+            "output_tokens": 768,
+            "output_sha256": "29220327f4f1e411f37046443483545cfb167782ccbd293d94e89e3b81d3557e",
+            "tokens_before_join": 16,
+            "tokens_during_join_prefill": 225,
+            "active_past_join_ttft": true,
+            "max_gap_during_join_s": 0.40577069998835213
+          }
+        ],
+        "overlapped_windows": 94,
+        "chunk_jobs": 66,
+        "cold_read_verified": true,
+        "passed": true,
+        "batched_drafts_accepted": 1370,
+        "batched_drafts_offered": 1440,
+        "checkpoint_reuse_observed": true,
+        "kv_growth_observed": true,
+        "separate_prompt_scratch_observed": true
+      },
+      "power": {
+        "busy_samples": 65,
+        "mean_busy_gpu_w": 22.18,
+        "median_busy_sm_mhz": 1631.0
+      }
+    },
+    {
+      "arm": "B1",
+      "commit": "3b27d149",
+      "sha256": "8daf057510af8cbe98bbdd2305c2f2e8a9fa047436c049db34c3d4990ddb355a",
+      "args": [
+        "--model",
+        "Qwen3.8-FN-UD-IQ3_XXS.basalt",
+        "--gpu",
+        "0",
+        "--batch",
+        "4",
+        "--max-context",
+        "262144",
+        "--kv",
+        "int8",
+        "--spec",
+        "8",
+        "--expert-cache",
+        "24576",
+        "--resident-budget-gib",
+        "1"
+      ],
+      "result": {
+        "prompt_tokens": 16672,
+        "output_tokens": 32,
+        "output_sha256": "64920a382497d9538b69b944549c55be34da3488c8331fe1282dc8ee0dcbceff",
+        "join_ttft_s": 29.641691299999366,
+        "ongoing": [
+          {
+            "output_tokens": 768,
+            "output_sha256": "29220327f4f1e411f37046443483545cfb167782ccbd293d94e89e3b81d3557e",
+            "tokens_before_join": 71,
+            "tokens_during_join_prefill": 279,
+            "active_past_join_ttft": true,
+            "max_gap_during_join_s": 0.3856963000143878
+          },
+          {
+            "output_tokens": 768,
+            "output_sha256": "29220327f4f1e411f37046443483545cfb167782ccbd293d94e89e3b81d3557e",
+            "tokens_before_join": 36,
+            "tokens_during_join_prefill": 272,
+            "active_past_join_ttft": true,
+            "max_gap_during_join_s": 0.3856345000094734
+          },
+          {
+            "output_tokens": 768,
+            "output_sha256": "29220327f4f1e411f37046443483545cfb167782ccbd293d94e89e3b81d3557e",
+            "tokens_before_join": 16,
+            "tokens_during_join_prefill": 232,
+            "active_past_join_ttft": true,
+            "max_gap_during_join_s": 0.38569679998909123
+          }
+        ],
+        "overlapped_windows": 98,
+        "chunk_jobs": 66,
+        "cold_read_verified": true,
+        "passed": true,
+        "batched_drafts_accepted": 1378,
+        "batched_drafts_offered": 1444,
+        "checkpoint_reuse_observed": true,
+        "kv_growth_observed": true,
+        "separate_prompt_scratch_observed": true
+      },
+      "power": {
+        "busy_samples": 66,
+        "mean_busy_gpu_w": 21.55,
+        "median_busy_sm_mhz": 1631.0
+      }
+    },
+    {
+      "arm": "B2",
+      "commit": "3b27d149",
+      "sha256": "8daf057510af8cbe98bbdd2305c2f2e8a9fa047436c049db34c3d4990ddb355a",
+      "args": [
+        "--model",
+        "Qwen3.8-FN-UD-IQ3_XXS.basalt",
+        "--gpu",
+        "0",
+        "--batch",
+        "4",
+        "--max-context",
+        "262144",
+        "--kv",
+        "int8",
+        "--spec",
+        "8",
+        "--expert-cache",
+        "24576",
+        "--resident-budget-gib",
+        "1"
+      ],
+      "result": {
+        "prompt_tokens": 16672,
+        "output_tokens": 32,
+        "output_sha256": "64920a382497d9538b69b944549c55be34da3488c8331fe1282dc8ee0dcbceff",
+        "join_ttft_s": 30.930900600011228,
+        "ongoing": [
+          {
+            "output_tokens": 768,
+            "output_sha256": "29220327f4f1e411f37046443483545cfb167782ccbd293d94e89e3b81d3557e",
+            "tokens_before_join": 71,
+            "tokens_during_join_prefill": 298,
+            "active_past_join_ttft": true,
+            "max_gap_during_join_s": 0.3644163999997545
+          },
+          {
+            "output_tokens": 768,
+            "output_sha256": "29220327f4f1e411f37046443483545cfb167782ccbd293d94e89e3b81d3557e",
+            "tokens_before_join": 39,
+            "tokens_during_join_prefill": 286,
+            "active_past_join_ttft": true,
+            "max_gap_during_join_s": 0.36419089999981225
+          },
+          {
+            "output_tokens": 768,
+            "output_sha256": "29220327f4f1e411f37046443483545cfb167782ccbd293d94e89e3b81d3557e",
+            "tokens_before_join": 16,
+            "tokens_during_join_prefill": 248,
+            "active_past_join_ttft": true,
+            "max_gap_during_join_s": 0.36431579999043606
+          }
+        ],
+        "overlapped_windows": 104,
+        "chunk_jobs": 66,
+        "cold_read_verified": true,
+        "passed": true,
+        "batched_drafts_accepted": 1378,
+        "batched_drafts_offered": 1444,
+        "checkpoint_reuse_observed": true,
+        "kv_growth_observed": true,
+        "separate_prompt_scratch_observed": true
+      },
+      "power": {
+        "busy_samples": 73,
+        "mean_busy_gpu_w": 21.42,
+        "median_busy_sm_mhz": 1631.0
+      }
+    },
+    {
+      "arm": "A2",
+      "commit": "bd70ac59",
+      "sha256": "ef00a145012a5201fd497cff7dafd7afa60328ee7e050d582ca991ab60a85329",
+      "args": [
+        "--model",
+        "Qwen3.8-FN-UD-IQ3_XXS.basalt",
+        "--gpu",
+        "0",
+        "--batch",
+        "4",
+        "--max-context",
+        "262144",
+        "--kv",
+        "int8",
+        "--spec",
+        "8",
+        "--expert-cache",
+        "24576",
+        "--resident-budget-gib",
+        "1"
+      ],
+      "result": {
+        "prompt_tokens": 16672,
+        "output_tokens": 32,
+        "output_sha256": "64920a382497d9538b69b944549c55be34da3488c8331fe1282dc8ee0dcbceff",
+        "join_submit_unix_s": 1795544576.5585988,
+        "join_first_token_unix_s": 1795544606.100097,
+        "join_ttft_s": 29.54149820000748,
+        "ongoing": [
+          {
+            "output_tokens": 768,
+            "output_sha256": "29220327f4f1e411f37046443483545cfb167782ccbd293d94e89e3b81d3557e",
+            "tokens_before_join": 80,
+            "tokens_during_join_prefill": 280,
+            "active_past_join_ttft": true,
+            "max_gap_during_join_s": 0.39813149999827147
+          },
+          {
+            "output_tokens": 768,
+            "output_sha256": "29220327f4f1e411f37046443483545cfb167782ccbd293d94e89e3b81d3557e",
+            "tokens_before_join": 45,
+            "tokens_during_join_prefill": 272,
+            "active_past_join_ttft": true,
+            "max_gap_during_join_s": 0.3979956000111997
+          },
+          {
+            "output_tokens": 768,
+            "output_sha256": "29220327f4f1e411f37046443483545cfb167782ccbd293d94e89e3b81d3557e",
+            "tokens_before_join": 17,
+            "tokens_during_join_prefill": 242,
+            "active_past_join_ttft": true,
+            "max_gap_during_join_s": 0.397817400022177
+          }
+        ],
+        "cold_read_verified": true,
+        "overlapped_windows": 100,
+        "chunk_jobs": 66,
+        "batched_drafts_accepted": 1366,
+        "batched_drafts_offered": 1435,
+        "checkpoint_reuse_observed": true,
+        "kv_growth_observed": true,
+        "separate_prompt_scratch_observed": true,
+        "passed": true
+      },
+      "power": {
+        "busy_samples": 68,
+        "mean_busy_gpu_w": 22.15,
+        "median_busy_sm_mhz": 1631.0
+      }
+    }
+  ],
+  "power_sampling": "Entire arm; NVIDIA samples every 500 ms, GPU utilization >=80%, firmware TDP unavailable."
+}

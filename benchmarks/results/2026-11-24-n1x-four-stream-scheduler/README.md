@@ -37,3 +37,20 @@ At nominal 16K prefill, the joint candidate reached 1,902 versus 1,679 prompt to
 ![Cold prefill by nominal depth for the combined candidate and baseline](../../img/verifier-prefill.svg)
 
 [Baseline measurements](baseline.json) · [Joint candidate measurements](candidate.json) · [Power by concurrency and prompt depth](power.json)
+
+### Cold prompt arriving during three decodes
+
+Each incumbent first emitted at least 16 tokens. A fresh fourth request then supplied 16,672 uncached tokens and generated 32. All three incumbents emitted tokens during prefill and completed all 768 output tokens in each arm. All four runs produced the same joining reply. Native logs confirmed batched draft offers and accepts, checkpoint reuse on the short requests, elastic KV growth, separate prompt scratch and 66 prefill chunk jobs in every arm. The steady four-stream width policy pauses during admission.
+
+| Arm and build | Join TTFT (s) | Longest incumbent gap (ms) | Incumbent tokens during join, by stream | Overlap windows | Busy GPU draw (W) |
+| --- | ---: | ---: | --- | ---: | ---: |
+| A1 · `bd70ac59` | 28.74 | 407 | 267 / 260 / 225 | 94 | 22.18 |
+| B1 · `3b27d149` | 29.64 | 386 | 279 / 272 / 232 | 98 | 21.55 |
+| B2 · `3b27d149` | 30.93 | 364 | 298 / 286 / 248 | 104 | 21.42 |
+| A2 · `bd70ac59` | 29.54 | 398 | 280 / 272 / 242 | 100 | 22.15 |
+
+GPU draw averages whole-arm samples at ≥80% utilization. This native serving check supplements the official BetterBench phases. [Arm data](cold-join.json) · [Reproduction](../../feature-coverage.md)
+
+![Longest gap between incumbent output tokens during the fourth request’s prefill](../../img/scheduler-cold-join.svg)
+
+In the reverse arrival check, a 49,966-token cold read yielded at token 4,096 on both builds. The short request completed its 16 tokens first. The long request then reused exactly 4,096 tokens, read the remaining 45,870 and completed 30 output tokens. Both output sequences matched across builds. [Yield and resume results](short-during-prefill.json)
