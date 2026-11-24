@@ -1,0 +1,105 @@
+{
+  "C": 4,
+  "cap": 1024,
+  "aggregate_tps": 165.50756150538552,
+  "wall_s": 24.748114000016358,
+  "approx_full_slot_tps": 172.8259804061084,
+  "ttft_s_reported": [
+    0.6,
+    0.3,
+    0.8,
+    1.0
+  ],
+  "telemetry": {
+    "window_start_unix_s": 1795562237.1825035,
+    "window_end_unix_s": 1795562261.9306176,
+    "nvidia_samples": 49,
+    "nvidia_busy_samples": 48,
+    "gpu": [
+      "NVIDIA RTX Spark N1X (6144-core Blackwell RTX GPU)"
+    ],
+    "gpu_limit_w": [
+      "[N/A]"
+    ],
+    "phase_gpu_draw_w": {
+      "mean": 60.0934693877551,
+      "median": 62.74,
+      "minimum": 6.52,
+      "maximum": 69.59
+    },
+    "busy_gpu_draw_w": {
+      "mean": 61.209583333333335,
+      "median": 64.185,
+      "minimum": 23.06,
+      "maximum": 69.59
+    },
+    "busy_sm_clock_mhz": {
+      "mean": 2428.3125,
+      "median": 2466.5,
+      "minimum": 1898.0,
+      "maximum": 2515.0
+    },
+    "busy_gpu_temp_c": {
+      "mean": 71.40979166666666,
+      "median": 72.315,
+      "minimum": 61.59,
+      "maximum": 74.83
+    },
+    "spark_busy_samples": 12,
+    "spark_gpu_draw_w": {
+      "mean": 62.0635,
+      "median": 63.172,
+      "minimum": 54.204,
+      "maximum": 70.128
+    },
+    "spark_cpu_draw_w": {
+      "mean": 5.10475,
+      "median": 3.925,
+      "minimum": 2.529,
+      "maximum": 9.91
+    },
+    "spark_npu_draw_w": {
+      "mean": 0.9333333333333333,
+      "median": 0.882,
+      "minimum": 0.617,
+      "maximum": 1.5
+    },
+    "spark_measured_soc_w": {
+      "mean": 68.10158333333334,
+      "median": 71.014,
+      "minimum": 59.779,
+      "maximum": 78.435
+    },
+    "spark_ac": [
+      "1"
+    ]
+  },
+  "native_batch": [
+    "basalt batch: 367 windows, avg 11.83 rows, 65.31 ms/window = run 59.78 (CUDA0 GPU-reach wait 0.00 + CPU experts 0.00) + commit 0.05 + emit 0.07; per layer-window: CPU experts 0.00, VRAM hits 0.00, PCIe 0.00; 178.0 rows/s over 24391 ms of wall time (admissions included)"
+  ],
+  "native_speculation": [
+    "basalt batch spec: 2.88 tokens/window/slot (3.87 slots/window, 11.83 rows/window), drafts 2674 accepted of 2922, draft 5.42 ms/window (1.40 ms/slot-window), 167.8 tokens/s"
+  ],
+  "outputs": [
+    {
+      "completion_tokens": 1024,
+      "finish": "length",
+      "content_sha256": "75471161f80f0ef54ca8c270f16b7b192ccbf1203d93f7b7a6812850af6ee7ef"
+    },
+    {
+      "completion_tokens": 1024,
+      "finish": "length",
+      "content_sha256": "5ed23c0b7d0947c770bd13e5df39602a038aceb063b1cd361d414d2dec15fd28"
+    },
+    {
+      "completion_tokens": 1024,
+      "finish": "length",
+      "content_sha256": "e44ed744e70d1e76e7923144e72f8dbe62bbcd2e7977676c83f86de98dd6acdb"
+    },
+    {
+      "completion_tokens": 1024,
+      "finish": "length",
+      "content_sha256": "cd18867b9f63ed29cb487e244a5627040005063ae423113cfd35aa9230838a90"
+    }
+  ]
+}

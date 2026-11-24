@@ -1,0 +1,41 @@
+{
+  "tag": "v0.4.1-rtx-spark.2",
+  "source": "bd05fdf80da36d52f7e7b1978d635243c7aff6cc",
+  "files": 122,
+  "length": 344386059,
+  "zip_sha256": "2d6ad1c55aef91d91628645d80694fe85b6082818354c99097d0efebd54d7b7d",
+  "cuda_architectures": [
+    "121",
+    "121a"
+  ],
+  "file_sha256": {
+    "basalt-bench.exe": "e68e807069bdfaa748740385c342d1ab37459a7d91fe28418d47d74ef73d255c",
+    "basalt-probe.exe": "b1804f34462febd93d721cc46cb628f3d0bf99ba75f197718c5da869705c8868",
+    "basalt-vision.exe": "ff9ada58d70be00e52cb11e768ec341d267500f71a44cf41c044d4a96850f080",
+    "basalt.exe": "705cb1b0e0632358a728d8d855abb8a77d066cf596775efb6107f48900909f98",
+    "cublas64_13.dll": "c5816a1b53e1eb250e49a710ea6428083fbcaf95c74bd76252906905c26074dd",
+    "cublasLt64_13.dll": "45cd1ea367483d0a9608a4540b01526a637073cba250dd11dd420831a838d2e3"
+  },
+  "http_smoke": {
+    "completion": "7",
+    "usage": {
+      "prompt_tokens": 27,
+      "completion_tokens": 2,
+      "total_tokens": 29,
+      "prompt_tokens_details": {
+        "cached_tokens": 0
+      }
+    },
+    "slot_contexts": [
+      262144,
+      262144,
+      262144,
+      262144
+    ]
+  },
+  "cpu_tests_passed": [
+    "gpu_select_test",
+    "context_policy_test",
+    "tier_policy_test"
+  ]
+}

@@ -1,26 +1,26 @@
 # Basalt RTX Spark
 
-## 120B-class Qwen3.8-Flash-Next at 90.8 tokens/s on your RTX Spark laptop
+## 120B-class Qwen3.8-Flash-Next at 92.8 tokens/s on your RTX Spark laptop
 
-**45.3 W combined CPU + GPU** for single-stream decode on Windows 11 Arm64, in the same throughput range as a desktop RTX 4080 SUPER running Strata (90.2 tok/s on IQ3_S). [Power measurements](benchmarks/results/2026-11-24-n1x-verified-default/power-method.md) · [Desktop benchmark](benchmarks/desktop-decode.md)
+The N1X averaged **51.3 W across CPU and GPU** during busy decode on Windows 11 Arm64. That puts its single-stream speed in the range of a desktop RTX 4080 SUPER running Strata (90.2 tok/s on IQ3_S). [Power measurements](benchmarks/results/2026-11-24-n1x-cooled-release/release/power.json) · [Desktop benchmark](benchmarks/desktop-decode.md)
 
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 ![Windows on Arm64](https://img.shields.io/badge/Windows-Arm64-0078D4)
 ![RTX Spark N1X](https://img.shields.io/badge/NVIDIA-RTX%20Spark%20N1X-76B900)
 ![CUDA sm_121](https://img.shields.io/badge/CUDA-sm__121-426417)
 
-![Weighted single-stream decode in tokens/s. Basalt RTX Spark 90.79, Basalt Arm64 port 87.52, vLLM 54.19.](benchmarks/img/engines-overview.svg)
+![Weighted single-stream decode in tokens/s. Basalt RTX Spark 92.76, Basalt Arm64 port 84.05, vLLM 54.19.](benchmarks/img/engines-overview.svg)
 
 [Download for Windows Arm64](https://github.com/SuperDistance/basalt-rtx-spark/releases/latest) · [Setup guide](docs/rtx-spark-setup.md) · [Benchmark results](#results) · [Model packs and speeds](#quantization) · [Connect a client](docs/rtx-spark-setup.md#use-it-from-your-tools)
 
 ## Results
 
-All three engines ran the same 392 BetterBench requests on one N1X with 128 GB of unified memory and 96 GB allocated to the GPU. Basalt RTX Spark delivered **1.68× vLLM’s single-stream decode rate** and **110.50 tok/s across four streams**. vLLM had the fastest short-prompt first token at **271 ms**.
+On the same cooled laptop, Basalt RTX Spark delivered **10.4% faster single-stream decode** and **31.5% higher four-stream throughput** than the Basalt Arm64 port. All three engines ran the same 392-request BetterBench preset on the 128 GB N1X with a 96 GB GPU allocation. The vLLM figures come from an earlier run on this laptop.
 
 | Engine | Weight pack tested | Weighted single-stream decode (tok/s) | Short-prompt time to first token (ms) | Four-stream mixed throughput (tok/s) |
 | --- | --- | ---: | ---: | ---: |
-| **Basalt RTX Spark** | `UD-IQ3_XXS` | **90.79** | 289 | **110.50** |
-| Basalt + Arm64 port | `UD-IQ3_XXS` | 87.52 | 622 | 85.32 |
+| **Basalt RTX Spark** | `UD-IQ3_XXS` | **92.76** | 280 | **112.10** |
+| Basalt + Arm64 port | `UD-IQ3_XXS` | 84.05 | 619 | 85.23 |
 | vLLM for RTX Spark 0.2.0 | `FP4-Local` (NVFP4 / MXFP8) | 54.19 | **271** | 100.75 |
 
 ![Single-stream decode by scenario · Basalt RTX Spark, Basalt + Arm64 port, vLLM for RTX Spark](benchmarks/img/engines-decode.svg)
@@ -32,7 +32,7 @@ All three engines ran the same 392 BetterBench requests on one N1X with 128 GB o
 
 ![Cold prefill throughput by prompt depth · Basalt RTX Spark, Basalt + Arm64 port, vLLM for RTX Spark](benchmarks/img/engines-prefill.svg)
 
-Both Basalt engines used INT8 KV and MTP 8. vLLM used FP8 target KV, BF16 draft KV and MTP 7. In BetterBench 0.6.1 on November 24, busy GPU draw averaged 39.3 W for Basalt RTX Spark and 34.5 W for vLLM during the four-stream test. The Arm64 port ran separately on November 23 and averaged 40.8 W across busy samples over its full run. The driver did not report a GPU power limit. [November 24 measurements](benchmarks/results/2026-11-24-n1x-verified-default) · [Arm64 port measurements](benchmarks/results/2026-11-23-hp-omnibook-x-n1x-128gb/basalt-arm-sm121-2ec7a84.json)
+Both Basalt engines ran the same 392-request BetterBench preset with UD-IQ3_XXS, INT8 KV, four slots and MTP 8. The release ran first and the Arm64 port second with the same physical cooling. Busy GPU power during single-stream decode averaged 47.5 W and 49.2 W respectively. The vLLM result is from an earlier run on the same laptop, using FP4-Local, FP8 target KV and MTP 7. The driver did not expose a power limit. [Cooled run records](benchmarks/results/2026-11-24-n1x-cooled-release) · [vLLM run](benchmarks/results/2026-11-24-n1x-verified-default/vllm)
 
 </details>
 

@@ -1,0 +1,28 @@
+{
+  "executable_sha256": "8daf057510af8cbe98bbdd2305c2f2e8a9fa047436c049db34c3d4990ddb355a",
+  "checkout_sha": "7842b52474efb3e656ebe172652497268a6c4af8",
+  "native_source": "3b27d1494d7b9b4e564b98644c72ac3b36a04580",
+  "pack": "Qwen3.8-Flash-Next UD-IQ3_XXS",
+  "defaults": {
+    "context": [
+      262144,
+      262144,
+      262144,
+      262144
+    ],
+    "reply_tokens": 3,
+    "line": "[server] flash-next  batch=4 ctx=262144 kv=int8 spec=8 temp=1.0 top_p=0.95 top_k=20"
+  },
+  "placement": "[server] auto     ram-experts=2.0GB pool-affinity=auto pool=14",
+  "expert_cache": "basalt generate: expert cache auto: 80.32 GiB free, 700 MiB reserved (+39 MiB for the draft head, +208 MiB for what loads after) -> 24576 slots",
+  "expert_cache_allocation": "basalt generate: expert cache 24576 slots, 46.84 GiB of VRAM; policy is",
+  "gpu_memory_gib": 96,
+  "device": "HP OmniBook X, RTX Spark N1X, 128 GiB unified memory, Windows 11 on Arm64, NVIDIA 621.24",
+  "gpu_power_limit_w": null,
+  "ac": true,
+  "windows_base_scheme": "Balanced",
+  "spark_profile": "Performance",
+  "cooling_mode": "AC active, configured HP Performance firmware table",
+  "clock_cap_mhz": null,
+  "fan_rpm": null
+}

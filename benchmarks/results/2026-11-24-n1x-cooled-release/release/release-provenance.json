@@ -1,0 +1,25 @@
+{
+  "version": "v0.4.1-rtx-spark.2",
+  "native_source": "bd05fdf80da36d52f7e7b1978d635243c7aff6cc",
+  "executable_sha256": "705cb1b0e0632358a728d8d855abb8a77d066cf596775efb6107f48900909f98",
+  "archive_sha256": "2d6ad1c55aef91d91628645d80694fe85b6082818354c99097d0efebd54d7b7d",
+  "native_link_completed": "2026-11-24T13:52:24.761-08:00",
+  "all_packaged_native_executables_linked": "2026-11-24T13:52:28.63-08:00",
+  "physical_setup": "User-reported best cooling in place before benchmark startup; active AC cooling and HP Performance preset; ambient and fan RPM unmeasured.",
+  "release_smoke_completed": "2026-11-24T13:54:41.511-08:00",
+  "benchmark_launcher_started": "2026-11-24T13:55:10.57-08:00",
+  "observed_cuda_modules": [
+    {
+      "name": "cublas64_13.dll",
+      "from_package": true
+    },
+    {
+      "name": "cublasLt64_13.dll",
+      "from_package": true
+    }
+  ],
+  "decode_started": "2026-11-24T13:56:37.688-08:00",
+  "release_zip_upload_finished": "2026-11-24T13:56:54-08:00",
+  "overlap": "Remote archive upload ended 16.3 s into the chat phase. Chat contributes zero weight to the combined score.",
+  "server_source": "Observed python -m serve.server with current working directory at the root of the extracted ZIP and --engine-bin pointing at its bin/basalt.exe."
+}

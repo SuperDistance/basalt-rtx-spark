@@ -1,6 +1,6 @@
 # Qwen3.8-Flash-Next on discrete GPUs
 
-The RTX Spark N1X recorded 90.79 tok/s weighted single-stream decode on BetterBench with UD-IQ3_XXS. CPU and GPU draw averaged 45.28 W combined during busy decode samples. The community results below used the same model family with different weights, prompts and measurement intervals. [N1X run and power method](results/2026-11-24-n1x-verified-default/power-method.md)
+The RTX Spark N1X recorded 92.76 tok/s weighted single-stream decode on BetterBench with UD-IQ3_XXS. CPU and GPU draw averaged 51.34 W combined during busy decode samples. The community results below used the same model family with different weights, prompts and measurement intervals. [N1X run and power method](results/2026-11-24-n1x-cooled-release/release/power.json)
 
 | GPU | Engine | Weights | Reported single-stream decode |
 | --- | --- | --- | ---: |

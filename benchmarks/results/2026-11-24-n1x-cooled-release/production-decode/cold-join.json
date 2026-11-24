@@ -1,0 +1,171 @@
+{
+  "prompt_tokens": 16672,
+  "output_tokens": 32,
+  "output_sha256": "64920a382497d9538b69b944549c55be34da3488c8331fe1282dc8ee0dcbceff",
+  "join_submit_unix_s": 1795556780.6756585,
+  "join_first_token_unix_s": 1795556807.7487574,
+  "join_ttft_s": 27.073099000001093,
+  "ongoing": [
+    {
+      "output_tokens": 768,
+      "output_sha256": "29220327f4f1e411f37046443483545cfb167782ccbd293d94e89e3b81d3557e",
+      "tokens_before_join": 74,
+      "tokens_during_join_prefill": 258,
+      "active_past_join_ttft": true,
+      "max_gap_during_join_s": 0.38081999999121763
+    },
+    {
+      "output_tokens": 768,
+      "output_sha256": "29220327f4f1e411f37046443483545cfb167782ccbd293d94e89e3b81d3557e",
+      "tokens_before_join": 39,
+      "tokens_during_join_prefill": 250,
+      "active_past_join_ttft": true,
+      "max_gap_during_join_s": 0.3812770000076853
+    },
+    {
+      "output_tokens": 768,
+      "output_sha256": "29220327f4f1e411f37046443483545cfb167782ccbd293d94e89e3b81d3557e",
+      "tokens_before_join": 16,
+      "tokens_during_join_prefill": 216,
+      "active_past_join_ttft": true,
+      "max_gap_during_join_s": 0.3810901999822818
+    }
+  ],
+  "cold_read_verified": true,
+  "overlapped_windows": 91,
+  "chunk_jobs": 66,
+  "batched_drafts_accepted": 1380,
+  "batched_drafts_offered": 1440,
+  "checkpoint_reuse_observed": true,
+  "kv_growth_observed": true,
+  "separate_prompt_scratch_observed": true,
+  "passed": true,
+  "telemetry": {
+    "window_start_unix_s": 1795556778.998021,
+    "window_end_unix_s": 1795556817.706555,
+    "nvidia_samples": 75,
+    "nvidia_busy_samples": 57,
+    "gpu": [
+      "NVIDIA RTX Spark N1X (6144-core Blackwell RTX GPU)"
+    ],
+    "gpu_limit_w": [
+      "[N/A]"
+    ],
+    "phase_gpu_draw_w": {
+      "mean": 44.13066666666667,
+      "median": 42.73,
+      "minimum": 11.38,
+      "maximum": 63.45
+    },
+    "busy_gpu_draw_w": {
+      "mean": 44.32877192982456,
+      "median": 42.73,
+      "minimum": 11.38,
+      "maximum": 63.45
+    },
+    "busy_sm_clock_mhz": {
+      "mean": 2125.5438596491226,
+      "median": 2216.0,
+      "minimum": 598.0,
+      "maximum": 2509.0
+    },
+    "busy_gpu_temp_c": {
+      "mean": 68.05140350877193,
+      "median": 68.01,
+      "minimum": 57.62,
+      "maximum": 71.57
+    },
+    "spark_busy_samples": 14,
+    "spark_gpu_draw_w": {
+      "mean": 51.674285714285716,
+      "median": 46.8945,
+      "minimum": 34.246,
+      "maximum": 71.184
+    },
+    "spark_cpu_draw_w": {
+      "mean": 5.343642857142857,
+      "median": 4.184,
+      "minimum": 1.836,
+      "maximum": 11.649
+    },
+    "spark_npu_draw_w": {
+      "mean": 0.9385714285714286,
+      "median": 0.9259999999999999,
+      "minimum": 0.882,
+      "maximum": 1.058
+    },
+    "spark_measured_soc_w": {
+      "mean": 57.9565,
+      "median": 53.7735,
+      "minimum": 38.997,
+      "maximum": 76.638
+    },
+    "spark_ac": [
+      "1"
+    ]
+  },
+  "join_prefill_telemetry": {
+    "window_start_unix_s": 1795556780.6756585,
+    "window_end_unix_s": 1795556807.7487574,
+    "nvidia_samples": 53,
+    "nvidia_busy_samples": 37,
+    "gpu": [
+      "NVIDIA RTX Spark N1X (6144-core Blackwell RTX GPU)"
+    ],
+    "gpu_limit_w": [
+      "[N/A]"
+    ],
+    "phase_gpu_draw_w": {
+      "mean": 45.77358490566038,
+      "median": 43.36,
+      "minimum": 35.56,
+      "maximum": 63.45
+    },
+    "busy_gpu_draw_w": {
+      "mean": 46.862162162162164,
+      "median": 43.76,
+      "minimum": 36.82,
+      "maximum": 63.45
+    },
+    "busy_sm_clock_mhz": {
+      "mean": 2104.108108108108,
+      "median": 2112.0,
+      "minimum": 1495.0,
+      "maximum": 2509.0
+    },
+    "busy_gpu_temp_c": {
+      "mean": 68.55432432432433,
+      "median": 68.3,
+      "minimum": 65.1,
+      "maximum": 71.57
+    },
+    "spark_busy_samples": 8,
+    "spark_gpu_draw_w": {
+      "mean": 57.31225,
+      "median": 60.417,
+      "minimum": 39.007,
+      "maximum": 71.184
+    },
+    "spark_cpu_draw_w": {
+      "mean": 5.56725,
+      "median": 4.756,
+      "minimum": 3.675,
+      "maximum": 11.649
+    },
+    "spark_npu_draw_w": {
+      "mean": 0.948,
+      "median": 0.97,
+      "minimum": 0.882,
+      "maximum": 1.058
+    },
+    "spark_measured_soc_w": {
+      "mean": 63.8275,
+      "median": 69.0265,
+      "minimum": 43.861,
+      "maximum": 76.638
+    },
+    "spark_ac": [
+      "1"
+    ]
+  }
+}

@@ -10,11 +10,11 @@ All three engines ran Qwen3.8-Flash-Next on the same RTX Spark N1X laptop with 1
 
 | Engine | Weight pack tested | Weighted single-stream decode (tok/s) | Short-prompt time to first token (ms) | Four-stream mixed throughput (tok/s) |
 | --- | --- | ---: | ---: | ---: |
-| Basalt RTX Spark | `UD-IQ3_XXS` | **90.79** | 289 | **110.50** |
-| Basalt + Arm64 port | `UD-IQ3_XXS` | 87.52 | 622 | 85.32 |
+| Basalt RTX Spark | `UD-IQ3_XXS` | **92.76** | 280 | **112.10** |
+| Basalt + Arm64 port | `UD-IQ3_XXS` | 84.05 | 619 | 85.23 |
 | vLLM for RTX Spark 0.2.0 | `FP4-Local` (NVFP4 / MXFP8) | 54.19 | **271** | 100.75 |
 
-Both Basalt engines used INT8 KV and MTP 8. vLLM used FP8 target KV, BF16 draft KV and MTP 7. On November 24, busy GPU draw averaged 39.3 W for Basalt RTX Spark and 34.5 W for vLLM during the four-stream test. The Arm64 port ran separately on November 23 and averaged 40.8 W across busy samples over its full run. The driver did not report a GPU power limit. [November 24 measurements](results/2026-11-24-n1x-verified-default) · [Arm64 port measurements](results/2026-11-23-hp-omnibook-x-n1x-128gb/basalt-arm-sm121-2ec7a84.json)
+Both Basalt engines ran the same 392-request BetterBench preset with UD-IQ3_XXS, INT8 KV, four slots and MTP 8. The release ran first and the Arm64 port second with the same physical cooling. Busy GPU power during single-stream decode averaged 47.5 W and 49.2 W respectively. The vLLM result is from an earlier run on the same laptop, using FP4-Local, FP8 target KV and MTP 7. The driver did not expose a power limit. [Cooled run records](results/2026-11-24-n1x-cooled-release) · [vLLM run](results/2026-11-24-n1x-verified-default/vllm)
 
 ![Single-stream decode by scenario · Basalt RTX Spark, Basalt + Arm64 port, vLLM for RTX Spark](img/engines-decode.svg)
 
@@ -42,12 +42,12 @@ The [benchmark archive](results) contains the individual runs and scheduler expe
 From the repository root, regenerate the charts with PowerShell.
 
 ```powershell
-$run = 'benchmarks/results/2026-11-24-n1x-verified-default'
-$port = 'benchmarks/results/2026-11-23-hp-omnibook-x-n1x-128gb/basalt-arm-sm121-2ec7a84.json'
+$run = 'benchmarks/results/2026-11-24-n1x-cooled-release'
+$vllm = 'benchmarks/results/2026-11-24-n1x-verified-default/vllm/results.json'
 python benchmarks/plot.py --out benchmarks/img --prefix engines `
-  "$run/basalt/results.json" 'Basalt RTX Spark (UD-IQ3_XXS)' `
-  $port 'Basalt + Arm64 port (UD-IQ3_XXS)' `
-  "$run/vllm/results.json" 'vLLM for RTX Spark (FP4-Local)'
+  "$run/release/results.json" 'Basalt RTX Spark (UD-IQ3_XXS)' `
+  "$run/arm-port/results.json" 'Basalt + Arm64 port (UD-IQ3_XXS)' `
+  $vllm 'vLLM for RTX Spark (FP4-Local)'
 ```
 
 ## Running it

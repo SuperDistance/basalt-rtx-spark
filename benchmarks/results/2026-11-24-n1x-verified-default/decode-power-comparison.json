@@ -1,0 +1,606 @@
+{
+  "method": [
+    "Nov 23 BetterBench stdout has no line timestamps. Decode bounds are reconstructed, not directly recorded. Start is the env.timestamp rounded to seconds; November 24 uses exact logged phase markers.",
+    "All 160 measured requests per arm matched in order to server prompt and completion token counts. Sum their BetterBench client wall_ms exactly. Estimate each of 24 discarded warmups from native generated tokens/rate and TTFT plus the median client-vs-native time difference on measured repetitions of its prompt ID in the same category. No waiting between requests in the BetterBench runner. Reconstructed timestamps include warmups. Validate the reconstruction against the timestamped November 24 run.",
+    "GPU telemetry uses [start,end) and utilization >=80%. Primary source is SparkHelper, deduplicated by timestamp (nominal ~2-3 s). Archived nvidia-smi files independently give GPU-only metrics (5 s November 23, 1 s November 24). Temperatures are GPU temperatures. End sensitivity trims or extends 30s around the reconstructed bounds; this is sensitivity, not a confidence interval.",
+    "Individual prompt outputs are stochastic: seed null, temperature 0.7 and fresh cold nonces throughout. November 23 ran fork first, port second; November 24 was a separate session. Do not attribute cross-day score differences solely to code or power."
+  ],
+  "arms": {
+    "nov23_fork": {
+      "settings": {
+        "run_notes": {
+          "engine": "basalt-004d287",
+          "quant": "UD-IQ3_XXS",
+          "hardware": "RTX-Spark-N1X-96GB-split",
+          "kv": "int8",
+          "slots": "4x262144",
+          "spec": "8",
+          "sparkhelper": "Performance+sustained-experimental"
+        },
+        "temperature": 0.7,
+        "seed": null,
+        "corpus_hash": "e332dceff176d033",
+        "native_startup_lines": [
+          "[server] flash-next  ram-cache=0MiB disk-cache=0MiB kv=int8 ctx=262144 batch=4 spec=8 temp=1.0 top_p=0.95 top_k=20",
+          "[server] auto     ram-experts=6.3GB pool-affinity=auto pool=14",
+          "[server] slots    par=4 ctx/slot=262144 (slot-full-context), others queue"
+        ]
+      },
+      "score": 97.87878520552893,
+      "ttft_ms": 284.08218000076886,
+      "categories": {
+        "chat": {
+          "phase_start": "2026-11-23T11:23:12-08:00",
+          "phase_end": "2026-11-23T11:24:22-08:00",
+          "weight": 0,
+          "decode_median_tps": 91.055,
+          "iqr_tps": 15.643,
+          "output_tokens": 4920,
+          "per_request_median_accept_pct": 75.5,
+          "per_request_mean_dl": 2.67,
+          "sparkhelper": {
+            "busy": 31,
+            "total": 36,
+            "gpu_w": 56.91,
+            "sm_mhz_median": 2392.0,
+            "gpu_c": 75.65,
+            "cpu_plus_gpu_w": 62.37
+          }
+        },
+        "code": {
+          "phase_start": "2026-11-23T11:24:22-08:00",
+          "phase_end": "2026-11-23T11:26:14-08:00",
+          "weight": 0.3,
+          "decode_median_tps": 106.769,
+          "iqr_tps": 17.774,
+          "output_tokens": 9470,
+          "per_request_median_accept_pct": 80.0,
+          "per_request_mean_dl": 3.405,
+          "sparkhelper": {
+            "busy": 51,
+            "total": 55,
+            "gpu_w": 48.74,
+            "sm_mhz_median": 2288.0,
+            "gpu_c": 79.27,
+            "cpu_plus_gpu_w": 51.0
+          }
+        },
+        "file_edit": {
+          "phase_start": "2026-11-23T11:26:14-08:00",
+          "phase_end": "2026-11-23T11:27:33-08:00",
+          "weight": 0.1,
+          "decode_median_tps": 107.05,
+          "iqr_tps": 11.051,
+          "output_tokens": 6550,
+          "per_request_median_accept_pct": 87.5,
+          "per_request_mean_dl": 3.93,
+          "sparkhelper": {
+            "busy": 39,
+            "total": 40,
+            "gpu_w": 40.18,
+            "sm_mhz_median": 2132.0,
+            "gpu_c": 76.0,
+            "cpu_plus_gpu_w": 42.84
+          }
+        },
+        "json": {
+          "phase_start": "2026-11-23T11:27:33-08:00",
+          "phase_end": "2026-11-23T11:28:30-08:00",
+          "weight": 0.15,
+          "decode_median_tps": 111.151,
+          "iqr_tps": 22.679,
+          "output_tokens": 5034,
+          "per_request_median_accept_pct": 82.5,
+          "per_request_mean_dl": 4.43,
+          "sparkhelper": {
+            "busy": 27,
+            "total": 28,
+            "gpu_w": 34.44,
+            "sm_mhz_median": 2008.0,
+            "gpu_c": 72.44,
+            "cpu_plus_gpu_w": 36.88
+          }
+        },
+        "math": {
+          "phase_start": "2026-11-23T11:28:30-08:00",
+          "phase_end": "2026-11-23T11:30:11-08:00",
+          "weight": 0,
+          "decode_median_tps": 110.442,
+          "iqr_tps": 7.701,
+          "output_tokens": 9389,
+          "per_request_median_accept_pct": 77.0,
+          "per_request_mean_dl": 4.19,
+          "sparkhelper": {
+            "busy": 48,
+            "total": 50,
+            "gpu_w": 43.73,
+            "sm_mhz_median": 2258.5,
+            "gpu_c": 75.81,
+            "cpu_plus_gpu_w": 45.69
+          }
+        },
+        "prose": {
+          "phase_start": "2026-11-23T11:30:11-08:00",
+          "phase_end": "2026-11-23T11:32:30-08:00",
+          "weight": 0.15,
+          "decode_median_tps": 79.959,
+          "iqr_tps": 9.619,
+          "output_tokens": 8922,
+          "per_request_median_accept_pct": 72.0,
+          "per_request_mean_dl": 2.425,
+          "sparkhelper": {
+            "busy": 69,
+            "total": 69,
+            "gpu_w": 39.54,
+            "sm_mhz_median": 2145.0,
+            "gpu_c": 76.54,
+            "cpu_plus_gpu_w": 42.14
+          }
+        },
+        "reasoning": {
+          "phase_start": "2026-11-23T11:32:30-08:00",
+          "phase_end": "2026-11-23T11:35:20-08:00",
+          "weight": 0.2,
+          "decode_median_tps": 83.742,
+          "iqr_tps": 23.526,
+          "output_tokens": 10462,
+          "per_request_median_accept_pct": 69.0,
+          "per_request_mean_dl": 2.705,
+          "sparkhelper": {
+            "busy": 82,
+            "total": 84,
+            "gpu_w": 38.43,
+            "sm_mhz_median": 2210.0,
+            "gpu_c": 75.72,
+            "cpu_plus_gpu_w": 44.61
+          }
+        },
+        "summarization": {
+          "phase_start": "2026-11-23T11:35:20-08:00",
+          "phase_end": "2026-11-23T11:36:02-08:00",
+          "weight": 0.1,
+          "decode_median_tps": 97.283,
+          "iqr_tps": 19.113,
+          "output_tokens": 2903,
+          "per_request_median_accept_pct": 69.0,
+          "per_request_mean_dl": 3.42,
+          "sparkhelper": {
+            "busy": 19,
+            "total": 21,
+            "gpu_w": 42.18,
+            "sm_mhz_median": 2164.0,
+            "gpu_c": 78.16,
+            "cpu_plus_gpu_w": 44.43
+          }
+        }
+      },
+      "decode_window": {
+        "start": "2026-11-23T11:23:12.000-08:00",
+        "end": "2026-11-23T11:36:02.214-08:00",
+        "duration_s": 770.21,
+        "reconstructed_end_minus_logged_s": null,
+        "sparkhelper": {
+          "busy": 366,
+          "total": 383,
+          "gpu_w": 42.42,
+          "sm_mhz_median": 2190.0,
+          "gpu_c": 76.29,
+          "cpu_plus_gpu_w": 45.91
+        },
+        "nvidia_smi": {
+          "busy": 147,
+          "total": 154,
+          "gpu_w": 42.42,
+          "sm_mhz_median": 2203.0,
+          "gpu_c": 76.75
+        },
+        "sparkhelper_end_sensitivity_gpu_w": {
+          "-30": 42.46,
+          "0": 42.42,
+          "30": 42.48
+        }
+      }
+    },
+    "nov23_arm_port": {
+      "settings": {
+        "run_notes": {
+          "engine": "upstream-2ec7a84",
+          "quant": "UD-IQ3_XXS",
+          "hardware": "RTX-Spark-N1X-96GB-split",
+          "kv": "int8",
+          "slots": "4x262144",
+          "spec": "8",
+          "sparkhelper": "Performance+sustained-experimental"
+        },
+        "temperature": 0.7,
+        "seed": null,
+        "corpus_hash": "e332dceff176d033",
+        "native_startup_lines": [
+          "[server] flash-next  ram-cache=0MiB disk-cache=0MiB kv=int8 ctx=262144 batch=4 spec=8 temp=1.0 top_p=0.95 top_k=20",
+          "[server] auto     ram-experts=6.7GB pool-affinity=auto pool=14",
+          "[server] warning: the device-planned MoE tail is off: every expert is resident",
+          "[server] slots    par=4 ctx/slot=262144 (slot-full-context), others queue"
+        ]
+      },
+      "score": 87.51762492152534,
+      "ttft_ms": 622.4327499978244,
+      "categories": {
+        "chat": {
+          "phase_start": "2026-11-23T12:18:05-08:00",
+          "phase_end": "2026-11-23T12:19:28-08:00",
+          "weight": 0,
+          "decode_median_tps": 77.14,
+          "iqr_tps": 21.414,
+          "output_tokens": 4920,
+          "per_request_median_accept_pct": 76.5,
+          "per_request_mean_dl": 2.615,
+          "sparkhelper": {
+            "busy": 39,
+            "total": 42,
+            "gpu_w": 46.46,
+            "sm_mhz_median": 2262.0,
+            "gpu_c": 69.64,
+            "cpu_plus_gpu_w": 49.44
+          }
+        },
+        "code": {
+          "phase_start": "2026-11-23T12:19:28-08:00",
+          "phase_end": "2026-11-23T12:21:44-08:00",
+          "weight": 0.3,
+          "decode_median_tps": 92.016,
+          "iqr_tps": 12.971,
+          "output_tokens": 10009,
+          "per_request_median_accept_pct": 78.5,
+          "per_request_mean_dl": 3.32,
+          "sparkhelper": {
+            "busy": 60,
+            "total": 67,
+            "gpu_w": 48.3,
+            "sm_mhz_median": 2284.5,
+            "gpu_c": 77.67,
+            "cpu_plus_gpu_w": 51.27
+          }
+        },
+        "file_edit": {
+          "phase_start": "2026-11-23T12:21:44-08:00",
+          "phase_end": "2026-11-23T12:23:28-08:00",
+          "weight": 0.1,
+          "decode_median_tps": 87.429,
+          "iqr_tps": 12.566,
+          "output_tokens": 6591,
+          "per_request_median_accept_pct": 87.0,
+          "per_request_mean_dl": 3.64,
+          "sparkhelper": {
+            "busy": 46,
+            "total": 52,
+            "gpu_w": 35.26,
+            "sm_mhz_median": 2073.5,
+            "gpu_c": 72.89,
+            "cpu_plus_gpu_w": 38.73
+          }
+        },
+        "json": {
+          "phase_start": "2026-11-23T12:23:28-08:00",
+          "phase_end": "2026-11-23T12:24:33-08:00",
+          "weight": 0.15,
+          "decode_median_tps": 114.751,
+          "iqr_tps": 25.906,
+          "output_tokens": 4912,
+          "per_request_median_accept_pct": 81.5,
+          "per_request_mean_dl": 4.42,
+          "sparkhelper": {
+            "busy": 26,
+            "total": 33,
+            "gpu_w": 43.09,
+            "sm_mhz_median": 2248.5,
+            "gpu_c": 74.73,
+            "cpu_plus_gpu_w": 47.14
+          }
+        },
+        "math": {
+          "phase_start": "2026-11-23T12:24:33-08:00",
+          "phase_end": "2026-11-23T12:26:30-08:00",
+          "weight": 0,
+          "decode_median_tps": 102.194,
+          "iqr_tps": 10.266,
+          "output_tokens": 9469,
+          "per_request_median_accept_pct": 73.5,
+          "per_request_mean_dl": 3.96,
+          "sparkhelper": {
+            "busy": 53,
+            "total": 58,
+            "gpu_w": 43.74,
+            "sm_mhz_median": 2177.0,
+            "gpu_c": 77.66,
+            "cpu_plus_gpu_w": 47.47
+          }
+        },
+        "prose": {
+          "phase_start": "2026-11-23T12:26:30-08:00",
+          "phase_end": "2026-11-23T12:29:12-08:00",
+          "weight": 0.15,
+          "decode_median_tps": 69.883,
+          "iqr_tps": 18.789,
+          "output_tokens": 8961,
+          "per_request_median_accept_pct": 67.0,
+          "per_request_mean_dl": 2.37,
+          "sparkhelper": {
+            "busy": 73,
+            "total": 81,
+            "gpu_w": 38.57,
+            "sm_mhz_median": 2119.0,
+            "gpu_c": 74.59,
+            "cpu_plus_gpu_w": 42.29
+          }
+        },
+        "reasoning": {
+          "phase_start": "2026-11-23T12:29:12-08:00",
+          "phase_end": "2026-11-23T12:32:23-08:00",
+          "weight": 0.2,
+          "decode_median_tps": 72.703,
+          "iqr_tps": 13.431,
+          "output_tokens": 10491,
+          "per_request_median_accept_pct": 69.0,
+          "per_request_mean_dl": 2.515,
+          "sparkhelper": {
+            "busy": 88,
+            "total": 94,
+            "gpu_w": 34.74,
+            "sm_mhz_median": 2063.5,
+            "gpu_c": 75.16,
+            "cpu_plus_gpu_w": 41.63
+          }
+        },
+        "summarization": {
+          "phase_start": "2026-11-23T12:32:23-08:00",
+          "phase_end": "2026-11-23T12:33:20-08:00",
+          "weight": 0.1,
+          "decode_median_tps": 89.34,
+          "iqr_tps": 25.444,
+          "output_tokens": 2946,
+          "per_request_median_accept_pct": 70.0,
+          "per_request_mean_dl": 3.43,
+          "sparkhelper": {
+            "busy": 19,
+            "total": 28,
+            "gpu_w": 38.85,
+            "sm_mhz_median": 2294.0,
+            "gpu_c": 73.53,
+            "cpu_plus_gpu_w": 45.78
+          }
+        }
+      },
+      "decode_window": {
+        "start": "2026-11-23T12:18:05.000-08:00",
+        "end": "2026-11-23T12:33:20.817-08:00",
+        "duration_s": 915.82,
+        "reconstructed_end_minus_logged_s": null,
+        "sparkhelper": {
+          "busy": 404,
+          "total": 455,
+          "gpu_w": 40.55,
+          "sm_mhz_median": 2177.0,
+          "gpu_c": 74.86,
+          "cpu_plus_gpu_w": 44.92
+        },
+        "nvidia_smi": {
+          "busy": 161,
+          "total": 183,
+          "gpu_w": 39.99,
+          "sm_mhz_median": 2158.0,
+          "gpu_c": 75.22
+        },
+        "sparkhelper_end_sensitivity_gpu_w": {
+          "-30": 40.32,
+          "0": 40.55,
+          "30": 40.87
+        }
+      }
+    },
+    "nov24_verified": {
+      "settings": {
+        "run_notes": {
+          "engine": "Basalt RTX Spark",
+          "native_commit": "3b27d149",
+          "source_commit": "3c3a4caf1d7e23ae79ecd34b9bead38c34cb02ae",
+          "quant": "UD-IQ3_XXS",
+          "kv": "int8",
+          "spec": "8",
+          "slots": "4x262144"
+        },
+        "temperature": 0.7,
+        "seed": null,
+        "corpus_hash": "e332dceff176d033",
+        "native_startup_lines": [
+          "[server] flash-next  batch=4 ctx=262144 kv=int8 spec=8 temp=1.0 top_p=0.95 top_k=20",
+          "[server] auto     ram-experts=1.8GB pool-affinity=auto pool=14",
+          "[server] slots    par=4 ctx/slot=262144 (slot-full-context), others queue"
+        ]
+      },
+      "score": 90.78868021603368,
+      "ttft_ms": 289.0936674994009,
+      "categories": {
+        "chat": {
+          "phase_start": "2026-11-24T10:44:06-08:00",
+          "phase_end": "2026-11-24T10:45:26-08:00",
+          "weight": 0,
+          "decode_median_tps": 78.952,
+          "iqr_tps": 12.607,
+          "output_tokens": 4920,
+          "per_request_median_accept_pct": 75.5,
+          "per_request_mean_dl": 2.76,
+          "sparkhelper": {
+            "busy": 40,
+            "total": 40,
+            "gpu_w": 24.37,
+            "sm_mhz_median": 1631.0,
+            "gpu_c": 62.88,
+            "cpu_plus_gpu_w": 44.41
+          }
+        },
+        "code": {
+          "phase_start": "2026-11-24T10:45:26-08:00",
+          "phase_end": "2026-11-24T10:47:33-08:00",
+          "weight": 0.3,
+          "decode_median_tps": 92.053,
+          "iqr_tps": 22.764,
+          "output_tokens": 9774,
+          "per_request_median_accept_pct": 79.0,
+          "per_request_mean_dl": 3.27,
+          "sparkhelper": {
+            "busy": 62,
+            "total": 63,
+            "gpu_w": 38.3,
+            "sm_mhz_median": 2184.0,
+            "gpu_c": 73.81,
+            "cpu_plus_gpu_w": 52.59
+          }
+        },
+        "file_edit": {
+          "phase_start": "2026-11-24T10:47:33-08:00",
+          "phase_end": "2026-11-24T10:48:56-08:00",
+          "weight": 0.1,
+          "decode_median_tps": 99.956,
+          "iqr_tps": 19.729,
+          "output_tokens": 6485,
+          "per_request_median_accept_pct": 88.0,
+          "per_request_mean_dl": 3.925,
+          "sparkhelper": {
+            "busy": 42,
+            "total": 42,
+            "gpu_w": 36.44,
+            "sm_mhz_median": 2080.0,
+            "gpu_c": 73.48,
+            "cpu_plus_gpu_w": 43.49
+          }
+        },
+        "json": {
+          "phase_start": "2026-11-24T10:48:56-08:00",
+          "phase_end": "2026-11-24T10:49:54-08:00",
+          "weight": 0.15,
+          "decode_median_tps": 112.716,
+          "iqr_tps": 12.95,
+          "output_tokens": 4955,
+          "per_request_median_accept_pct": 85.0,
+          "per_request_mean_dl": 4.535,
+          "sparkhelper": {
+            "busy": 29,
+            "total": 29,
+            "gpu_w": 31.71,
+            "sm_mhz_median": 1969.0,
+            "gpu_c": 70.9,
+            "cpu_plus_gpu_w": 36.28
+          }
+        },
+        "math": {
+          "phase_start": "2026-11-24T10:49:54-08:00",
+          "phase_end": "2026-11-24T10:51:38-08:00",
+          "weight": 0,
+          "decode_median_tps": 105.27,
+          "iqr_tps": 5.182,
+          "output_tokens": 9319,
+          "per_request_median_accept_pct": 77.5,
+          "per_request_mean_dl": 4.15,
+          "sparkhelper": {
+            "busy": 50,
+            "total": 51,
+            "gpu_w": 46.56,
+            "sm_mhz_median": 2265.0,
+            "gpu_c": 77.54,
+            "cpu_plus_gpu_w": 50.93
+          }
+        },
+        "prose": {
+          "phase_start": "2026-11-24T10:51:38-08:00",
+          "phase_end": "2026-11-24T10:54:13-08:00",
+          "weight": 0.15,
+          "decode_median_tps": 73.564,
+          "iqr_tps": 13.409,
+          "output_tokens": 8885,
+          "per_request_median_accept_pct": 68.5,
+          "per_request_mean_dl": 2.38,
+          "sparkhelper": {
+            "busy": 77,
+            "total": 77,
+            "gpu_w": 32.76,
+            "sm_mhz_median": 1982.0,
+            "gpu_c": 73.78,
+            "cpu_plus_gpu_w": 39.9
+          }
+        },
+        "reasoning": {
+          "phase_start": "2026-11-24T10:54:13-08:00",
+          "phase_end": "2026-11-24T10:57:07-08:00",
+          "weight": 0.2,
+          "decode_median_tps": 79.007,
+          "iqr_tps": 22.634,
+          "output_tokens": 10558,
+          "per_request_median_accept_pct": 71.0,
+          "per_request_mean_dl": 2.765,
+          "sparkhelper": {
+            "busy": 87,
+            "total": 87,
+            "gpu_w": 38.46,
+            "sm_mhz_median": 2125.0,
+            "gpu_c": 76.38,
+            "cpu_plus_gpu_w": 47.41
+          }
+        },
+        "summarization": {
+          "phase_start": "2026-11-24T10:57:07-08:00",
+          "phase_end": "2026-11-24T10:57:52-08:00",
+          "weight": 0.1,
+          "decode_median_tps": 94.338,
+          "iqr_tps": 17.484,
+          "output_tokens": 3012,
+          "per_request_median_accept_pct": 76.5,
+          "per_request_mean_dl": 3.785,
+          "sparkhelper": {
+            "busy": 22,
+            "total": 22,
+            "gpu_w": 29.96,
+            "sm_mhz_median": 1859.0,
+            "gpu_c": 72.95,
+            "cpu_plus_gpu_w": 39.13
+          }
+        }
+      },
+      "decode_window": {
+        "start": "2026-11-24T10:44:06.243-08:00",
+        "end": "2026-11-24T10:57:52.528-08:00",
+        "duration_s": 826.28,
+        "reconstructed_end_minus_logged_s": -1.3,
+        "sparkhelper": {
+          "busy": 409,
+          "total": 411,
+          "gpu_w": 35.83,
+          "sm_mhz_median": 2073.0,
+          "gpu_c": 73.45,
+          "cpu_plus_gpu_w": 45.28
+        },
+        "nvidia_smi": {
+          "busy": 813,
+          "total": 819,
+          "gpu_w": 35.62,
+          "sm_mhz_median": 2060.0,
+          "gpu_c": 73.88
+        },
+        "sparkhelper_end_sensitivity_gpu_w": {
+          "-30": 36.07,
+          "0": 35.83,
+          "30": 35.79
+        }
+      }
+    }
+  },
+  "weighted_new_minus_old_tps": {
+    "chat": -0.0,
+    "code": -4.415,
+    "file_edit": -0.709,
+    "json": 0.235,
+    "math": -0.0,
+    "prose": -0.959,
+    "reasoning": -0.947,
+    "summarization": -0.295
+  }
+}

@@ -1,0 +1,80 @@
+{
+  "prompt_tokens": 49966,
+  "read_at_arrival": 1962,
+  "short_ttft_s": 1.9293244000000414,
+  "long_ttft_s": 57.141894499975024,
+  "short_output_tokens": 16,
+  "long_output_tokens": 30,
+  "short_sha256": "3e4dc2c92c99d56d99a873b307bc5fe0750123db0eccc494a44888b19eb6ee9a",
+  "long_sha256": "cb70635dfad2f4d527daa105697d24ec7fbe7f81710447ec52bfb5c76bd38680",
+  "short_finished_before_long_ttft": true,
+  "yield_at": 4096,
+  "initial_read_cold": true,
+  "resumed_from_yield": true,
+  "passed": true,
+  "telemetry": {
+    "window_start_unix_s": 1795556840.3762906,
+    "window_end_unix_s": 1795556897.946515,
+    "nvidia_samples": 113,
+    "nvidia_busy_samples": 110,
+    "gpu": [
+      "NVIDIA RTX Spark N1X (6144-core Blackwell RTX GPU)"
+    ],
+    "gpu_limit_w": [
+      "[N/A]"
+    ],
+    "phase_gpu_draw_w": {
+      "mean": 53.053628318584074,
+      "median": 53.53,
+      "minimum": 8.32,
+      "maximum": 69.18
+    },
+    "busy_gpu_draw_w": {
+      "mean": 53.42,
+      "median": 53.31,
+      "minimum": 33.34,
+      "maximum": 69.18
+    },
+    "busy_sm_clock_mhz": {
+      "mean": 2216.2181818181816,
+      "median": 2200.0,
+      "minimum": 2002.0,
+      "maximum": 2457.0
+    },
+    "busy_gpu_temp_c": {
+      "mean": 70.55209090909091,
+      "median": 69.86,
+      "minimum": 65.39,
+      "maximum": 74.63
+    },
+    "spark_busy_samples": 28,
+    "spark_gpu_draw_w": {
+      "mean": 53.86692857142857,
+      "median": 53.653,
+      "minimum": 43.971,
+      "maximum": 69.337
+    },
+    "spark_cpu_draw_w": {
+      "mean": 3.024607142857143,
+      "median": 2.4565,
+      "minimum": 0.957,
+      "maximum": 11.579
+    },
+    "spark_npu_draw_w": {
+      "mean": 0.9133571428571429,
+      "median": 0.97,
+      "minimum": 0.617,
+      "maximum": 1.058
+    },
+    "spark_measured_soc_w": {
+      "mean": 57.80489285714286,
+      "median": 59.123000000000005,
+      "minimum": 47.317,
+      "maximum": 75.736
+    },
+    "spark_ac": [
+      "1"
+    ]
+  },
+  "previous_greedy_outputs_match": true
+}

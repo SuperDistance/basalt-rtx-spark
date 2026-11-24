@@ -1,0 +1,84 @@
+{
+  "prompt_tokens": 49966,
+  "read_at_arrival": 1962,
+  "short_ttft_s": 1.953966400003992,
+  "long_ttft_s": 56.53468830001657,
+  "short_output_tokens": 16,
+  "long_output_tokens": 30,
+  "short_sha256": "3e4dc2c92c99d56d99a873b307bc5fe0750123db0eccc494a44888b19eb6ee9a",
+  "long_sha256": "cb70635dfad2f4d527daa105697d24ec7fbe7f81710447ec52bfb5c76bd38680",
+  "short_finished_before_long_ttft": true,
+  "yield_at": 4096,
+  "initial_read_cold": true,
+  "resumed_from_yield": true,
+  "passed": true,
+  "telemetry": {
+    "window_start_unix_s": 1795561932.3943102,
+    "window_end_unix_s": 1795561989.3625512,
+    "nvidia_samples": 112,
+    "nvidia_busy_samples": 108,
+    "gpu": [
+      "NVIDIA RTX Spark N1X (6144-core Blackwell RTX GPU)"
+    ],
+    "gpu_limit_w": [
+      "[N/A]"
+    ],
+    "phase_gpu_draw_w": {
+      "mean": 57.76125,
+      "median": 57.625,
+      "minimum": 4.57,
+      "maximum": 67.75
+    },
+    "busy_gpu_draw_w": {
+      "mean": 57.94537037037037,
+      "median": 57.644999999999996,
+      "minimum": 4.57,
+      "maximum": 67.75
+    },
+    "busy_sm_clock_mhz": {
+      "mean": 2265.759259259259,
+      "median": 2275.0,
+      "minimum": 702.0,
+      "maximum": 2437.0
+    },
+    "busy_gpu_temp_c": {
+      "mean": 73.74148148148149,
+      "median": 74.42,
+      "minimum": 54.39,
+      "maximum": 75.86
+    },
+    "spark_busy_samples": 29,
+    "spark_gpu_draw_w": {
+      "mean": 57.93475862068966,
+      "median": 58.243,
+      "minimum": 2.233,
+      "maximum": 70.023
+    },
+    "spark_cpu_draw_w": {
+      "mean": 5.160172413793103,
+      "median": 4.061,
+      "minimum": 1.548,
+      "maximum": 17.615
+    },
+    "spark_npu_draw_w": {
+      "mean": 0.8970689655172414,
+      "median": 0.97,
+      "minimum": 0.617,
+      "maximum": 1.058
+    },
+    "spark_measured_soc_w": {
+      "mean": 63.992,
+      "median": 62.391,
+      "minimum": 20.465,
+      "maximum": 83.327
+    },
+    "spark_ac": [
+      "1"
+    ]
+  },
+  "native_process_cpu": {
+    "native_cpu_seconds": 29.84375,
+    "mean_native_cpu_cores": 0.5238664471384683
+  },
+  "previous_greedy_outputs_match": true
+}
