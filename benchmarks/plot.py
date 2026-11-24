@@ -96,10 +96,10 @@ def overview(runs: list[tuple[str, dict]], path: Path) -> None:
     desc = ", ".join(f"{name}: {score:.2f} tok/s" for name, score in scores)
     out = [f'<svg xmlns="http://www.w3.org/2000/svg" width="{width}" height="{height}" viewBox="0 0 {width} {height}" '
            'role="img" aria-labelledby="title desc" font-family="Segoe UI, Arial, sans-serif">',
-           '<title id="title">Weighted single-stream decode</title>',
+           '<title id="title">BetterBench weighted single-stream decode</title>',
            f'<desc id="desc">{escape(desc)}</desc>',
            f'<rect width="{width}" height="{height}" rx="12" fill="#101e26"/>',
-           '<text x="22" y="33" font-size="23" font-weight="700" fill="#f0f6f5">Single-stream decode</text>',
+           '<text x="22" y="33" font-size="23" font-weight="700" fill="#f0f6f5">BetterBench single-stream decode</text>',
            f'<text x="{width - 22}" y="32" text-anchor="end" font-size="16" fill="#b7c9d0">output tokens/s</text>']
     for i, (label, score) in enumerate(scores):
         y = 57 + row_height * i

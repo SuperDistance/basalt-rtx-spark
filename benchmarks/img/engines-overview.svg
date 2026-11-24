@@ -1,22 +1,22 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="720" height="213" viewBox="0 0 720 213" role="img" aria-labelledby="title desc" font-family="Segoe UI, Arial, sans-serif">
-<title id="title">Weighted single-stream decode</title>
-<desc id="desc">Basalt RTX Spark (UD-IQ3_XXS): 92.76 tok/s, Basalt + Arm64 port (UD-IQ3_XXS): 84.05 tok/s, vLLM for RTX Spark (FP4-Local): 54.19 tok/s</desc>
+<title id="title">BetterBench weighted single-stream decode</title>
+<desc id="desc">Basalt RTX Spark (UD-IQ3_XXS): 92.76 tok/s, Basalt + Arm64 port (UD-IQ3_XXS): 84.05 tok/s, Native vLLM for RTX Spark (FP4-Local): 54.19 tok/s</desc>
 <rect width="720" height="213" rx="12" fill="#101e26"/>
-<text x="22" y="33" font-size="23" font-weight="700" fill="#f0f6f5">Single-stream decode</text>
+<text x="22" y="33" font-size="23" font-weight="700" fill="#f0f6f5">BetterBench single-stream decode</text>
 <text x="698" y="32" text-anchor="end" font-size="16" fill="#b7c9d0">output tokens/s</text>
 <text x="22" y="68" font-size="17" font-weight="600" fill="#f0f6f5">Basalt RTX Spark</text>
 <text x="22" y="85" font-size="13" fill="#b7c9d0">UD-IQ3_XXS</text>
-<rect x="218" y="60" width="394" height="14" rx="4" fill="#243742"/>
-<rect x="218" y="60" width="394.00" height="14" rx="4" fill="#a6ed60"/>
+<rect x="278" y="60" width="334" height="14" rx="4" fill="#243742"/>
+<rect x="278" y="60" width="334.00" height="14" rx="4" fill="#a6ed60"/>
 <text x="698" y="77" text-anchor="end" font-size="23" font-weight="700" fill="#a6ed60">92.76</text>
 <text x="22" y="117" font-size="17" font-weight="600" fill="#f0f6f5">Basalt + Arm64 port</text>
 <text x="22" y="134" font-size="13" fill="#b7c9d0">UD-IQ3_XXS</text>
-<rect x="218" y="109" width="394" height="14" rx="4" fill="#243742"/>
-<rect x="218" y="109" width="356.99" height="14" rx="4" fill="#9eb7c7"/>
+<rect x="278" y="109" width="334" height="14" rx="4" fill="#243742"/>
+<rect x="278" y="109" width="302.62" height="14" rx="4" fill="#9eb7c7"/>
 <text x="698" y="126" text-anchor="end" font-size="23" font-weight="700" fill="#9eb7c7">84.05</text>
-<text x="22" y="166" font-size="17" font-weight="600" fill="#f0f6f5">vLLM for RTX Spark</text>
+<text x="22" y="166" font-size="17" font-weight="600" fill="#f0f6f5">Native vLLM for RTX Spark</text>
 <text x="22" y="183" font-size="13" fill="#b7c9d0">FP4-Local</text>
-<rect x="218" y="158" width="394" height="14" rx="4" fill="#243742"/>
-<rect x="218" y="158" width="230.16" height="14" rx="4" fill="#9eb7c7"/>
+<rect x="278" y="158" width="334" height="14" rx="4" fill="#243742"/>
+<rect x="278" y="158" width="195.11" height="14" rx="4" fill="#9eb7c7"/>
 <text x="698" y="175" text-anchor="end" font-size="23" font-weight="700" fill="#9eb7c7">54.19</text>
 </svg>

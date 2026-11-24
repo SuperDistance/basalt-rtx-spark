@@ -75,5 +75,5 @@
 <rect x="297" y="394" width="12" height="12" rx="2" fill="#7A8794"/>
 <text x="315" y="404" font-size="12" fill="#1f2328">Basalt + Arm64 port (UD-IQ3_XXS)</text>
 <rect x="551" y="394" width="12" height="12" rx="2" fill="#3B82C4"/>
-<text x="569" y="404" font-size="12" fill="#1f2328">vLLM for RTX Spark (FP4-Local)</text>
+<text x="569" y="404" font-size="12" fill="#1f2328">Native vLLM for RTX Spark (FP4-Local)</text>
 </svg>

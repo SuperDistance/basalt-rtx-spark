@@ -12,9 +12,11 @@ All three engines ran Qwen3.8-Flash-Next on the same RTX Spark N1X laptop with 1
 | --- | --- | ---: | ---: | ---: |
 | Basalt RTX Spark | `UD-IQ3_XXS` | **92.76** | 280 | **112.10** |
 | Basalt + Arm64 port | `UD-IQ3_XXS` | 84.05 | 619 | 85.23 |
-| vLLM for RTX Spark 0.2.0 | `FP4-Local` (NVFP4 / MXFP8) | 54.19 | **271** | 100.75 |
+| Native vLLM for RTX Spark 0.2.0 | `FP4-Local` (NVFP4 / MXFP8) | 54.19 | **271** | 100.75 |
 
 Both Basalt engines ran the same 392-request BetterBench preset with UD-IQ3_XXS, INT8 KV, four slots and MTP 8. The release ran first and the Arm64 port second with the same physical cooling. Busy GPU power during single-stream decode averaged 47.5 W and 49.2 W respectively. The vLLM result is from an earlier run on the same laptop, using FP4-Local, FP8 target KV and MTP 7. The driver did not expose a power limit. [Cooled run records](results/2026-11-24-n1x-cooled-release) · [vLLM run](results/2026-11-24-n1x-verified-default/vllm)
+
+**Published SPEED-Bench coding results on Windows Arm64.** For 80 Flash-Next coding conversations, NVIDIA reports **36.58 tok/s** for llama.cpp b11901 with the three-shard UD-IQ4_XS GGUF and MTP. The native vLLM for RTX Spark project reports **70.44 tok/s** using FP4-Local and its own client. The **54.19 tok/s** in the table above is our weighted BetterBench measurement of the Windows Arm64 vLLM port. [NVIDIA measurement](https://github.com/NVIDIA/local-ai-inference-recipes/blob/bb515086841e7a81e7d51925561338e7dee35023/models/qwen/qwen3.8-flash-next/rtx-spark/windows/llama-cpp/78gb/iq4-xs/vision-mtp/performance.yaml) · [Native vLLM benchmark](https://github.com/devjeonghwan/vllm-for-rtx-spark/blob/e9412963ff4619da5f97f8b5e3c2dd274967df87/README.md#nvidia-reference)
 
 ![Single-stream decode by scenario · Basalt RTX Spark, Basalt + Arm64 port, vLLM for RTX Spark](img/engines-decode.svg)
 
@@ -47,7 +49,7 @@ $vllm = 'benchmarks/results/2026-11-24-n1x-verified-default/vllm/results.json'
 python benchmarks/plot.py --out benchmarks/img --prefix engines `
   "$run/release/results.json" 'Basalt RTX Spark (UD-IQ3_XXS)' `
   "$run/arm-port/results.json" 'Basalt + Arm64 port (UD-IQ3_XXS)' `
-  $vllm 'vLLM for RTX Spark (FP4-Local)'
+  $vllm 'Native vLLM for RTX Spark (FP4-Local)'
 ```
 
 ## Running it
