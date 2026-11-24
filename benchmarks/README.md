@@ -2,9 +2,7 @@
 
 Run the [production feature coverage workloads](feature-coverage.md) alongside each BetterBench comparison. The cold-join check submits an uncached fourth prompt after three streams are producing output and verifies their progress during prefill.
 
-Serving results on RTX Spark machines, measured with [BetterBench](https://github.com/GGZ14/BetterBench) 0.6.1 and
-one shared config, so runs on different laptops (and other Spark machines) can be compared. Contributions are welcome:
-add a folder under `results/` with your run (see [Contributing a result](#contributing-a-result)).
+Measure native Windows Arm64 serving on the RTX Spark N1X with the shared BetterBench 0.6.1 configuration. On another laptop, record its GPU memory split and cooling profile alongside the results. [BetterBench](https://github.com/GGZ14/BetterBench) · [Contribute a result](#contributing-a-result)
 
 ## Results
 
@@ -37,7 +35,7 @@ Earlier N1X single-request tests measured output tokens per second for three pro
 | Basalt + Arm64 port / Flash-Next | `NVFP4-DQ6_K` | 80.8 | 140.3 | 67.8 |
 | Basalt RTX Spark / Qwen3.8-27B | `QUASAR-NVFP4` | 48.6 | 143.7 | 33.1 |
 
-The alternating Flash-Next IQ3 and FP4-Local runs used INT8 KV, MTP 8 and fully GPU-resident experts. Busy GPU draw was 36.8–42.4 W for IQ3 and 38.4–41.4 W for FP4-Local. The Arm64 port used FP16 KV for its NVFP4-DQ6_K test. The 27B run used INT8 KV and a 16-token block drafter. The other listed packs have no comparable N1X throughput measurement in these runs. [Per-run measurements](https://github.com/SuperDistance/basalt-rtx-spark/blob/234f26ef/docs/n1x-handoff.md#reproduced-on-november-23) · [Arm64 port fixtures](../docs/arm64.md#speed-on-the-rtx-spark-n1x)
+The alternating Flash-Next IQ3 and FP4-Local runs used INT8 KV, MTP 8 and fully GPU-resident experts. Busy GPU draw was 36.8–42.4 W for IQ3 and 38.4–41.4 W for FP4-Local. The Arm64 port used FP16 KV for its NVFP4-DQ6_K test. The 27B run used INT8 KV and a 16-token block drafter. The other listed packs have no comparable N1X throughput measurement in these runs. [Per-run measurements](results/2026-11-23-n1x-quantization) · [Arm64 port fixtures](../docs/arm64.md#speed-on-the-rtx-spark-n1x)
 
 The [benchmark archive](results) contains the individual runs and scheduler experiments.
 
@@ -56,13 +54,14 @@ python benchmarks/plot.py --out benchmarks/img --prefix engines `
 
 1. Install BetterBench 0.6.1 (`pip install -e .` in a clone of its repository; Python 3.10+).
 2. Start the server with the config you are measuring (the one these runs used is in the [setup guide](../docs/rtx-spark-setup.md#install)).
-3. Run, from the BetterBench checkout:
+3. From this repository’s root, run BetterBench in PowerShell. Set the pack and memory split to match the server you started. The build ID should identify its binary or source revision.
 
-   ```
-   python -m betterbench.cli run --no-update-check --endpoint http://127.0.0.1:8080/v1 --model flash-next \
-     --config <this repo>/benchmarks/betterbench-config.json --max-model-len 262144 \
-     --note engine=<build> --note quant=<pack> --note hardware=<machine and GPU split> \
-     --name <name> --out <name>.json
+   ```powershell
+   $build = git rev-parse --short HEAD
+   python -m betterbench.cli run --no-update-check --endpoint http://127.0.0.1:8080/v1 --model flash-next `
+     --config benchmarks/betterbench-config.json --max-model-len 262144 `
+     --note "engine=$build" --note quant=UD-IQ3_XXS --note 'hardware=RTX Spark N1X, 96 GB GPU split' `
+     --name n1x --out n1x.json
    ```
 
    The config is BetterBench's community settings: temperature 0.7, top-p 0.95, top-k 20, a cold prefix cache, 3 warm-up
@@ -70,7 +69,7 @@ python benchmarks/plot.py --out benchmarks/img --prefix engines `
    takes 35-45 minutes.
 
 4. Log the GPU's power and clock beside it, for example
-   `nvidia-smi --query-gpu=timestamp,pstate,power.draw,clocks.sm,temperature.gpu,utilization.gpu --format=csv -l 5 > <name>.gpu.csv`.
+   `nvidia-smi --query-gpu=timestamp,pstate,power.draw,clocks.sm,temperature.gpu,utilization.gpu --format=csv -l 1 > n1x.gpu.csv`.
 
 ### The power state matters
 
@@ -92,3 +91,5 @@ Add `results/<date>-<maker>-<model>-<chip>-<ram>/` with:
 
 Then add a row to the table above and open a pull request. Results from other engines on the same machine are
 welcome too, run with the same config.
+
+Archived BetterBench files identify the test machine by model in the `env.host` field. System hostnames and user profile paths can be omitted from contributed runs.

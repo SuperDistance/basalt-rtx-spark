@@ -1,52 +1,32 @@
-# Arm64 and compute capability 12.1
+# RTX Spark N1X on Windows Arm64
 
-Basalt builds and runs on Arm64 with an NVIDIA GPU of compute capability 12.1: the integrated Blackwell GPU of the RTX Spark N1X
-and of the DGX Spark (GB10). It has been built and tested on one machine, an RTX Spark N1X laptop (128 GB of unified memory, 96 GB
-of it given to the GPU), both natively on Windows on Arm64 and on Linux Arm64 (WSL on the same laptop). A DGX Spark has the same
-GPU but has not been tested here.
+The N1X pairs an Arm64 CPU with an integrated Blackwell GPU of CUDA compute capability 12.1 (`sm_121`). This port was tested on a 128 GB RTX Spark laptop with a 96 GB GPU allocation, natively on Windows 11 on Arm and in Ubuntu under WSL2 on the same laptop. DGX Spark’s GB10 also has compute capability 12.1. The tests recorded here ran on N1X hardware. [Setup guide](rtx-spark-setup.md) · [Current N1X benchmark results](../benchmarks)
 
 A build is for one CPU architecture and one compute capability. x86-64 with 12.0 is unchanged. Arm64 defaults to 12.1;
 `-DCMAKE_CUDA_ARCHITECTURES=120` builds Arm64 for a 12.0 card instead (not tested). `BASALT_CUDA_CC` (120 or 121) follows the
 architecture you build for and is what the start checks the GPU against.
 
-| | Linux Arm64 | Windows on Arm64 |
+| | Native Windows Arm64 | Linux Arm64 in WSL2 |
 | --- | --- | --- |
-| Tested on | Ubuntu 26.04 aarch64 (WSL2), GCC 15.2 | Windows 11 on Arm, MSVC 19.52 (Visual Studio 2026 Build Tools) |
-| CPU | Armv8.2 with the dot product (NEON CPU kernels) | the same |
+| Tested on | Windows 11 on Arm, MSVC 19.52 (Visual Studio 2026 Build Tools) | Ubuntu 26.04 aarch64, GCC 15.2 |
+| CPU | Armv8.2 with dot product (NEON CPU kernels) | Same N1X CPU |
 | CUDA | 13.5 | 13.5 |
-| Tests | 224 of 225 (below) | 213 of 219 (below) |
+| Original port tests | 213 of 219 (below) | 224 of 225 (below) |
 
 ## Building
 
 ### The CUDA toolkit
 
-Any CUDA 13 toolkit for the platform works. `tools/port/fetch_cuda.py` assembles one from NVIDIA's redistributable archives, without
+CUDA 13.5 was used on Windows Arm64 and in WSL2. `tools/port/fetch_cuda.py` assembles one from NVIDIA's redistributable archives, without
 the installer and without a driver component (the machine's own driver runs the binaries); each archive is checked against NVIDIA's
-SHA-256:
-
-```sh
-python3 tools/port/fetch_cuda.py linux-sbsa ~/cuda-13.5          # Linux Arm64
-python tools\port\fetch_cuda.py windows-arm64 C:\cuda-13.5       # Windows on Arm64
-```
-
-On Linux it makes `lib64` a link to `lib` (nvcc looks there for `libcudadevrt`). On Windows the runtime DLLs land in `bin\arm64`.
-
-### Linux Arm64
-
-```sh
-export PATH=~/cuda-13.5/bin:$PATH
-cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=ON    # "basalt: Arm64, NEON CPU kernels; CUDA arch 121"
-cmake --build build
-LD_LIBRARY_PATH=~/cuda-13.5/lib ctest --test-dir build -j 4
-```
-
-Under WSL2, add `/usr/lib/wsl/lib` (the driver) to `LD_LIBRARY_PATH`, and keep the build out of `/tmp`, which WSL empties.
+SHA-256. On Windows the runtime DLLs land in `bin\arm64`. On Linux the helper links `lib64` to `lib` so nvcc can find `libcudadevrt`.
 
 ### Windows on Arm64
 
 Visual Studio 2026 or its Build Tools with the ARM64 C++ tools; the CMake and Ninja that come with it are enough.
 
 ```bat
+python tools\port\fetch_cuda.py windows-arm64 C:\cuda-13.5
 tools\port\build-win-arm64.cmd build C:\cuda-13.5
 call tools\port\env-win-arm64.cmd C:\cuda-13.5
 ctest --test-dir build -j 4
@@ -55,6 +35,18 @@ ctest --test-dir build -j 4
 `env-win-arm64.cmd` finds Visual Studio with `vswhere`, enters its Arm64 environment and puts the toolkit's `bin` and `bin\arm64` on
 `PATH`. Keep `bin\arm64` on `PATH` whenever the engine or a test runs: without it Windows stops each program that links cuBLAS with
 a "cublas64_13.dll was not found" dialog, which waits for a click while ctest waits for the program.
+
+### Linux Arm64
+
+```sh
+python3 tools/port/fetch_cuda.py linux-sbsa ~/cuda-13.5
+export PATH=~/cuda-13.5/bin:$PATH
+cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=ON    # "basalt: Arm64, NEON CPU kernels; CUDA arch 121"
+cmake --build build
+LD_LIBRARY_PATH=~/cuda-13.5/lib ctest --test-dir build -j 4
+```
+
+Under WSL2, add `/usr/lib/wsl/lib` (the driver) to `LD_LIBRARY_PATH`, and keep the build out of `/tmp`, which WSL empties.
 
 ## What changes on Arm64
 
@@ -96,9 +88,7 @@ actual segment size. Basalt reads the available GPU memory and system commit bud
 
 ## Running
 
-As on any platform: `basalt serve PACK`. On Windows pass `--python` with a Python that has `requirements.txt` installed (the
-default looks for `.venv/bin/python`, a Linux layout). The server here ran on Python 3.13 for Windows on Arm64; installing
-`requirements.txt` into a fresh Arm64 environment has not been tried.
+On Windows the launcher checks `.venv\Scripts\python.exe` beside the installation's `bin` directory, then falls back to `python` on the path. Pass `--python` to select a different interpreter with the server requirements installed. The release’s `setup.cmd` creates the virtual environment. [Install and run](rtx-spark-setup.md#install)
 
 `tools/serve_speed.py` times a running server: `long` sends one long chat prompt (a text file, or a filler of N tokens) and
 reports the prompt read and the decode; `fixtures` sends basalt-bench's requests as token ids to another engine's
@@ -123,6 +113,8 @@ What does not pass:
 - `kv_arena_test` can fail when other GPU tests run beside it (`ctest -j`): it reads free memory while they allocate. Alone it passes.
 
 ## Speed on the RTX Spark N1X
+
+These are the original Arm64 port measurements. For current engine comparisons, see the [N1X BetterBench results](../benchmarks).
 
 Windows 11 on Arm, native build, one process, the page file above. vLLM is a community build for the RTX Spark (vLLM 0.32.0) with
 NVIDIA's NVFP4 checkpoint of the same model, MTP with two drafts, FP8 KV and one sequence; it read the same requests through

@@ -139,7 +139,7 @@ bool parse_gpu_spec(const std::string& text, GpuSpec& out, std::string& err) {
     return true;
 }
 
-// The main GPU runs the model's decode kernels (NVFP4 tensor cores, Blackwell instructions) — sm_120 only.
+// The main GPU runs the model's decode kernels (NVFP4 tensor cores, Blackwell instructions) for the build's compute capability.
 // A peer GPU runs only the expert tier's standard CUDA kernels (Q8_1/Q2_0 rows, shared-memory rings,
 // doorbells), which a build with -DPEER_ADA=ON also compiles for sm_89 (Ada).
 bool gpu_main_supported(const GpuCard& c) { return c.cc_major == 0 || core::cuda_cc_is_ours(c.cc_major, c.cc_minor); }
@@ -173,7 +173,7 @@ GpuChoice choose_gpus(const GpuSpec& spec, const std::vector<GpuCard>& visible, 
             c.error = "gpu auto: GPUs not listable (no NVML)";
             return c;
         }
-        // Main card: sm_120 only, the most memory bandwidth, then the most VRAM
+        // Choose a matching main card by memory bandwidth, then by VRAM.
         std::vector<int> main_ok;
         std::vector<int> peer_ok;
         for (int i = 0; i < n; ++i) {
@@ -192,7 +192,7 @@ GpuChoice choose_gpus(const GpuSpec& spec, const std::vector<GpuCard>& visible, 
             if (a.mem_gbps > b.mem_gbps || (a.mem_gbps == b.mem_gbps && a.vram > b.vram)) best = i;
         }
         c.cards.push_back(best);
-        // then the other sm_120 cards, then the sm_89 ones (a -DPEER_ADA=ON build) as expert tiers
+        // then the other matching cards, then the sm_89 ones (a -DPEER_ADA=ON build) as expert tiers
         for (int i : main_ok)
             if (i != best) c.cards.push_back(i);
         for (int i : peer_ok)
@@ -221,7 +221,7 @@ GpuChoice choose_gpus(const GpuSpec& spec, const std::vector<GpuCard>& visible, 
         }
         return c;
     }
-    // Explicit list: the first card is the main (sm_120), the rest second cards (sm_120, or sm_89 with -DPEER_ADA=ON).
+    // Explicit list: the first card must support the main kernels. The rest must support the peer kernels.
     for (size_t idx = 0; idx < spec.list.size(); ++idx) {
         const int i = spec.list[idx];
         if (known && i >= n) {

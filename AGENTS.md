@@ -1,6 +1,8 @@
 # AGENTS.md
 
-Basalt is a local inference engine built for NVIDIA Blackwell (sm_120) on Linux and Windows x64. A model runs on one Blackwell GPU, optionally with more GPUs as peer expert tiers, and, for the mixture-of-experts models, system RAM holding the rest (a dense model runs fully on one GPU). The C++/CUDA engine is in `src/` and `include/`, each model's own code under `src/models/<model>`, and the Python server with an OpenAI- and Anthropic-compatible API is in `serve/`.
+Basalt RTX Spark is a native Windows Arm64 inference engine for the RTX Spark N1X laptop. Its integrated GPU has CUDA compute capability 12.1 (`sm_121`) and shares memory with the CPU. Work on Flash-Next and Qwen3.8-27B is measured on this target. The inherited x64 build uses `sm_120` for discrete Blackwell GPUs.
+
+The C++/CUDA engine is in `src/` and `include/`. Model implementations live in `src/models/<model>`. The Python server in `serve/` provides OpenAI- and Anthropic-compatible APIs.
 
 ## Rules
 

@@ -1,6 +1,8 @@
-# Changelog
+# Upstream Basalt changelog
 
-Releases, newest first. Versions are 0.x: a minor release adds a model or another large change; a patch release brings fixes and smaller features, and can rename or remove a flag (a removed or renamed flag breaks a config, as Basalt keeps no shims, so each entry's Upgrading section lists them). Each release is an annotated tag `vX.Y.Z` with a GitHub Release carrying its entry. From 0.3.2 each release also carries Linux and Windows x64 archives ([platforms](../platforms.md#release-archives)); or build from source ([building](../building.md)).
+For the Windows Arm64 N1X packages and their release notes, see [Basalt RTX Spark releases](https://github.com/SuperDistance/basalt-rtx-spark/releases).
+
+Upstream Basalt releases, newest first. Versions are 0.x: a minor release adds a model or another large change; a patch release brings fixes and smaller features, and can rename or remove a flag (a removed or renamed flag breaks a config, as Basalt keeps no shims, so each entry's Upgrading section lists them). Each release is an annotated tag `vX.Y.Z` with a GitHub Release carrying its entry. From 0.3.2 each release also carries Linux and Windows x64 archives ([platforms](../platforms.md#release-archives)); or build from source ([building](../building.md)).
 
 | Release | Date | Summary |
 | --- | --- | --- |

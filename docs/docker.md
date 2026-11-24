@@ -1,10 +1,8 @@
-# Docker
+# Docker on Linux and WSL2
 
-A container runs the same engine and server on a Linux host: a DGX Spark (GB10), an RTX Spark laptop under Linux, or an
-RTX Spark laptop through Docker Desktop on Windows. The image's architecture picks the GPU: Arm64 builds for compute
-capability 12.1 (GB10, N1X), x86-64 for 12.0 (RTX 50-series). On Windows on Arm the native build
-([Windows setup guide](rtx-spark-setup.md#install)) is the faster path; the container is for Linux hosts and for keeping the engine
-apart from the rest of the machine.
+For an RTX Spark N1X laptop running Windows 11 on Arm, use the native Windows Arm64 release. It includes the runtime DLLs for the `sm_121` GPU. [Windows setup guide](rtx-spark-setup.md)
+
+This optional container runs Linux. Its Arm64 image targets compute capability 12.1 for N1X and GB10. The x64 image targets compute capability 12.0 for discrete Blackwell GPUs. See the [validation status](#status) for what has been checked on the N1X.
 
 ## Host
 

@@ -216,7 +216,7 @@ model::Result DsModel::plan(const model::LoadRequest& req, core::LoadPlan& reads
                           kMaxSecondCards);
         peers.resize((size_t) kMaxSecondCards);
     }
-    // The peer-tier kernels of this architecture are built for sm_120 only: refuse an older
+    // The peer-tier kernels of this architecture target the main GPU's compute capability: refuse an older
     // peer card here rather than failing at its first launch with 'no kernel image'.
     for (int dev : peers) {
         cudaDeviceProp prop{};

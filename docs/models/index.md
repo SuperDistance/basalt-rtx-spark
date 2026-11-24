@@ -1,5 +1,7 @@
 # Models
 
+On RTX Spark N1X, Flash-Next and Qwen3.8-27B have native Windows Arm64 measurements. The headline BetterBench run used the Flash-Next `UD-IQ3_XXS` pack with four full-context slots of 262,144 tokens available. The table below lists the general model defaults. [N1X benchmark results](../../benchmarks) · [Setup guide](../rtx-spark-setup.md)
+
 A model is one `.basalt` file, mixture-of-experts or dense. The server reads the architecture from the
 file and picks the chat format, tool syntax and thinking switch. Several models can share one address ([router](../configuration/models.md)). What each model supports:
 

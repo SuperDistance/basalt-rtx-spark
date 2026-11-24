@@ -1,7 +1,7 @@
 name: ci
 
 # Pull requests run the same jobs as main. Fork pull requests get a read-only token and no secrets (none are used).
-# No GPU is available: the engine is compiled for sm_120 and only the `cpu`-labelled tests run.
+# Hosted runners compile the N1X target and run CPU tests. GPU execution is checked on the RTX Spark laptop.
 on:
   pull_request:
     paths-ignore:
@@ -58,6 +58,29 @@ jobs:
       - name: Migration tests
         run: python -m unittest discover -s tools/migrations -p "test_*.py"
 
+  n1x:
+    name: Windows Arm64 · RTX Spark sm_121
+    runs-on: windows-11-vs2026-arm
+    timeout-minutes: 240
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6.3.0
+        with:
+          python-version: "3.12"
+          architecture: arm64
+      - name: Fetch native CUDA 13.5
+        run: python tools/port/fetch_cuda.py windows-arm64 "$env:RUNNER_TEMP\cuda" --version 13.5.0
+      - name: Build the engine and run host-side tests
+        shell: cmd
+        run: |
+          call tools\port\env-win-arm64.cmd "%RUNNER_TEMP%\cuda" || exit /b 1
+          cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_CUDA_ARCHITECTURES=121 -DBUILD_TESTING=ON || exit /b 1
+          cmake --build build --parallel 2 --target basalt gpu_select_test context_policy_test tier_policy_test || exit /b 1
+          ctest --test-dir build -L cpu -R "^(gpu_select_test|context_policy_test|tier_policy_test)$" --no-tests=error --output-on-failure
+
+  # Compatibility coverage inherited from upstream Basalt.
   build-test:
     strategy:
       fail-fast: false

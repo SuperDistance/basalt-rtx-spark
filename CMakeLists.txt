@@ -19,9 +19,9 @@ endif()
 option(BUILD_TESTING "Build the tests and parity programs" OFF)
 # Covers the project's own C++ and CUDA sources only; off by default so a newer compiler's new warning cannot break a user build.
 option(WERROR "Treat compiler warnings as errors" OFF)
-# Optional peer architectures: building the peer-tier kernels for sm_89 (Ada) in addition to sm_120
+# Optional peer architectures: building the peer-tier kernels for sm_89 (Ada) alongside the main GPU target
 # allows a non-Blackwell card to serve as the expert tier, but adds build time.
-option(PEER_ADA "Compile peer kernels for sm_89 (Ada) in addition to sm_120" OFF)
+option(PEER_ADA "Compile peer kernels for sm_89 (Ada) alongside the main GPU target" OFF)
 if(BUILD_TESTING)
   enable_testing()
 endif()
@@ -43,7 +43,7 @@ endfunction()
 # the CUDA language gives the .cu compile rules but not the imported targets, so `CUDA::cudart` is brought in
 # explicitly for the host-side programs that call the runtime themselves
 find_package(CUDAToolkit REQUIRED)
-# Main kernels (NVFP4 tensor cores, TMA, Blackwell instructions) compile for sm_120 only.
+# Main kernels (NVFP4 tensor cores, TMA, Blackwell instructions) compile for the selected compute capability.
 # When PEER_ADA is enabled, peer kernels (Q8_1/Q2_0 expert rows, standard CUDA) additionally compile
 # for sm_89 (Ada) so a non-Blackwell card can serve as the expert tier.
 # cmake/target_arch.cmake has checked CMAKE_CUDA_ARCHITECTURES: one capability, 12.0 or 12.1 (BASALT_CUDA_CC).

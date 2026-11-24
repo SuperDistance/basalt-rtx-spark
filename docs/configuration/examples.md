@@ -2,6 +2,8 @@
 
 Start with `bin/basalt serve --config basalt_config.json`. Model paths are relative to the file. Settings: [configuration](index.md).
 
+For the RTX Spark N1X, start with the [Windows Arm64 configuration](../rtx-spark-setup.md#install). The examples below cover discrete GPUs.
+
 ## One GPU (32 GB) and RAM
 
 ```json

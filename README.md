@@ -1,10 +1,17 @@
 # Basalt RTX Spark
 
-## 90.8 tokens/s at 45.3 W CPU + GPU
+## 120B-class Qwen3.8-Flash-Next at 90.8 tokens/s on your RTX Spark laptop
 
-Basalt runs Qwen3.8-Flash-Next, a 120B-class model, locally on an HP OmniBook X with RTX Spark N1X. On Windows 11 on Arm it reached **90.79 tokens/s** on a single stream. During that decode test, the CPU averaged **9.45 W** and the GPU **35.83 W** across 409 busy samples. [Power measurements](benchmarks/results/2026-11-24-n1x-verified-default/power-method.md)
+**45.3 W combined CPU + GPU** for single-stream decode on Windows 11 Arm64, in the same throughput range as a desktop RTX 4080 SUPER running Strata (90.2 tok/s on IQ3_S). [Power measurements](benchmarks/results/2026-11-24-n1x-verified-default/power-method.md) · [Desktop benchmark](benchmarks/desktop-decode.md)
 
-[Install and run](docs/rtx-spark-setup.md) · [Benchmark results](#results) · [Model packs and speeds](#quantization) · [Connect a client](docs/rtx-spark-setup.md#use-it-from-your-tools)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+![Windows on Arm64](https://img.shields.io/badge/Windows-Arm64-0078D4)
+![RTX Spark N1X](https://img.shields.io/badge/NVIDIA-RTX%20Spark%20N1X-76B900)
+![CUDA sm_121](https://img.shields.io/badge/CUDA-sm__121-426417)
+
+![Weighted single-stream decode in tokens/s. Basalt RTX Spark 90.79, Basalt Arm64 port 87.52, vLLM 54.19.](benchmarks/img/engines-overview.svg)
+
+[Download for Windows Arm64](https://github.com/SuperDistance/basalt-rtx-spark/releases/latest) · [Setup guide](docs/rtx-spark-setup.md) · [Benchmark results](#results) · [Model packs and speeds](#quantization) · [Connect a client](docs/rtx-spark-setup.md#use-it-from-your-tools)
 
 ## Results
 
@@ -15,19 +22,6 @@ All three engines ran the same 392 BetterBench requests on one N1X with 128 GB o
 | **Basalt RTX Spark** | `UD-IQ3_XXS` | **90.79** | 289 | **110.50** |
 | Basalt + Arm64 port | `UD-IQ3_XXS` | 87.52 | 622 | 85.32 |
 | vLLM for RTX Spark 0.2.0 | `FP4-Local` (NVFP4 / MXFP8) | 54.19 | **271** | 100.75 |
-
-### How does 90 tok/s compare with a desktop GPU?
-
-On Qwen3.8-Flash-Next, the Spark laptop’s **90.79 tok/s** falls alongside two community-reported desktop results. Each used a different prompt suite and weight pack.
-
-| Discrete GPU | Engine and weights | Reported single-stream decode |
-| --- | --- | ---: |
-| Desktop GeForce RTX 4080 SUPER · 16 GB | Strata · IQ3_S | **90.2 tok/s** |
-| Same RTX 4080 SUPER | Strata · IQ3_XXS | **115.8 tok/s** |
-| Desktop Radeon AI PRO R9700 · one GPU | StillDeadcode’s Radiance · Q4 | **90–100 tok/s** |
-| GeForce RTX 4090 Laptop GPU | Strata · IQ3_S | **51.2 tok/s** |
-
-The 4080 SUPER ran with a Ryzen 9 5950X. Its figures are medians across prompt lengths from 1K to 123K tokens. The R9700 figure is an owner’s single-stream report. The 4090 Laptop result follows a 4,096-token prompt. [Strata desktop results](https://github.com/Niko1221/Strata/issues/2314#issuecomment-6226756317) · [Radiance owner’s report](https://www.reddit.com/r/ROCm/comments/1x6j8an/comment/phvaz73/) · [Strata laptop benchmark and logs](https://github.com/Niko1221/Strata/blob/2af30ccaa0729177c4725ee2073f72bf550e2f86/docs/bench-results/2026-10-04-community-rtx-4090-laptop/README.md)
 
 ![Single-stream decode by scenario · Basalt RTX Spark, Basalt + Arm64 port, vLLM for RTX Spark](benchmarks/img/engines-decode.svg)
 
@@ -58,7 +52,7 @@ Earlier N1X single-request tests measured output tokens per second for three pro
 | Basalt + Arm64 port / Flash-Next | `NVFP4-DQ6_K` | 80.8 | 140.3 | 67.8 |
 | Basalt RTX Spark / Qwen3.8-27B | `QUASAR-NVFP4` | 48.6 | 143.7 | 33.1 |
 
-The alternating Flash-Next IQ3 and FP4-Local runs used INT8 KV, MTP 8 and fully GPU-resident experts. Busy GPU draw was 36.8–42.4 W for IQ3 and 38.4–41.4 W for FP4-Local. The Arm64 port used FP16 KV for its NVFP4-DQ6_K test. The 27B run used INT8 KV and a 16-token block drafter. The other listed packs have no comparable N1X throughput measurement in these runs. [Per-run measurements](https://github.com/SuperDistance/basalt-rtx-spark/blob/234f26ef/docs/n1x-handoff.md#reproduced-on-november-23) · [Arm64 port fixtures](docs/arm64.md#speed-on-the-rtx-spark-n1x)
+The alternating Flash-Next IQ3 and FP4-Local runs used INT8 KV, MTP 8 and fully GPU-resident experts. Busy GPU draw was 36.8–42.4 W for IQ3 and 38.4–41.4 W for FP4-Local. The Arm64 port used FP16 KV for its NVFP4-DQ6_K test. The 27B run used INT8 KV and a 16-token block drafter. The other listed packs have no comparable N1X throughput measurement in these runs. [Per-run measurements](benchmarks/results/2026-11-23-n1x-quantization) · [Arm64 port fixtures](docs/arm64.md#speed-on-the-rtx-spark-n1x)
 
 </details>
 

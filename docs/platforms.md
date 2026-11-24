@@ -1,14 +1,10 @@
 # Platforms
 
-Linux x64 and Windows x64, NVIDIA Blackwell (sm_120). Linux is where the engine is tested and benchmarked. CI builds both and runs
-the CPU tests on each. The GPU tests and the quality gate need a card.
+Basalt RTX Spark targets Windows 11 on Arm64 and the RTX Spark N1X integrated GPU (`sm_121`, compute capability 12.1). The native Windows build uses Arm64 MSVC, NEON CPU kernels and CUDA 13.5. See the [Windows setup](rtx-spark-setup.md), [Arm64 build and test record](arm64.md) and [N1X benchmarks](../benchmarks).
 
-Arm64 with compute capability 12.1 (the integrated GPU of the RTX Spark N1X and the DGX Spark) builds on Linux and Windows on
-Arm64: [Arm64](arm64.md). The rest of this page is about x64.
+## Inherited x64 platforms
 
-The main card is always sm_120, with one exception in the multi-GPU tier: when built with `-DPEER_ADA=ON`, a second card of sm_89 (Ada) can hold and
-compute the expert tier ([GPUs](configuration/gpus.md#an-older-peer-card)); every other path and every other
-architecture is Blackwell-only.
+Upstream Basalt targets discrete Blackwell GPUs (`sm_120`) on Linux and Windows x64. These are separate build targets. For multi-GPU desktops, an optional build can also compile the peer expert kernels for Ada (`sm_89`). [GPU selection](configuration/gpus.md#an-older-peer-card)
 
 | | Linux | Windows |
 | --- | --- | --- |
@@ -18,7 +14,9 @@ architecture is Blackwell-only.
 
 ## Release archives
 
-Each release carries `basalt-vX.Y.Z-linux-x64.tar.gz` and `basalt-vX.Y.Z-windows-x64.zip`: `bin/` (`basalt`, `basalt-bench`,
+For the N1X, use the Windows Arm64 ZIP and follow the [RTX Spark setup guide](rtx-spark-setup.md#install).
+
+Upstream x64 releases carry `basalt-vX.Y.Z-linux-x64.tar.gz` and `basalt-vX.Y.Z-windows-x64.zip`: `bin/` (`basalt`, `basalt-bench`,
 `basalt-probe`, `basalt-vision`), `serve/`, `tools/` (what the server imports), `data/`, `docs/`, `requirements.txt` and the licences.
 They hold no CUDA libraries and no Python environment. Needs:
 
@@ -38,24 +36,7 @@ reads the archive's `data/bench`.
 
 ## Container image
 
-`Dockerfile` builds the engine, the server and the server's venv into one image on a CUDA 13 base: the release archive's tree,
-with the venv already installed. Building it needs no GPU.
-
-```sh
-docker build -t basalt .
-docker run --rm --runtime=nvidia -e NVIDIA_VISIBLE_DEVICES=all \
-    -v "$PWD/appdata/basalt:/data" -v "$PWD/models:/models" -p 8080:8080 basalt
-```
-
-`/data` holds `basalt_config.json` (v2; `tools/migrations/config_v1_to_v2.py` converts an older file) and takes the server's
-folder per model under `~/.cache/basalt`, where `HOME` points: its engine log and, when the conversation disk tier is on, that
-tier. A pack is read where it lies, so the packs go on `/models` and the config names them by their mount path
-(`/models/<pack>.basalt`); paths in the config are relative to the config file. The entrypoint is
-`basalt serve --config /data/basalt_config.json --host 0.0.0.0` and arguments after the image name follow it (`--api-key KEY`).
-The served port is `server.port` (8080) and the mapped host port has to match it; `--gpu` names the cards the container sees.
-
-The container path is untested: no `basalt-bench` run and no PPL/KLD quality run has been measured inside the image, so the
-benchmark numbers describe native runs.
+For Linux Arm64 or Docker Desktop with WSL2, see the [container instructions and validation status](docker.md). The headline N1X measurements use the native Windows Arm64 executable. [Benchmark records](../benchmarks)
 
 ## Platform code
 
@@ -90,11 +71,11 @@ frames decode on the CPU.
 - A display-attached GPU can hit the driver's timeout (TDR). Raise `TdrDelay` under `HKLM\SYSTEM\CurrentControlSet\Control\GraphicsDrivers`.
 - A card that drives the desktop has VRAM that moves between starts, so greedy output can differ run to run. Pin `expert-cache` and raise
   `vram-reserve-mib` for reproducible output.
-- Quality is not measured on Windows, and there are no headline benchmark numbers for it. Report Windows problems as issues labelled `windows`.
+- For a Windows issue, include the CPU architecture, GPU model, driver, Windows build and model pack. N1X performance measurements include the GPU memory split and power conditions. [Benchmark records](../benchmarks)
 
 ## Building on Windows
 
-From a Developer command prompt (or after `vcvarsall.bat x64`):
+Use the [native Arm64 build instructions](arm64.md#windows-on-arm64) on the N1X. For the inherited x64 target, run these commands in an x64 Developer Command Prompt.
 
 ```bat
 cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=ON
@@ -109,11 +90,11 @@ The executables land in `bin/` whatever the generator is (a Visual Studio genera
 If tests fail to create fixtures, point `TEMP` and `TMP` into the build tree. CUDA 13.2+ headers need `/Zc:preprocessor`; the CMakeLists
 passes it to nvcc's host compiler.
 
-## Numerics across the two builds
+## Historical x64 compiler comparison
 
 The CPU expert kernel is compiled by MSVC on Windows and GCC on Linux. On one commit, `expert_parity` and `pool_test` give 0 failures
 on both, and the pool output matches the serial run bit for bit.
 
 Greedy tokens differ across the builds: with tiers pinned and adaptive swaps off, `struct` matches over 300 tokens, `conv` diverges at
 token 23 and `prose` at token 44. One build matches itself run to run, so the difference is the host compiler's CPU code (78% of expert
-rows). Quality of the Windows build has not been run ([quality](precision/quality.md)).
+rows). That historical comparison did not include a Windows x64 quality run ([quality](precision/quality.md)).

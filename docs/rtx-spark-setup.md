@@ -1,19 +1,12 @@
-# Set up Basalt RTX Spark
+# Set up Basalt on an RTX Spark N1X laptop
+
+The Windows release runs natively on Arm64 and targets the N1X integrated GPU at CUDA compute capability 12.1 (`sm_121`).
 
 ## Install
 
 With a source checkout, serving Flash-Next on one RTX Spark N1X automatically configures four full-context slots, 262,144 tokens per slot and INT8 KV. A long cold prompt can join an active decode. Use `--parallel 1` for single-request serving or pass your own slot settings.
 
-**Prebuilt (easiest).** Download `basalt-...-windows-arm64.zip` from [Releases](https://github.com/SuperDistance/basalt-rtx-spark/releases),
-unzip it, run `setup.cmd` (it makes the Python environment and offers to download the model), then `start.cmd`. The
-CUDA libraries the engine needs are in the zip; a current NVIDIA driver is enough.
-
-The release ZIP may predate the engine used for the [performance results](../README.md#results). To reproduce them, build from this
-source using the instructions below. The [benchmark record](../benchmarks/results/2026-11-24-n1x-verified-default) identifies the tested binary.
-
-**Docker (Linux hosts: DGX Spark, RTX Spark under Linux).** `docker compose up -d` builds the image for the host's
-architecture (Arm64: sm_121) and serves with the Spark recipes' flags; the mounts and the unified-memory notes are in
-[docs/docker.md](docker.md).
+**Windows Arm64 release.** With an up-to-date NVIDIA driver, the ARM64 Visual C++ runtime and Python 3.10 or later installed, download the Windows Arm64 ZIP and extract it. Run `setup.cmd` to create the Python environment and download the Flash-Next pack, then `start.cmd` to serve it. The ZIP includes the CUDA runtime libraries. [Latest release](https://github.com/SuperDistance/basalt-rtx-spark/releases/latest)
 
 **From source.** You need the hardware and software in [Hardware](#hardware). Then, from a Developer PowerShell for
 Visual Studio:
@@ -81,7 +74,7 @@ and structured output (JSON schema) work as in Basalt; images and documents with
 | --- | --- | --- |
 | Machine | HP OmniBook X with RTX Spark N1X, 128 GB | other N1X laptops should work; results welcome in [benchmarks](../benchmarks) |
 | GPU memory split | 96 GB | automatic expert placement adapts to the available GPU memory |
-| OS | Windows 11 on Arm64 (build 28000) | Linux Arm64 builds too (from the port), untested here |
+| OS | Windows 11 on Arm64 (build 28000) | native Arm64 build and release |
 | Driver | NVIDIA 621.24 | |
 | Disk | ~120 GB free | the pack (88 GB) plus its n-gram table copy (29 GB) |
 | Build tools | Visual Studio 2026 (or Build Tools) with ARM64 C++, Python 3.10+ | CMake and Ninja come with Visual Studio |
@@ -106,8 +99,9 @@ The measurements behind each: [performance notes](n1x-performance.md), [GPU-firs
 
 ## Documentation
 
+[Contributing to Basalt RTX Spark](../CONTRIBUTING.md) · [Optional Linux container](docker.md)
+
 - **This fork:** [Arm64 build guide](arm64.md), [benchmarks](../benchmarks), [GPU power](n1x-gpu-power.md),
   [against vLLM](n1x-vs-vllm.md), [performance notes](n1x-performance.md).
-- **Basalt's:** [README](../README.basalt.md), [running](running.md), [configuration](configuration/index.md),
-  [Flash-Next](models/qwen38-flash-next.md), [precision](precision/index.md), [the `.basalt` file](model-file.md),
-  [contributing](../CONTRIBUTING.md).
+- **Upstream Basalt:** [README](../README.basalt.md), [running](running.md), [configuration](configuration/index.md),
+  [Flash-Next](models/qwen38-flash-next.md), [precision](precision/index.md), [the `.basalt` file](model-file.md).

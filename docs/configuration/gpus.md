@@ -1,22 +1,23 @@
 # GPUs
 
+On an RTX Spark laptop the engine selects the integrated N1X GPU and sizes expert placement against the available GPU segment and host memory. The Windows Arm64 build targets `sm_121`. The rest of this page also covers configurations for machines with additional GPUs.
+
 Flash-Next uses every mechanism on this page. DeepSeek takes up to four second cards as expert tiers and nothing else, each
 holding the experts of its own block of layers ([DeepSeek memory](../models/deepseek41.md#memory)).
 Qwen3.8-27B uses a second card for long prompts, or for its later layers when it does not fit the main card.
 
-One setting picks the cards: `gpu`. It means the same in the server (`"gpu"` in the config's `server` section, or
+One setting picks the cards: `gpu`. It means the same in the server (`"gpu"` in the config’s model entry, or
 `--gpu`), in `basalt` itself, in `basalt-bench` and in `basalt-probe`.
 
 | Value | Cards used | Main card |
 | --- | --- | --- |
 | not set | GPU 0 alone; one warning at start names the other visible cards | GPU 0 |
 | `"0,1"`, `"1,0"`, ... | exactly these, in this order | the first one listed |
-| `"auto"` | every visible Blackwell (sm_120) card, and when built with `-DPEER_ADA=ON`, every sm_89 card as an expert tier; any other card is skipped with one line naming it | the one with the most memory bandwidth, then the most VRAM |
+| `"auto"` | every visible GPU matching the build’s compute capability, and when built with `-DPEER_ADA=ON`, every sm_89 card as an expert tier; any other card is skipped with one line naming it | the one with the most memory bandwidth, then the most VRAM |
 
 Cards are numbered as `nvidia-smi` numbers them. When `CUDA_VISIBLE_DEVICES` is set, the numbers count within its list
 (`CUDA_VISIBLE_DEVICES=1,0` makes `gpu 0` the card `nvidia-smi` calls 1), and its numbers are read as `nvidia-smi`'s
-too. A number past the visible cards, a card listed twice, a first card that is not sm_120, or a later card that is
-neither sm_120 nor (when built with `-DPEER_ADA=ON`) sm_89 stops the start with an error.
+too. A number past the visible cards, a card listed twice, an incompatible main GPU, or an unsupported peer stops startup. The main GPU must match the capability selected at build time (`sm_121` for N1X, normally `sm_120` for x64 desktops). Peers must match it too, except for the optional Ada expert tier.
 
 The main card holds the dense weights, the KV cache, the drafter and its own expert cache. The engine decides what the
 other cards do and prints one line at start, for example `gpus: RTX 5090 (nvidia-smi 0) main, RTX 5060 Ti (nvidia-smi 1)
@@ -115,7 +116,7 @@ it holds.
 
 ## An older peer card
 
-One older architecture can be built for the peer's kernels: sm_89 (Ada), beside an sm_120 main card, enabled with the
+One older architecture can be built for the peer's kernels: sm_89 (Ada), alongside a main GPU matching the build, enabled with the
 `-DPEER_ADA=ON` build flag (off by default to keep build times fast for users without a hybrid setup). Without this flag,
 or for a card of any other pre-Blackwell architecture, the card is refused at the start rather than failing at its first
 kernel. What such a peer does and does not do:
@@ -125,7 +126,7 @@ kernel. What such a peer does and does not do:
 - It reads its experts' share of a prompt chunk, under the slower-card rule above (chunks up to 2,559 rows).
 - It does not run the main card's work: the dense weights, the KV cache, the drafter, TMA and the FP4 tensor-core
   expert kernels stay on the Blackwell card. An NVFP4 pack's FP4 experts are main-card only.
-- DeepSeek does not take an older peer: its peer-tier kernels are built for sm_120 only, and the start says so.
+- DeepSeek does not take an older peer: its peer-tier kernels are built for the main GPU’s compute capability, and the start says so.
 - Layer split, overlapped windows and tensor parallel need matched Blackwell cards; an unlike pair always uses the
   expert tier, as before.
 

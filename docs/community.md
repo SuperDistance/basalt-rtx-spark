@@ -1,6 +1,8 @@
 # Community runs
 
-[basalt.jgulfo.com/community](https://basalt.jgulfo.com/community/) lists benchmark runs submitted by users, all taken with the same preset so the rows compare. The data is `docs/community/benchmarks.json`; the page reads it from `main`, so a merged row shows up within minutes.
+For an RTX Spark N1X laptop, submit a native Windows Arm64 serving run with the [BetterBench instructions and report template](../benchmarks/README.md#contributing-a-result). These reports include cooling, power, and the GPU memory split.
+
+The instructions below describe the inherited `basalt-bench --community` preset and local data file. The upstream Basalt project maintains its own [community results page](https://basalt.jgulfo.com/community/).
 
 ## Add your run
 

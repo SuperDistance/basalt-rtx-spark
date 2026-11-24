@@ -168,9 +168,10 @@ def check_model(a, file_engine: list[str], cli_engine: list[str], used_argv: lis
             except ValueError as e:
                 fail(f"{a.model}: {e}")
             card = vision_card(mode)
-            if card is not None:                       # a numbered sidecar card: the engine's sm_120 rule is the
-                if gpu_card_name(card) is None:        # engine's; the sidecar is its own build and says whether
-                    fail(f"vision: GPU {card} is not found by nvidia-smi")   # the sidecar checks the card itself
+            # The sidecar checks its own build's compute capability.
+            if card is not None:
+                if gpu_card_name(card) is None:
+                    fail(f"vision: GPU {card} is not found by nvidia-smi")
             for note in plan.get("notes") or []:
                 lines.append(f"[server] {note}")
             if plan.get("warning"):

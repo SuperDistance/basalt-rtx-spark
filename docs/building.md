@@ -1,6 +1,8 @@
 # Building and testing
 
-The build commands are in the [upstream README](../README.basalt.md). Windows: [platforms](platforms.md). Arm64 (Linux and Windows): [Arm64](arm64.md).
+Build and test the native Windows Arm64 binaries on the RTX Spark N1X. The build helper selects the Arm64 MSVC tools, Arm NEON CPU kernels and CUDA compute capability 12.1 (`sm_121`). Check the CMake configure output for `CUDA arch 121`. [Windows build and tests](arm64.md#windows-on-arm64) · [Install and serve a model](rtx-spark-setup.md#install)
+
+Linux Arm64 build details and the inherited x64 targets are documented under [Arm64](arm64.md#linux-arm64) and [platforms](platforms.md).
 
 ## What is in the repository
 

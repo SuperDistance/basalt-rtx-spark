@@ -2,6 +2,8 @@
 
 Settings: [configuration](configuration/index.md). Diagnostic flags: `bin/basalt --help`. Several models: [models and the router](configuration/models.md).
 
+For local Windows Arm64 installation, model download and client endpoints, use the [RTX Spark setup guide](rtx-spark-setup.md).
+
 ## Start-up
 
 The page is up at once and the model loads behind it. The header reads `Loading` with the percent over a progress bar while weights load; choosing a model in the picker loads it. `/health` and `/metrics`
@@ -9,7 +11,9 @@ show the load: `load.percent` and `load.gib`, the GiB placed so far in one figur
 
 ## Concurrent requests: `--parallel N`
 
-`--parallel N` (1 to 8) serves N requests at once in batch slots. Further requests wait in arrival order. `--max-context` is shared:
+On a single RTX Spark N1X, serving Flash-Next without explicit slot settings selects four full-context slots, each with a 262,144-token limit and INT8 KV by default. [Verified settings and cold-join workload](../benchmarks/feature-coverage.md)
+
+With explicit slot settings, `--parallel N` (1 to 8) serves N requests at once in batch slots. Further requests wait in arrival order. `--max-context` is shared:
 each slot holds `max-context / N` tokens (`--parallel 4 --max-context 262144` gives four slots of 65,536). A request longer than its slot
 is refused with a 400 that names the length. `--slot-full-context` gives every slot the whole `--max-context`, at N times the KV cache.
 

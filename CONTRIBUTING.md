@@ -1,14 +1,14 @@
-# Contributing to Basalt
+# Contributing to Basalt RTX Spark
 
-Basalt is a local inference engine for NVIDIA Blackwell GPUs. Every rule below exists to keep its models fast and correct on that one target.
+This fork runs Qwen3.8-Flash-Next and Qwen3.8-27B natively on RTX Spark N1X laptops with Windows 11 on Arm. Start with the [Windows Arm64 setup](docs/rtx-spark-setup.md) and [N1X benchmark instructions](benchmarks/README.md).
 
 ## Scope
 
-- **CUDA on Blackwell (sm_120) only.** No ROCm/HIP, no AMD, no Intel/SYCL/oneAPI, no Apple/Metal, no CPU-only main path (a CPU fallback is fine where the GPU path is the default, like the experts held in RAM or `--vision cpu`), and no older NVIDIA architectures (Hopper sm_90 and earlier). No compatibility layers or `#if` branches for them. Pull requests adding another backend or architecture will be closed.
-- **Linux and Windows x64 are both supported.** CI compiles and CPU-tests Windows on every pull request. Windows-only issues get a `windows` label.
+- **Target the N1X.** The Arm64 build compiles its main CUDA kernels for the integrated GPU's compute capability 12.1 (`sm_121`). CPU expert kernels use Arm NEON. Weight and KV placement must account for the GPU memory split, available RAM, and the Windows commit limit.
+- **Preserve the inherited builds.** Linux Arm64 and the upstream x64 build for discrete Blackwell (`sm_120`) share engine code. Keep architecture selection in the build and platform layers. The available GPU backends and CPU fallback paths stay within Basalt's existing CUDA design.
 - **Engine code is platform-neutral.** No OS or compiler names and no raw OS calls outside the platform layer; a missing seam is added there with a Linux and a Windows body. See [platforms](docs/platforms.md).
 - **Engine log lines carry their level.** A line to stderr goes through `include/basalt/log.hpp` (`basalt::log::info`, `warn` or `error`), which writes `basalt <area>: [warning: |error: ]<text>`; the server and the terminal read the level from that marker and never from the words. A warning is a fallback or a lost function, an error is a failure or a refusal, everything else is info. `tools/check_stderr_logging.sh` fails when engine code names stderr anywhere else. Lines are terse facts (what was decided, its value, at most the flag to change it), and the text of lines the server parses does not change.
-- **No run scripts are shipped.** Running, serving, benchmarking and converting go through Basalt's own executables, never a shell, `.bat` or PowerShell wrapper. Repository checks under `tools/` may be scripts.
+- **Keep runtime behavior in the engine and server.** The Windows distribution's setup and start scripts handle environment setup and launch. Implement serving, benchmarking and conversion through their existing entry points.
 - **One fast path.** No per-user tuning flags or alternative kernels selected at run time. A change that wins replaces the old path; a change that doesn't win isn't merged. A/B and diagnostic flags are off by default and are not documented as settings. User-facing settings are limited to model, context, multi-GPU and serving options.
 - **No shims and no dead code.** A removed or renamed flag, option, field or code path is simply gone: no alias, no fallback, no "was retired" message. The normal unknown-flag error covers it. Code nothing uses is deleted in its own commit.
 - **Defaults are measured.** A default, or an automatic pick that replaces one, changes only after a measured run on hardware where it is picked.
@@ -31,7 +31,8 @@ Basalt is a local inference engine for NVIDIA Blackwell GPUs. Every rule below e
    - Bitwise-identical output: show the greedy-identity check against the previous build. Pin the expert tiers, since changes in GPU module size move the auto-sized tiers and change rounding.
    - Changed numerics (new reduction order, precision, quantization): run the perplexity/KLD gate against the BF16 reference ([docs/precision/quality.md](docs/precision/quality.md#the-bf16-reference)) through the decode path. Report PPL, mean KLD and top-1 agreement next to the previous build's. Large changes need the full 100-chunk run, not just the 20-chunk quick gate. The `docs/precision/` page that covers the change is updated in the same change, with fresh numbers where it quotes them.
 4. **Benchmark hygiene:**
-   - Every performance number states the GPU power limit it was measured at.
+   - Report the N1X memory split, pack, placement, KV and draft settings, concurrency, Windows power mode and cooling profile. Record GPU power, clocks and temperature during the measured phase. Include the driver’s power limit when available. If it is unavailable, label the measured rails and averaging window. [Power methodology](benchmarks/results/2026-11-24-n1x-verified-default/power-method.md)
+   - Exercise the applicable shipped defaults. Run BetterBench and the feature coverage workloads, including a cold fourth request arriving during three active decodes. Record join time to first token and the longest incumbent stall. [Feature coverage](benchmarks/feature-coverage.md)
    - A/B comparisons alternate the two builds in the same session (ABBA), with the expert tiers pinned to the same placement in both. Numbers taken in different sessions drift and aren't comparable.
    - Numbers are cold first runs of the real engine, at a placement real users get. A gain that only exists with experts spilled to the SSD is not a headline.
    - A claim that something can't get faster comes with a per-step breakdown against the measured hardware limit.
@@ -55,15 +56,7 @@ Basalt is a local inference engine for NVIDIA Blackwell GPUs. Every rule below e
 
 ## Other ways to help
 
-- Cannot contribute code? Add a benchmark run from your hardware to the community table (details in [community runs](docs/community.md)):
-  1. Run `basalt-bench --community --model PACK --submitter YourName`. It adds the row to `docs/community/benchmarks.json` ([building](docs/building.md)).
-  2. Review the row. After a hand edit, format and check it with `python3 tools/check_benchmarks.py --fix docs/community/benchmarks.json`.
-  3. Commit it.
-  4. Open a pull request; the `community` workflow runs the same check.
-  5. Once merged, the row appears on the [runs page](https://basalt.jgulfo.com/community/).
-- Any Blackwell (sm_120) machine with spare hours helps; bigger setups help most: 96 GB+ VRAM (single large cards or multi-GPU), quad- or octa-channel DDR5.
-- A few hours of remote access to a machine speeds up development.
-- Or sponsor the project through GitHub Sponsors (the repository's Sponsor button): it pays for tokens for agentic development and for time on different hardware to test on.
+A BetterBench run on another RTX Spark laptop helps show how memory split, driver, and cooling affect this engine. Start with the [benchmark instructions](benchmarks/README.md#running-it). Submit the result, effective settings and sensor samples with the [hardware report template](benchmarks/TEMPLATE.md). For a competing engine, use the same laptop and requests and document the quantization and cache differences.
 
 ## License
 

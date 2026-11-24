@@ -49,7 +49,7 @@
   },
   "env": {
     "timestamp": "2026-11-23T04:43:53-0800",
-    "host": "RTXSpark",
+    "host": "RTX Spark N1X",
     "os": "Windows-11-10.0.28000-SP0",
     "python": "3.13.18",
     "endpoint": "http://127.0.0.1:56177/v1",
