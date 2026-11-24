@@ -12,7 +12,7 @@ Native on Windows on Arm. Lossless speedups. Ready for your chat app and your co
 
 **Run Qwen3.8-Flash-Next, a ~120B-parameter mixture-of-experts model, locally on an NVIDIA RTX Spark laptop** with
 **90.79 tok/s** single-stream decode, a **289 ms** first token and **110.50 tok/s** across four parallel requests
-([BetterBench](benchmarks/results/2026-11-24-n1x-verified-default), November 24, 2026; complete cross-engine C4 power from SparkHelper). The goal: a capable large model fast enough at a laptop's power draw that
+in the November 24 [BetterBench run](#results). The goal: a capable large model fast enough at a laptop's power draw that
 local LLM workflows (chat, documents, coding agents) feel seamless, with nothing leaving the machine.
 
 It is a fork of the [Basalt](https://github.com/jesdga95/basalt) inference engine, built on its Arm64 port and tuned
@@ -38,7 +38,7 @@ unzip it, run `setup.cmd` (it makes the Python environment and offers to downloa
 CUDA libraries the engine needs are in the zip; a current NVIDIA driver is enough.
 
 The release ZIP may predate the engine used for the performance results below. To reproduce them, build from this
-source at `b3f15e6a` (the validated native engine snapshot from `3b27d149`) using the instructions below.
+source using the instructions below. The [benchmark record](benchmarks/results/2026-11-24-n1x-verified-default) identifies the tested binary.
 
 **Docker (Linux hosts: DGX Spark, RTX Spark under Linux).** `docker compose up -d` builds the image for the host's
 architecture (Arm64: sm_121) and serves with the Spark recipes' flags; the mounts and the unified-memory notes are in
@@ -109,60 +109,31 @@ and structured output (JSON schema) work as in Basalt; images and documents with
 | | Tested | Notes |
 | --- | --- | --- |
 | Machine | HP OmniBook X with RTX Spark N1X, 128 GB | other N1X laptops should work; results welcome in [benchmarks](benchmarks) |
-| GPU memory split | 96 GB | runs at any split; a larger one is faster (an earlier build: 92 against 74 tok/s decode at 96 and 64 GB) |
+| GPU memory split | 96 GB | automatic expert placement adapts to the available GPU memory |
 | OS | Windows 11 on Arm64 (build 28000) | Linux Arm64 builds too (from the port), untested here |
 | Driver | NVIDIA 621.24 | |
 | Disk | ~120 GB free | the pack (88 GB) plus its n-gram table copy (29 GB) |
 | Build tools | Visual Studio 2026 (or Build Tools) with ARM64 C++, Python 3.10+ | CMake and Ninja come with Visual Studio |
 
-The GPU's power state moves every number: it boosts to 55-60 W and on some laptops settles at 22-28 W after about eight
-minutes under load. The results here held the budget up (~42 W while busy); see [GPU power](docs/n1x-gpu-power.md).
+GPU clocks and power vary during sustained workloads. The comparison below gives the observed draw for each run. [GPU power measurements](docs/n1x-gpu-power.md)
 
 ## Results
 
-### Basalt and vLLM on the same N1X
+All three engines ran Qwen3.8-Flash-Next on the same RTX Spark N1X laptop with 128 GB of unified memory and a 96 GB GPU allocation. BetterBench 0.6.1 used the same 392-request workload in each run.
 
-The November 24 BetterBench 0.6.1 rerun compared the verified four-slot Basalt build with vLLM for RTX Spark 0.2.0 on the same N1X using the same 392-request preset and corpus hash. Basalt weighted **90.79 tok/s** versus **54.19 tok/s** for vLLM; mixed C4 throughput was **110.50 versus 100.75 tok/s**. The two engines used different weight and KV formats: Basalt used UD-IQ3_XXS, INT8 KV and MTP window 8; vLLM used FP4-Local, FP8 target KV, BF16 draft KV and block MTP 7. [Full measurements, model-quality context, power conditions and raw data](benchmarks/results/2026-11-24-n1x-verified-default). The earlier November 22–23 power-floor comparison remains in its [original result folder](benchmarks/results/2026-11-22-hp-omnibook-x-n1x-128gb-vllm).
-
-![Basalt and vLLM single-stream decode by scenario](benchmarks/img/verified-default-decode.svg)
-
-![Basalt and vLLM aggregate output at one through four streams](benchmarks/img/verified-default-concurrency.svg)
-
-![Basalt and vLLM cold prefill by prompt depth](benchmarks/img/verified-default-prefill.svg)
-
-### Verified default scheduler control
-
-The same-day A/B/B/A fixed-output control compared baseline `bd70ac59` with the `3b27d149` scheduler. This control baseline is distinct from the separate replay of the former local default `0cb0b207`. Four structured replies of 1,024 tokens averaged **138.97 → 152.18 tok/s (+9.5%)**. The clock and power measurements declined across the session, so read the control with its per-arm conditions rather than as a power-neutral engine-only result. The default trace captured both 8-row and 16-row verifier budgets. [Per-arm measurements, row trace and arrival checks](benchmarks/results/2026-11-24-n1x-verified-default/controls).
-
-### Four-stream scheduler on the performance branch
-
-The [tested scheduler](https://github.com/SuperDistance/basalt-rtx-spark/tree/3b27d1494d7b9b4e564b98644c72ac3b36a04580) raised aggregate throughput on four simultaneous 1,024-token structured replies from **129.10 to 139.52 tok/s (+8.1%)**. Mean CPU, GPU and NPU draw was **32.26 → 32.51 W**, yielding **7.2% more tokens per measured joule**. These November 24 runs used Flash-Next UD-IQ3_XXS and fixed expert placement.
-
-![Four structured streams on the N1X, baseline and scheduler](benchmarks/img/scheduler-structured.svg)
-
-The combined research build measured **100.18 → 100.34 tok/s** on four mixed BetterBench streams and **524 → 531 ms** median time to first token, at **21.16 → 21.67 W** busy GPU draw. Its single-stream score rose 6.6%, while fixed-output solo controls remained within 1%. [Benchmark data, charts and power conditions](benchmarks/results/2026-11-24-n1x-four-stream-scheduler)
-
-When a 16,672-token cold prompt arrived after three streams were decoding, baseline/scheduler mean first-token time was **29.14/30.29 s**. The mean longest gap on the ongoing streams was **403/375 ms**. All three streams kept generating during every cold read. [Cold-join chart and power readings](benchmarks/results/2026-11-24-n1x-four-stream-scheduler#cold-prompt-arriving-during-three-decodes)
-
-### Historical: earlier sustained-power comparison (November 23)
-
-BetterBench 0.6.1, the same laptop, model pack and settings, run back to back (the
-[raw results](benchmarks/results/2026-11-23-hp-omnibook-x-n1x-128gb)):
-
-| | Basalt + Arm64 port | **basalt-rtx-spark** | |
+| Engine | Weighted single-stream decode (tok/s) | Short-prompt time to first token (ms) | Four-stream mixed throughput (tok/s) |
 | --- | ---: | ---: | ---: |
-| Single-stream decode, weighted median (tok/s) | 87.5 | **97.9** | +12% |
-| First token, short prompts, p50 | 622 ms | **284 ms** | 2.2x faster |
-| Output at 1 / 2 / 3 / 4 streams (tok/s) | 74.6 / 81.1 / 85.7 / 85.3 | **86.5 / 99.4 / 110.8 / 113.1** | up to +33% |
-| First token at 4 streams, p50 | 727 ms | **430 ms** | 1.7x faster |
-| Prefill at 2K / 8K / 64K tokens (tok/s) | 983 / 1,506 / 2,095 | **1,724 / 2,077 / 2,342** | +75% / +38% / +12% |
+| Basalt RTX Spark | **90.79** | 289 | **110.50** |
+| Basalt + Arm64 port | 87.52 | 622 | 85.32 |
+| vLLM for RTX Spark 0.2.0 | 54.19 | **271** | 100.75 |
 
-![Single-stream decode by scenario](benchmarks/img/paired-decode.svg)
+Both Basalt engines used UD-IQ3_XXS weights, INT8 KV and MTP 8. vLLM used FP4-Local weights, FP8 target KV, BF16 draft KV and MTP 7. On November 24, busy GPU draw averaged 39.3 W for Basalt RTX Spark and 34.5 W for vLLM during the four-stream test. The Arm64 port ran separately on November 23 and averaged 40.8 W across busy samples over its full run. The driver did not report a GPU power limit. [November 24 measurements](benchmarks/results/2026-11-24-n1x-verified-default) · [Arm64 port measurements](benchmarks/results/2026-11-23-hp-omnibook-x-n1x-128gb/basalt-arm-sm121-2ec7a84.json)
 
-| Single-stream decode (tok/s) | chat | code | file_edit | json | math | prose | reasoning | summarization |
-| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| Basalt + Arm64 port | 77.1 | 92.0 | 87.4 | 114.8 | 102.2 | 69.9 | 72.7 | 89.3 |
-| **basalt-rtx-spark** | **91.1** | **106.8** | **107.1** | **111.2** | **110.4** | **80.0** | **83.7** | **97.3** |
+![Single-stream decode by scenario · Basalt RTX Spark, Basalt + Arm64 port, vLLM for RTX Spark](benchmarks/img/engines-decode.svg)
+
+![Aggregate throughput at one to four streams · Basalt RTX Spark, Basalt + Arm64 port, vLLM for RTX Spark](benchmarks/img/engines-concurrency.svg)
+
+![Cold prefill throughput by prompt depth · Basalt RTX Spark, Basalt + Arm64 port, vLLM for RTX Spark](benchmarks/img/engines-prefill.svg)
 
 **Have an RTX Spark (or a DGX Spark)?** Run the [benchmark](benchmarks) and send your numbers.
 

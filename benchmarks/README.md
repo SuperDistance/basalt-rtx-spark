@@ -8,53 +8,33 @@ add a folder under `results/` with your run (see [Contributing a result](#contri
 
 ## Results
 
-The November 24 [verified-default run](results/2026-11-24-n1x-verified-default) tests the promoted four-slot scheduler against both the former default and vLLM for RTX Spark on the same N1X. All three completed the same 392-request preset and corpus hash. Cross-engine C4 power below uses complete aligned SparkHelper telemetry; vLLM's NVIDIA CSV is incomplete at the end of C4.
+All three engines ran Qwen3.8-Flash-Next on the same RTX Spark N1X laptop with 128 GB of unified memory and a 96 GB GPU allocation. BetterBench 0.6.1 used the same 392-request workload in each run.
 
-| Run | Engine | Busy C4 GPU / measured CPU+GPU+NPU power | Decode, weighted median (tok/s) | First token, short (ms) | Output at 1 / 2 / 3 / 4 streams (tok/s) | Prefill 2K / 8K / 64K (tok/s) |
-| --- | --- | ---: | ---: | ---: | --- | --- |
-| [Nov 24 verified default](results/2026-11-24-n1x-verified-default) | Former Basalt default `0cb0b207`, UD-IQ3_XXS, INT8 KV, MTP 8 | 41.45 / 45.68 W | 87.55 | 304 | 80.79 / 93.33 / 103.14 / 106.34 | 1,377 / 2,110 / 1,280 |
-| [Nov 24 verified default](results/2026-11-24-n1x-verified-default) | Current Basalt `3b27d149`, UD-IQ3_XXS, INT8 KV, MTP 8 | 39.33 / 44.19 W | 90.79 | 289 | 85.09 / 96.36 / 106.41 / 110.50 | 1,465 / 1,787 / 2,190 |
-| [Nov 24 verified default](results/2026-11-24-n1x-verified-default) | vLLM RTX Spark 0.2.0, FP4-Local, FP8 target / BF16 draft KV, MTP 7 | 34.46 / 41.90 W | 54.19 | 271 | 53.38 / 78.70 / 93.21 / 100.75 | 1,511 / 1,966 / 2,035 |
+| Engine | Weighted single-stream decode (tok/s) | Short-prompt time to first token (ms) | Four-stream mixed throughput (tok/s) |
+| --- | ---: | ---: | ---: |
+| Basalt RTX Spark | **90.79** | 289 | **110.50** |
+| Basalt + Arm64 port | 87.52 | 622 | 85.32 |
+| vLLM for RTX Spark 0.2.0 | 54.19 | **271** | 100.75 |
 
-All runs used the HP OmniBook X RTX Spark N1X, 96 GiB GPU split, Windows 11 on Arm64, AC and Balanced power. The driver reported no GPU power limit. The weight and KV formats differ, so these throughput measurements do not imply equal model quality. Read the [result package](results/2026-11-24-n1x-verified-default) for raw outputs, phase power and quality context.
+Both Basalt engines used UD-IQ3_XXS weights, INT8 KV and MTP 8. vLLM used FP4-Local weights, FP8 target KV, BF16 draft KV and MTP 7. On November 24, busy GPU draw averaged 39.3 W for Basalt RTX Spark and 34.5 W for vLLM during the four-stream test. The Arm64 port ran separately on November 23 and averaged 40.8 W across busy samples over its full run. The driver did not report a GPU power limit. [November 24 measurements](results/2026-11-24-n1x-verified-default) · [Arm64 port measurements](results/2026-11-23-hp-omnibook-x-n1x-128gb/basalt-arm-sm121-2ec7a84.json)
 
-![Basalt 3b27d149 current, Basalt 0cb0b207 previous, and vLLM RTX Spark 0.2.0 single-stream decode by scenario](img/verified-default-decode.svg)
+![Single-stream decode by scenario · Basalt RTX Spark, Basalt + Arm64 port, vLLM for RTX Spark](img/engines-decode.svg)
 
-![Basalt 3b27d149 current, Basalt 0cb0b207 previous, and vLLM RTX Spark 0.2.0 mixed concurrency](img/verified-default-concurrency.svg)
+![Aggregate throughput at one to four streams · Basalt RTX Spark, Basalt + Arm64 port, vLLM for RTX Spark](img/engines-concurrency.svg)
 
-![Basalt 3b27d149 current, Basalt 0cb0b207 previous, and vLLM RTX Spark 0.2.0 cold prefill by prompt depth](img/verified-default-prefill.svg)
+![Cold prefill throughput by prompt depth · Basalt RTX Spark, Basalt + Arm64 port, vLLM for RTX Spark](img/engines-prefill.svg)
 
-Compared with the former default, current Basalt was +3.7% in weighted decode and +3.9% in mixed C4, while busy GPU power and clock were lower (39.33 W / 2,034 MHz versus 41.45 W / 2,232.5 MHz). At 64K prefill, the current run was faster but also ran at substantially higher power and clock; 8K–32K prefill was slower. See the [full result package](results/2026-11-24-n1x-verified-default) for per-depth power and scratch-residency evidence.
+The [benchmark archive](results) contains the individual runs and scheduler experiments.
 
-The earlier November 24 [scheduler microbenchmark and joint research build](results/2026-11-24-n1x-four-stream-scheduler) remain available as separate experiments. The fixed four-stream scheduler microbenchmark gained **8.1%** on four 1,024-token replies; the joint research build measured **+0.2%** at mixed C4.
+From the repository root, regenerate the charts with PowerShell.
 
-Earlier runs from November 22–23:
-
-| Machine | Engine | Power state | Decode, weighted median (tok/s) | First token, short (ms) | Output at 1 / 2 / 3 / 4 streams (tok/s) | Prefill 2K / 8K / 64K (tok/s) |
-| --- | --- | --- | ---: | ---: | --- | --- |
-| [HP OmniBook X, N1X, 128 GB, 96 GB split](results/2026-11-23-hp-omnibook-x-n1x-128gb) | basalt-rtx-spark `25551ed` | sustained, GPU ~42 W while busy | 97.9 | 284 | 86.5 / 99.4 / 110.8 / 113.1 | 1,724 / 2,077 / 2,342 |
-| [HP OmniBook X, N1X, 128 GB, 96 GB split](results/2026-11-23-hp-omnibook-x-n1x-128gb) | Basalt + Arm64 port `2ec7a84` | sustained, GPU ~41 W while busy | 87.5 | 622 | 74.6 / 81.1 / 85.7 / 85.3 | 983 / 1,506 / 2,095 |
-| [HP OmniBook X, N1X, 128 GB, 96 GB split](results/2026-11-22-hp-omnibook-x-n1x-128gb-vllm) | basalt-rtx-spark `c01f9ed` | power floor (22-28 W) after ~8 min | 88.2 | 324 | 77.2 / 86.6 / 94.5 / 98.3 | 1,347 / 1,700 / 1,781 |
-| [HP OmniBook X, N1X, 128 GB, 96 GB split](results/2026-11-22-hp-omnibook-x-n1x-128gb-vllm) | vLLM for RTX Spark 0.2.0, FP4-Local, MTP 7 | power floor (22-28 W) after ~8 min | 55.1 | 279 | 53.0 / 81.2 / 97.8 / 104.4 | 1,370 / 1,773 / 2,182 |
-
-All with Qwen3.8-Flash-Next; the Basalt rows with UD-IQ3_XXS, int8 KV, four 262,144-token slots and MTP window 8.
-Compare rows only within one power state.
-
-### Single-stream decode by scenario
-
-Against Basalt with the Arm64 port, back to back with the power budget held up:
-
-![Decode by scenario, against Basalt with the Arm64 port](img/paired-decode.svg)
-
-Against vLLM for RTX Spark, both on the power floor:
-
-![Decode by scenario, against vLLM for RTX Spark](img/vllm-decode.svg)
-
-The per-scenario tables, concurrency and prefill charts are in each result's folder. `plot.py` makes the same charts
-from any BetterBench result files:
-
-```
-python benchmarks/plot.py --out benchmarks/img --prefix mine mine.json "My laptop" other.json "Other"
+```powershell
+$run = 'benchmarks/results/2026-11-24-n1x-verified-default'
+$port = 'benchmarks/results/2026-11-23-hp-omnibook-x-n1x-128gb/basalt-arm-sm121-2ec7a84.json'
+python benchmarks/plot.py --out benchmarks/img --prefix engines `
+  "$run/basalt/results.json" 'Basalt RTX Spark' `
+  $port 'Basalt + Arm64 port' `
+  "$run/vllm/results.json" 'vLLM for RTX Spark 0.2.0'
 ```
 
 ## Running it
