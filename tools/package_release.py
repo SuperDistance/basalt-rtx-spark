@@ -5,7 +5,7 @@ Run from a tree that has been built (the executables are in bin/). The archive h
 executables, the server and the Python files it imports, the expert profiles and bench fixtures, the requirements,
 the licences and the docs. No Python environment is packed, and no CUDA libraries unless `--cuda` names a toolkit:
 then the cuBLAS DLLs the engine loads go into bin/ beside it (Windows looks there first) with NVIDIA's licence in
-licenses/. windows-arm64 also gets setup.cmd, start.cmd and a basalt_config.json from tools/release/windows-arm64/.
+licenses/. Windows Arm64 requires these DLLs and includes its release quick start, setup.cmd, start.cmd and basalt_config.json.
 
     python tools/package_release.py --tag v0.3.1 --platform linux-x64 [--root DIR] [--out DIR]
     python tools/package_release.py --tag v0.4.1-rtx-spark.1 --platform windows-arm64 --cuda C:\cuda-13.5
@@ -44,18 +44,22 @@ def cuda_members(cuda: Path) -> list[tuple[Path, str, bool]]:
     return out
 
 
-def members(root: Path, windows: bool) -> list[tuple[Path, str, bool]]:
+def members(root: Path, platform: str) -> list[tuple[Path, str, bool]]:
     """(source, archive path inside the top directory, executable) for every file, in a fixed order."""
     out: list[tuple[Path, str, bool]] = []
+    windows = platform.startswith("windows")
     for name in EXECUTABLES:
         rel = f"bin/{name}{'.exe' if windows else ''}"
         if not (root / rel).is_file():
             sys.exit(f"package_release: {root / rel} is missing; build first")
         out.append((root / rel, rel, True))
     for rel in FILES + TOOLS:
-        if not (root / rel).is_file():
-            sys.exit(f"package_release: {root / rel} is missing")
-        out.append((root / rel, rel, False))
+        src = root / rel
+        if platform == "windows-arm64" and rel == "README.md":
+            src = root / "tools/release/windows-arm64/README.md"
+        if not src.is_file():
+            sys.exit(f"package_release: {src} is missing")
+        out.append((src, rel, False))
     for tree in TREES:
         base = root / tree
         if not base.is_dir():
@@ -89,7 +93,9 @@ def main() -> int:
     top = f"basalt-{a.tag}-{a.platform}"
     a.out.mkdir(parents=True, exist_ok=True)
     path = a.out / (top + (".zip" if windows else ".tar.gz"))
-    files = members(a.root.resolve(), windows)
+    if a.platform == "windows-arm64" and a.cuda is None:
+        ap.error("--platform windows-arm64 requires --cuda for the bundled cuBLAS DLLs and license")
+    files = members(a.root.resolve(), a.platform)
     if a.cuda is not None:
         if not windows:
             sys.exit("package_release: --cuda packs Windows DLLs; a Linux archive names the toolkit's libraries instead")
