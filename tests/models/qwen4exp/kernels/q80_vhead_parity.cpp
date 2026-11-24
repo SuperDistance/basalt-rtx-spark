@@ -1,12 +1,13 @@
 // tests/models/qwen4exp/kernels/q80_vhead_parity.cpp - the Q8_0 head in bit planes (q80p) and its two-stage verify head.
 //   1. The planes: a head packed and unpacked again holds the same bytes.
-//   2. q80p_mmvq on the planes against native_mmvq on the Q8_0 rows: bitwise at 1..8 columns, each column the bits of
+//   2. q80p_mmvq on the planes against native_mmvq on the Q8_0 rows: bitwise at 1..16 columns, each column the bits of
 //      its one-column call; against a CPU reference (double) on sampled rows.  Over a split's two row ranges (the first
 //      rows of the head, a copy of the rest): the same bits as the whole head's rows.
 //   3. q80p_vhead at K = 1, 20, 64: per column the K largest entries (by value, then lower id) are the exact head's ids
 //      in the same order with the same bits, every other entry is at or above its exact logit and below the K-th, the
 //      sampler draws the same tokens and probabilities (greedy, and top_k <= K with top_p, min_p, temperature), and a
-//      column's entries do not depend on the window's width.  K = 0 is the exact head, bitwise.
+//      column's entries do not depend on the window's width. Wide calls also replay with PDL and reused scratch.
+//      K = 0 is the exact head, bitwise.
 //   4. A share of the head on another card (the last fifth of the rows on a copy of their own, screened there against
 //      the first head's published thresholds, its scored entries listed and merged): the same K largest entries and
 //      sampler draws as the exact head; K = 0 (batch windows, the exact pass) is the exact head, bitwise.  Two splits:
@@ -17,6 +18,7 @@
 //   q80_vhead_parity [rows] [iters]
 #include "basalt/kernels/native_mmvq.hpp"
 #include "basalt/models/qwen4exp/kernels/q80_vhead.hpp"
+#include "basalt/kernels/pdl.hpp"
 #include "basalt/kernels/sampler.hpp"
 
 #include <cuda_fp16.h>
@@ -38,7 +40,7 @@ namespace {
 void ck(cudaError_t e, const char* w) {
     if (e != cudaSuccess) { std::fprintf(stderr, "%s: %s\n", w, cudaGetErrorString(e)); std::exit(2); }
 }
-constexpr int kNin = 2560, kBpr = 80, kBlk = 34, kMaxT = 8;
+constexpr int kNin = 2560, kBpr = 80, kBlk = 34, kMaxT = 16, kSplitMaxT = 8;
 constexpr size_t kRb = (size_t) kBpr * kBlk;
 
 // ggml's Q8_0 rounding of one row
@@ -223,7 +225,24 @@ int main(int argc, char** argv) {
         }
         ck(cudaStreamSynchronize(s), "first sync");
         for (int nc = 1; nc <= kMaxT; ++nc) {
-            k::q80p_vhead(wp, xq, y1, kNin, rows, nc, kd, scratch, s);
+            if (nc <= kSplitMaxT) {
+                k::q80p_vhead(wp, xq, y1, kNin, rows, nc, kd, scratch, s);
+            } else {
+                cudaGraph_t graph;
+                cudaGraphExec_t exec;
+                ck(cudaStreamBeginCapture(s, cudaStreamCaptureModeThreadLocal), "wide start capture");
+                {
+                    k::PdlScope pdl(true);
+                    k::q80p_vhead(wp, xq, y1, kNin, rows, nc, kd, scratch, s);
+                }
+                ck(cudaStreamEndCapture(s, &graph), "wide end capture");
+                ck(cudaGraphInstantiate(&exec, graph, 0), "wide instantiate");
+                ck(cudaGraphLaunch(exec, s), "wide launch");
+                ck(cudaGraphLaunch(exec, s), "wide replay");
+                ck(cudaStreamSynchronize(s), "wide replay sync");
+                ck(cudaGraphExecDestroy(exec), "wide exec destroy");
+                ck(cudaGraphDestroy(graph), "wide graph destroy");
+            }
             std::vector<float> b((size_t) nc * rows);
             ck(cudaMemcpyAsync(b.data(), y1, b.size() * 4, cudaMemcpyDeviceToHost, s), "vhead");
             ck(cudaStreamSynchronize(s), "vhead sync");
@@ -278,7 +297,7 @@ int main(int argc, char** argv) {
             sp.top_p = trial % 2 ? 0.95f : 1.0f;
             sp.min_p = trial % 5 == 1 ? 0.05f : 0.0f;
             sp.seed = 1000 + (uint64_t) trial;
-            sp.counter = (uint64_t) trial * 8;
+            sp.counter = (uint64_t) trial * kMaxT;
             std::vector<int> q(kMaxT);   // the query: a near-top token of each column
             for (int c = 0; c < kMaxT; ++c) q[(size_t) c] = top_ids(&one[(size_t) c * rows], rows, std::min(K, 3))[(size_t) std::min(K, 3) - 1];
             ck(cudaMemcpyAsync(qd, q.data(), kMaxT * 4, cudaMemcpyHostToDevice, s), "q up");
@@ -312,13 +331,13 @@ int main(int argc, char** argv) {
         ck(cudaMalloc(&wq, (size_t) r1 * kRb), "share");
         ck(cudaMemcpyAsync(wq, (const uint8_t*) wp + (size_t) r0 * kRb, (size_t) r1 * kRb, cudaMemcpyDeviceToDevice, s),
            "share copy");
-        ck(cudaMalloc((void**) &y2, (size_t) kMaxT * r1 * 4), "y2");
+        ck(cudaMalloc((void**) &y2, (size_t) kSplitMaxT * r1 * 4), "y2");
         ck(cudaMalloc(&scr1, k::q80p_vhead_scratch_bytes()), "scratch1");
         ck(cudaMemset(scr1, 0, k::q80p_vhead_scratch_bytes()), "scratch1 zero");
-        ck(cudaHostAlloc(&list, k::q80p_vhead_list_bytes(kMaxT, r1), cudaHostAllocMapped | cudaHostAllocPortable), "list");
+        ck(cudaHostAlloc(&list, k::q80p_vhead_list_bytes(kSplitMaxT, r1), cudaHostAllocMapped | cudaHostAllocPortable), "list");
         ck(cudaHostAlloc(&link, k::q80p_vhead_link_bytes(), cudaHostAllocMapped | cudaHostAllocPortable), "link");
         std::memset(link, 0, k::q80p_vhead_link_bytes());
-        ck(cudaHostAlloc(&input, k::q80p_vhead_input_bytes(kNin, kMaxT), cudaHostAllocMapped | cudaHostAllocPortable), "in");
+        ck(cudaHostAlloc(&input, k::q80p_vhead_input_bytes(kNin, kSplitMaxT), cudaHostAllocMapped | cudaHostAllocPortable), "in");
         ck(cudaMalloc(&xq1, xb), "xq1");
         ck(cudaMalloc((void**) &kd1, sizeof(int)), "k1");
         unsigned seq = 0;
@@ -335,7 +354,7 @@ int main(int argc, char** argv) {
         };
         for (int K : {1, 20, 64, 0}) {
             ck(cudaMemcpyAsync(kd, &K, sizeof(int), cudaMemcpyHostToDevice, s), "k up");
-            for (int nc = 1; nc <= kMaxT; ++nc) {
+            for (int nc = 1; nc <= kSplitMaxT; ++nc) {
                 split_head(nc);
                 std::vector<float> b((size_t) nc * rows);
                 ck(cudaMemcpyAsync(b.data(), y1, b.size() * 4, cudaMemcpyDeviceToHost, s), "split");
@@ -369,14 +388,14 @@ int main(int argc, char** argv) {
             if (K == 0) continue;
             // the sampler on the merged head against the exact head
             ck(cudaMemcpyAsync(y0, one.data(), one.size() * 4, cudaMemcpyHostToDevice, s), "exact up");
-            split_head(kMaxT);
+            split_head(kSplitMaxT);
             int *o0 = nullptr, *o1 = nullptr, *qd = nullptr;
             float *p0 = nullptr, *p1 = nullptr;
-            ck(cudaMalloc((void**) &o0, kMaxT * 4), "o0");
-            ck(cudaMalloc((void**) &o1, kMaxT * 4), "o1");
-            ck(cudaMalloc((void**) &qd, kMaxT * 4), "qd");
-            ck(cudaMalloc((void**) &p0, kMaxT * 4), "p0");
-            ck(cudaMalloc((void**) &p1, kMaxT * 4), "p1");
+            ck(cudaMalloc((void**) &o0, kSplitMaxT * 4), "o0");
+            ck(cudaMalloc((void**) &o1, kSplitMaxT * 4), "o1");
+            ck(cudaMalloc((void**) &qd, kSplitMaxT * 4), "qd");
+            ck(cudaMalloc((void**) &p0, kSplitMaxT * 4), "p0");
+            ck(cudaMalloc((void**) &p1, kSplitMaxT * 4), "p1");
             long draws = 0, differ = 0;
             for (int trial = 0; trial < 48; ++trial) {
                 k::SamplerParams sp;
@@ -388,20 +407,20 @@ int main(int argc, char** argv) {
                 sp.min_p = trial % 5 == 1 ? 0.05f : 0.0f;
                 sp.seed = 2000 + (uint64_t) trial;
                 sp.counter = (uint64_t) trial * 8;
-                std::vector<int> q(kMaxT);
-                for (int c = 0; c < kMaxT; ++c)
+                std::vector<int> q(kSplitMaxT);
+                for (int c = 0; c < kSplitMaxT; ++c)
                     q[(size_t) c] = top_ids(&one[(size_t) c * rows], rows, std::min(K, 3))[(size_t) std::min(K, 3) - 1];
-                ck(cudaMemcpyAsync(qd, q.data(), kMaxT * 4, cudaMemcpyHostToDevice, s), "q up");
-                k::sample_tokens_probe(y0, kMaxT, rows, nullptr, 0, sp, o0, qd, kMaxT, p0, s);
-                k::sample_tokens_probe(y1, kMaxT, rows, nullptr, 0, sp, o1, qd, kMaxT, p1, s);
-                int h0[kMaxT], h1[kMaxT];
-                float f0[kMaxT], f1[kMaxT];
+                ck(cudaMemcpyAsync(qd, q.data(), kSplitMaxT * 4, cudaMemcpyHostToDevice, s), "q up");
+                k::sample_tokens_probe(y0, kSplitMaxT, rows, nullptr, 0, sp, o0, qd, kSplitMaxT, p0, s);
+                k::sample_tokens_probe(y1, kSplitMaxT, rows, nullptr, 0, sp, o1, qd, kSplitMaxT, p1, s);
+                int h0[kSplitMaxT], h1[kSplitMaxT];
+                float f0[kSplitMaxT], f1[kSplitMaxT];
                 ck(cudaMemcpyAsync(h0, o0, sizeof h0, cudaMemcpyDeviceToHost, s), "o0 down");
                 ck(cudaMemcpyAsync(h1, o1, sizeof h1, cudaMemcpyDeviceToHost, s), "o1 down");
                 ck(cudaMemcpyAsync(f0, p0, sizeof f0, cudaMemcpyDeviceToHost, s), "p0 down");
                 ck(cudaMemcpyAsync(f1, p1, sizeof f1, cudaMemcpyDeviceToHost, s), "p1 down");
                 ck(cudaStreamSynchronize(s), "sample sync");
-                for (int c = 0; c < kMaxT; ++c) {
+                for (int c = 0; c < kSplitMaxT; ++c) {
                     ++draws;
                     differ += h0[c] != h1[c] || (!sp.greedy && !same_bits(f0[c], f1[c]));
                 }
@@ -445,14 +464,15 @@ int main(int argc, char** argv) {
             }
         double u[5];
         for (int v = 0; v < 5; ++v) u[v] = 1e3 * tot[v] / iters;
+        const int tiles = (nc + kSplitMaxT - 1) / kSplitMaxT;
         std::printf("cold ncols %d: native_mmvq Q8_0 %6.1f us (%4.0f GB/s) | planes exact %6.1f us (%4.0f GB/s) | two-stage K1 "
                     "%6.1f K20 %6.1f K64 %6.1f us (screen %4.0f GB/s at K20)\n", nc, u[0], 1e3 * mb8 / u[0], u[1],
-                    1e3 * mb8 / u[1], u[2], u[3], u[4], 1e3 * mbs / u[3]);
+                    1e3 * tiles * mb8 / u[1], u[2], u[3], u[4], 1e3 * tiles * mbs / u[3]);
     }
     {   // the split head at K 20: the first four fifths screened here, the last fifth alone with its list
         const int r0 = rows - rows / 5, r1 = rows - r0, K = 20;
         void* list = nullptr;
-        ck(cudaHostAlloc(&list, k::q80p_vhead_list_bytes(kMaxT, r1), cudaHostAllocMapped | cudaHostAllocPortable), "list");
+        ck(cudaHostAlloc(&list, k::q80p_vhead_list_bytes(kSplitMaxT, r1), cudaHostAllocMapped | cudaHostAllocPortable), "list");
         ck(cudaMemcpyAsync(kd, &K, sizeof(int), cudaMemcpyHostToDevice, s), "k up");
         void* wq = nullptr;
         void* scr1 = nullptr;
@@ -467,13 +487,13 @@ int main(int argc, char** argv) {
         int* kd1 = nullptr;
         ck(cudaHostAlloc(&link, k::q80p_vhead_link_bytes(), cudaHostAllocMapped | cudaHostAllocPortable), "link");
         std::memset(link, 0, k::q80p_vhead_link_bytes());
-        ck(cudaHostAlloc(&input, k::q80p_vhead_input_bytes(kNin, kMaxT), cudaHostAllocMapped | cudaHostAllocPortable), "in");
+        ck(cudaHostAlloc(&input, k::q80p_vhead_input_bytes(kNin, kSplitMaxT), cudaHostAllocMapped | cudaHostAllocPortable), "in");
         ck(cudaMalloc(&scr0, k::q80p_vhead_scratch_bytes()), "scratch0");
         ck(cudaMemset(scr0, 0, k::q80p_vhead_scratch_bytes()), "scratch0 zero");
         ck(cudaMalloc(&xq1, xb), "xq1");
         ck(cudaMalloc((void**) &kd1, sizeof(int)), "k1");
         unsigned seq = 0;
-        for (int nc = 1; nc <= kMaxT; ++nc) {
+        for (int nc = 1; nc <= kSplitMaxT; ++nc) {
             float tot[4] = {0, 0, 0, 0};
             for (int it = 0; it < iters; ++it)
                 for (int v : {2, 0, 1}) {   // the share (after this card's post and publication, untimed), then this card

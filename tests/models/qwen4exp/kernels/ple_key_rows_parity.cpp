@@ -1,7 +1,7 @@
 // tests/models/qwen4exp/kernels/ple_key_rows_parity.cpp - the verify window's PLE for every key form the packs use (BF16, native Q8_0,
 // native Q2_0) at the real geometry: ple_key_rows against the per-row projection inside ple_block and a CPU reference;
 // then the window (ple_key_rows, the multi-row value MMVF, native_ple_window, plain and segmented) against the
-// per-row chain (native_gr_post, ple_block, ple_history_advance, the history copy), bitwise, for windows of 1..8 rows;
+// per-row chain (native_gr_post, ple_block, ple_history_advance, the history copy), bitwise, for windows of 1..16 rows;
 // then both forms captured as graphs and timed.
 //   ple_key_rows_parity [iters]
 #include "basalt/models/qwen4exp/kernels/native_gr_postops.hpp"
@@ -58,7 +58,7 @@ uint16_t f_half(float f) { return __half_as_ushort(__float2half(f)); }
 
 int main(int argc, char** argv) {
     const int iters = argc > 1 ? std::atoi(argv[1]) : 200;
-    constexpr int N = k::NG_N_EMBD, H = k::NG_HC, D = k::NG_HC_DIM, HS = k::NG_HIST * k::NG_HC_DIM, MT = 8;
+    constexpr int N = k::NG_N_EMBD, H = k::NG_HC, D = k::NG_HC_DIM, HS = k::NG_HIST * k::NG_HC_DIM, MT = 16;
     std::mt19937 rng(196);
     std::normal_distribution<float> nd(0.f, 1.f);
     auto randv = [&](size_t n, float sc, float off) { std::vector<float> v(n); for (auto& x : v) x = off + sc * nd(rng); return v; };

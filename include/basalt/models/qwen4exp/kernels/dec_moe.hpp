@@ -20,7 +20,7 @@
 
 namespace basalt::kernels {
 
-constexpr int kDmCap = 128;          ///< entries per window: kVerifyMaxT tokens x top-10 fit
+constexpr int kDmCap = 160;          ///< entries per window: a window of 16 tokens x top-10 fits
 constexpr int kDmMaxX = 2;           ///< peer cards past the first, each with its own ring, doorbell and done word
 
 /// One ring (layer) as the route kernel publishes it to mapped memory.

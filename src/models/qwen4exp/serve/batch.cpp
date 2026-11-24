@@ -4,6 +4,7 @@
 #include "basalt/protocol.hpp"
 #include "qfn_state.hpp"
 
+#include <algorithm>
 #include <cstring>
 #include "../../../program/serve/logprobs.hpp"
 
@@ -35,7 +36,13 @@ uint64_t QfnRuntime::row_hash(int t) {
 // so it keeps the conversation it holds
 bool QfnRuntime::batch_step() {
     constexpr int MR = basalt::kernels::kVerifyMaxT;
-    const int MB = std::min(MR, ver.max_t());   // the row budget is this verifier capacity; MR only sizes the arrays
+    // Keep one verifier row per active slot. Larger batches also need room to verify a draft for each slot.
+    const int row_cap = std::min(MR, ver.max_t());
+    const double requested_rows = basalt::core::exp_flag("batch_rows", 0);
+    const int fixed_rows = requested_rows >= 1.0 ? (int) std::min(requested_rows, (double) row_cap) : 0;
+    auto row_budget = [&](int n) {
+        return std::clamp(fixed_rows > 0 ? fixed_rows : std::max(8, 2 * n), n, row_cap);
+    };
     int S = 0, R = 0;
     int rows[MR] = {}, lens[MR] = {}, n_keep[MR] = {}, r0s[MR] = {};
     int32_t tok[MR] = {}, outb[MR] = {};
@@ -71,23 +78,54 @@ bool QfnRuntime::batch_step() {
             if (!ke.empty()) { std::printf("ERR %s\n", ke.c_str()); return false; }
             if (at + 2 * MR > backed) kv_wait[(size_t) b] = 1;
         }
-    for (int b = 0; b < (int) bs.size() && S < MR; ++b)
+    for (int b = 0; b < (int) bs.size() && S < row_cap; ++b)
         if (bs[(size_t) b].active && !kv_wait[(size_t) b]) {
             rows[S] = b;
             pos[S] = bs[(size_t) b].p;
             lens[S] = 1;
             ++S;
         }
-    if (S == 0) return true;
+    if (S == 0) {
+        // A KV wait can suspend the entire cohort before any row is verified.
+        if (batch_row_prepared != 0) {
+            if (batch_row_cost_trace)
+                basalt::log::info("basalt batch rows", "cohort suspended, prepared=%d next_budget=%d",
+                                  batch_row_prepared, BatchRowCost::kNarrow);
+            batch_row_cost.reset();
+            batch_row_prepared = 0;
+            batch_row_commit_tail = 0.0;
+        }
+        return true;
+    }
     bool scripted = false;
     for (int sg = 0; sg < S; ++sg) scripted = scripted || !bs[(size_t) rows[sg]].script.empty();
     const bool real = batch_spec && !scripted;
+    auto quiet = [&] {
+        std::lock_guard<std::mutex> lock(in_mu);
+        return in_lines.empty() && !in_eof;
+    };
+    auto steady_slots = [&] {
+        int64_t newest = INT64_MAX, oldest = 0;
+        for (int sg = 0; sg < S; ++sg) {
+            const int b = rows[sg];
+            const BSlot& slot = bs[(size_t) b];
+            if (slot.stop || slot.windows < 16 || slot.max_new - slot.produced < 64 ||
+                slot_cap[(size_t) b] - slot.p < 64)
+                return false;
+            newest = std::min(newest, slot.windows);
+            oldest = std::max(oldest, slot.windows);
+        }
+        return oldest - newest <= 12;
+    };
+    const bool row_cost_window = batch_row_cost_enabled && real && S == BatchRowCost::kSlots &&
+                                 !ov_active && admit_slot < 0 && steady_slots() && quiet() && ver.all_routed_resident();
+    const int previous_budget = batch_row_prepared;
+    const int MB = row_cost_window && previous_budget == BatchRowCost::kWide ? BatchRowCost::kWide : row_budget(S);
+    batch_row_prepared = 0;
+    if (!row_cost_window && previous_budget != 0) batch_row_cost.reset();
     if (real) {
-        // each slot's window as the solo rule makes it (the drafts that clear the cumulative or min-p cut, or a
-        // prompt-lookup run the policy prefers); the rows beyond the budget go to the slots whose last kept draft is the
-        // least likely to be accepted
+        // Size each slot's window with its draft threshold and prompt-lookup policy.
         int Tw[MR] = {};
-        float val[MR][8] = {};
         for (int sg = 0; sg < S; ++sg) {
             BSlot& sl = bs[(size_t) rows[sg]];
             int T = 1;
@@ -105,36 +143,20 @@ bool QfnRuntime::batch_step() {
             const int64_t room = slot_cap[(size_t) rows[sg]] - sl.p - 1;
             T = (int) std::max<int64_t>(1, std::min<int64_t>(T, room));
             Tw[sg] = T;
-            float c = 1.0f;
-            const double q = sl.from_sfx ? bpolicy->lookup_rate(sl.smatch) : 0.0;
-            for (int j = 0; j + 1 < 8; ++j) {   // val[j]: the chance drafts 0..j are all accepted
-                c *= sl.from_sfx ? (float) q : basalt::core::draft_cum_acc(sl.dprob[j]);
-                val[sg][j] = c;
-            }
         }
         int sum = 0;
         for (int sg = 0; sg < S; ++sg) sum += Tw[sg];
         if (sum > MB) {
-            // every slot keeps one row, and none takes more than an equal share of the window unless the others
-            // want less: the slots wanting least are served in full, the rest split what is left
+            // Serve the slots wanting the fewest rows first. Each share leaves a row for every remaining slot.
             int ord[MR];
             for (int sg = 0; sg < S; ++sg) ord[sg] = sg;
             sort_small(ord, S, [&](int x1, int x2) { return Tw[x1] < Tw[x2]; });
             int left_rows = MB;
             for (int i = 0; i < S; ++i) {
-                const int share = std::max(1, (left_rows + (S - i) - 1) / (S - i));
+                const int share = (left_rows + (S - i) - 1) / (S - i);
                 Tw[ord[i]] = std::min(Tw[ord[i]], share);
                 left_rows -= Tw[ord[i]];
             }
-            sum = 0;
-            for (int sg = 0; sg < S; ++sg) sum += Tw[sg];
-        }
-        while (sum > MB) {
-            int pick = -1;
-            for (int sg = 0; sg < S; ++sg)
-                if (Tw[sg] > 1 && (pick < 0 || val[sg][Tw[sg] - 2] < val[pick][Tw[pick] - 2])) pick = sg;
-            --Tw[pick];
-            --sum;
         }
         for (int sg = 0; sg < S; ++sg) {
             BSlot& sl = bs[(size_t) rows[sg]];
@@ -384,7 +406,36 @@ bool QfnRuntime::batch_step() {
         // slot go to the slots most likely to use them; the others only advance their draft K/V.
         int cont[MR], nc = 0;
         for (int sg = 0; sg < S; ++sg) if (fin_of[sg] == nullptr) cont[nc++] = sg;
-        int nfull = std::min(nc, MR - nc);
+        int next_rows = row_budget(nc);
+        const bool keep_learning = row_cost_window && nc == BatchRowCost::kSlots && steady_slots() && quiet();
+        if (keep_learning) {
+            // Drafting and the commit tail after the previous emission are part of this window's cost.
+            int kept = 0;
+            double weakest = 1.0, expected_extra = 0.0;
+            for (int sg = 0; sg < S; ++sg) {
+                const double q = bs[(size_t) rows[sg]].acc;
+                weakest = std::min(weakest, q);
+                expected_extra += q * q * (1.0 + q);
+                kept += n_keep[sg];
+            }
+            const double verify_ms = msd(w0, w1);
+            const double other_ms = msd(w1, w3) + batch_row_commit_tail;
+            if (previous_budget == MB)
+                batch_row_cost.observe(MB, R, kept, verify_ms, bt_draft_last, other_ms);
+            next_rows = batch_row_cost.choose(weakest, expected_extra);
+            batch_row_prepared = next_rows;
+            if (batch_row_cost_trace)
+                basalt::log::info("basalt batch rows", "budget=%d rows=%d offered=%d accepted=%d kept=%d verify_ms=%.3f "
+                                  "draft_ms=%.3f other_ms=%.3f acceptance_min=%.3f next_budget=%d sampled=%d",
+                                  MB, R, R - S, kept - S, kept, verify_ms, bt_draft_last, other_ms, weakest, next_rows,
+                                  previous_budget == MB ? 1 : 0);
+        } else if (row_cost_window) {
+            batch_row_cost.reset();
+        }
+        if (batch_row_cost_trace && previous_budget != 0 && !keep_learning)
+            basalt::log::info("basalt batch rows", "cohort interrupted, slots=%d continuing=%d prepared=%d next_budget=%d",
+                              S, nc, previous_budget, next_rows);
+        const int nfull = std::min(nc, next_rows - nc);
         sort_small(cont, nc, [&](int x1, int x2) {
             const BSlot& s1 = bs[(size_t) rows[x1]];
             const BSlot& s2 = bs[(size_t) rows[x2]];
@@ -395,13 +446,20 @@ bool QfnRuntime::batch_step() {
         const int64_t HCN = (int64_t) g.hc * g.n_embd;
         // a slot gets about its share of the next window's rows: drafts past it cost the drafter's GPU time and
         // are cut (at four slots of an 8-row budget, two drafts a slot); the verdicts stay exact
-        mtp.set_step_cap(nc > 1 ? (MB + nc - 1) / nc : 0);
+        mtp.set_step_cap(nc > 1 ? (next_rows + nc - 1) / nc : 0);
         mtp.set_draw(basalt::kernels::DraftDraw{});   // the one-sequence drafts below keep the argmax pick
         // the drafting slots in one pass (stores in place): every slot's catch-up in one forward and one full-layer row
         // per slot for each draft step, each row in its slot's own K/V and with its slot's own rule and cap
-        const int nb = std::min(nfull, (int) basalt::core::MtpDrafter::kDraftRowsMax);
-        const bool batched = mtp.seg_on() && nb >= 2;
-        if (batched) {
+        // in groups of up to kDraftRowsMax slots whose window rows fit one catch-up forward (a window of the drafter's
+        // width or less is one group); a slot left alone drafts on its own below
+        int done = 0;
+        while (mtp.seg_on() && done < nfull) {
+            int nb = 0, rows_g = 0;
+            while (done + nb < nfull && nb < (int) basalt::core::MtpDrafter::kDraftRowsMax &&
+                   rows_g + lens[cont[done + nb]] <= mtp.batch_rows_max())
+                rows_g += lens[cont[done + nb++]];
+            if (nb < 2) break;
+            const int* const gc = cont + done;   // this group's slots
             int ids[MR], r0[MR], Tn[MR], an[MR];
             int64_t pn[MR];
             float th[MR];
@@ -415,8 +473,8 @@ bool QfnRuntime::batch_step() {
             float* qp[MR] = {};
             constexpr int Q = basalt::kernels::kDraftDrawQ;
             for (int ci = 0; ci < nb; ++ci) {
-                BSlot& sl = bs[(size_t) rows[cont[ci]]];
-                const basalt::kernels::SamplerParams* ssp = ver.slot_sampling(rows[cont[ci]]);
+                BSlot& sl = bs[(size_t) rows[gc[ci]]];
+                const basalt::kernels::SamplerParams* ssp = ver.slot_sampling(rows[gc[ci]]);
                 const bool draw = ssp != nullptr && !ssp->greedy && ssp->temperature > 0.0f && ssp->draw_drafts &&
                                   sl.pen_n == 0 && (sl.guard == nullptr || !sl.guard->on()) && mtp.can_draw() &&
                                   basalt::kernels::sampler_list_len(ssp->top_k, (int) n_vocab) <= basalt::kernels::kSamplerNarrowMax;
@@ -432,7 +490,7 @@ bool QfnRuntime::batch_step() {
             }
             mtp.set_draw_rows(dd, nb);
             for (int ci = 0; ci < nb; ++ci) {
-                const int sg = cont[ci];
+                const int sg = gc[ci];
                 BSlot& sl = bs[(size_t) rows[sg]];
                 ids[ci] = rows[sg]; r0[ci] = r0s[sg]; Tn[ci] = lens[sg]; an[ci] = n_keep[sg] - 1; pn[ci] = p0s[sg];
                 th[ci] = sl.cum.th(); tk[ci] = outb + r0s[sg]; dr[ci] = sl.dr; pb[ci] = sl.dprob;
@@ -446,8 +504,9 @@ bool QfnRuntime::batch_step() {
                 sl.n_dr = nd[ci];
                 sl.since_draft = 0;
             }
+            done += nb;
         }
-        for (int ci = batched ? nb : 0; ci < nc; ++ci) {
+        for (int ci = done; ci < nc; ++ci) {
             const int sg = cont[ci];
             const int b = rows[sg];
             BSlot& sl = bs[(size_t) b];
@@ -480,13 +539,15 @@ bool QfnRuntime::batch_step() {
         bt_draft += msd(w3, Clock::now());
         bt_draft_last = msd(w3, Clock::now());
     }
+    batch_row_commit_tail = 0.0;
     if (overlap) {
         const Clock::time_point c0 = Clock::now();
         if (!ver.commit_slots_end(err)) {
             std::printf("ERR %s\n", err.c_str());
             return false;
         }
-        bt_commit += msd(c0, Clock::now());
+        batch_row_commit_tail = msd(c0, Clock::now());
+        bt_commit += batch_row_commit_tail;
     }
     basalt::core::progress().busy.store(was_busy);
     if (!batch_on() && bt_windows > 0) {
@@ -544,6 +605,11 @@ int QfnRuntime::init_batch() {
     // Benchmark uncached batches with the same model allocations and solo drafter in both arms.
     batch_spec = mtp_on && mtp.main_store() > 0 && o.batch > 0 &&
                  (o.prompt_cache > 0 || basalt::core::exp_flag("n1x_batch_draft", 1) != 0);
+    batch_row_cost_enabled = batch_spec && o.batch == BatchRowCost::kSlots && ver.max_t() >= BatchRowCost::kWide &&
+                             S_mtp >= BatchRowCost::kWide / BatchRowCost::kSlots && !multi_gpu && !piped && !peer.valid() &&
+                             xpeers.empty() && basalt::core::exp_flag("batch_rows", 0) < 1.0 &&
+                             basalt::core::device_memory_model().integrated;
+    batch_row_cost_trace = batch_row_cost_enabled && basalt::core::exp_flag("batch_row_cost_trace") != 0;
     S_all = S;
     bpolicy.emplace(S, 0.03, false);   // the lookup-or-MTP choice, costs per row
     bt_draft = 0;

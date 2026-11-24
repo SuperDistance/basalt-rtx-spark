@@ -72,6 +72,8 @@ void act_quant_q8_1(const float* x, int n, ActQ& a);
 /// ONCE per block for all tokens; only the VNNI dot and the accumulation run per token. Every token's output
 /// is bitwise equal to `s2_expert_vnni_q` on that token (same operation order per token). A batch above `MAXT` runs one `s2_expert_vnni_q` per token.
 inline constexpr int MAXT = 8;
+/// The most tokens of a decode window, and so of one CPU expert job: the pool runs a job's tokens MAXT at a time.
+inline constexpr int kWindowMaxT = 16;
 /// The scalar transcription of ggml's formula - NOT a second opinion, but the ORACLE the VNNI path is checked
 /// against, and the only path available on a CPU without AVX-512.
 ///

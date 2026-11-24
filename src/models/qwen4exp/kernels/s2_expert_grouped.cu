@@ -575,10 +575,9 @@ namespace {
 // arithmetic is `row_dot_s2_q8`'s, chunk by chunk in the same lane order, so every entry is bitwise the per-entry
 // hit kernel's.
 constexpr int GU_CHUNKS = (H / 32 + 31) / 32;   // 3: chunks of a gate/up row per lane (80 chunks / 32 lanes)
-constexpr int GMAX = 8;                          // entries per group (tokens routed to one expert in a window)
-// a group holds one entry per token of the window routed to its expert, and the kernels below keep at
-// most GMAX of them (`min(..., GMAX)`): a longer window would drop entries without a word.
-static_assert(GMAX >= kVerifyMaxT, "a verify window's group can exceed GMAX entries");
+constexpr int GMAX = 8;                          // entries of a group staged at once
+// a group holds one entry per token of the window routed to its expert; the kernels below stage and compute its
+// entries GMAX at a time, each entry's arithmetic the same in every chunk.
 constexpr int GU_ROWS = 32;                      // gate/up rows per block: 4 per warp
 constexpr int D_ROWS = 64;                       // down rows per block: 8 per warp
 
@@ -612,50 +611,54 @@ __global__ void __launch_bounds__(256) gu_grouped_kernel(const unsigned long lon
     __shared__ float xs_d[GMAX][H / 32];
     const int g = blockIdx.y;
     if (g >= *n_groups) return;
-    const int e0 = grp_start[g], ne = min(grp_start[g + 1] - e0, GMAX);
+    const int g0 = grp_start[g], n_ent = grp_start[g + 1] - g0;
     const int t = threadIdx.x, lane = t & 31, warp = t >> 5;
-    for (int i = t; i < ne * (H / 32); i += blockDim.x) {
-        const int k = i / (H / 32), c = i - k * (H / 32);
-        const uint8_t* xb = x_q8_0 + (size_t) ent_tok[e0 + k] * (size_t) (H / 32) * 34 + (size_t) c * 34;
-        xs_d[k][c] = x_scales ? x_scales[(size_t) ent_tok[e0 + k] * (H / 32) + c] : f16_at(xb);
-        const int8_t* q = (const int8_t*) (xb + 2);
+    for (int k0 = 0; k0 < n_ent; k0 += GMAX) {
+        const int e0 = g0 + k0, ne = min(n_ent - k0, GMAX);
+        if (k0 > 0) __syncthreads();   // the last chunk's reads are done
+        for (int i = t; i < ne * (H / 32); i += blockDim.x) {
+            const int k = i / (H / 32), c = i - k * (H / 32);
+            const uint8_t* xb = x_q8_0 + (size_t) ent_tok[e0 + k] * (size_t) (H / 32) * 34 + (size_t) c * 34;
+            xs_d[k][c] = x_scales ? x_scales[(size_t) ent_tok[e0 + k] * (H / 32) + c] : f16_at(xb);
+            const int8_t* q = (const int8_t*) (xb + 2);
 #pragma unroll
-        for (int w = 0; w < 8; ++w) {
-            int v;
-            memcpy(&v, q + 4 * w, 4);
-            xs_q[k][c * 8 + w] = v;
-        }
-    }
-    __syncthreads();
-    const uint8_t* blob = (const uint8_t*) grp_ptr[g];
-    const int row0 = blockIdx.x * GU_ROWS;
-    for (int rr = warp; rr < GU_ROWS; rr += 8) {
-        const int i = row0 + rr;
-        const uint8_t* codes = blob + (size_t) i * ROW_GU;
-        const uint8_t* scales = blob + O_GU_SCALES + (size_t) i * SC_GU * 2;
-        uint2 cb[GU_CHUNKS];
-        float dw[GU_CHUNKS];
-#pragma unroll
-        for (int q = 0; q < GU_CHUNKS; ++q) {
-            const int c = lane + 32 * q;
-            if (c < H / 32) {
-                cb[q] = *(const uint2*) (codes + (size_t) c * 8);
-                dw[q] = f16_at(scales + (size_t) (c >> 1) * 2);
+            for (int w = 0; w < 8; ++w) {
+                int v;
+                memcpy(&v, q + 4 * w, 4);
+                xs_q[k][c * 8 + w] = v;
             }
         }
-        for (int k = 0; k < ne; ++k) {
-            float acc = 0.0f;
+        __syncthreads();
+        const uint8_t* blob = (const uint8_t*) grp_ptr[g];
+        const int row0 = blockIdx.x * GU_ROWS;
+        for (int rr = warp; rr < GU_ROWS; rr += 8) {
+            const int i = row0 + rr;
+            const uint8_t* codes = blob + (size_t) i * ROW_GU;
+            const uint8_t* scales = blob + O_GU_SCALES + (size_t) i * SC_GU * 2;
+            uint2 cb[GU_CHUNKS];
+            float dw[GU_CHUNKS];
 #pragma unroll
             for (int q = 0; q < GU_CHUNKS; ++q) {
                 const int c = lane + 32 * q;
-                if (c >= H / 32) break;
-                acc += chunk_dot(cb[q], &xs_q[k][c * 8], dw[q], xs_d[k][c]);
+                if (c < H / 32) {
+                    cb[q] = *(const uint2*) (codes + (size_t) c * 8);
+                    dw[q] = f16_at(scales + (size_t) (c >> 1) * 2);
+                }
             }
-            const float sum = warp_sum(acc);
-            if (lane == 0) {
-                const int e = e0 + k, r = i >> 1;
-                const size_t base = (i & 1) ? ((size_t) cap_entries * FF + (size_t) e * FF) : ((size_t) e * FF);
-                gate_up[base + (size_t) r] = sum;
+            for (int k = 0; k < ne; ++k) {
+                float acc = 0.0f;
+#pragma unroll
+                for (int q = 0; q < GU_CHUNKS; ++q) {
+                    const int c = lane + 32 * q;
+                    if (c >= H / 32) break;
+                    acc += chunk_dot(cb[q], &xs_q[k][c * 8], dw[q], xs_d[k][c]);
+                }
+                const float sum = warp_sum(acc);
+                if (lane == 0) {
+                    const int e = e0 + k, r = i >> 1;
+                    const size_t base = (i & 1) ? ((size_t) cap_entries * FF + (size_t) e * FF) : ((size_t) e * FF);
+                    gate_up[base + (size_t) r] = sum;
+                }
             }
         }
     }
@@ -674,39 +677,43 @@ __global__ void __launch_bounds__(256) down_grouped_kernel(const unsigned long l
     __shared__ float hs_d[GMAX][FF / 32];
     const int g = blockIdx.y;
     if (g >= *n_groups) return;
-    const int e0 = grp_start[g], ne = min(grp_start[g + 1] - e0, GMAX);
+    const int g0 = grp_start[g], n_ent = grp_start[g + 1] - g0;
     const int t = threadIdx.x, lane = t & 31, warp = t >> 5;
-    for (int i = t; i < ne * (FF / 32); i += blockDim.x) {
-        const int k = i / (FF / 32), c = i - k * (FF / 32);
-        const uint8_t* xb = h_q8_0 + (size_t) (e0 + k) * (size_t) (FF / 32) * 34 + (size_t) c * 34;
-        hs_d[k][c] = h_scales ? h_scales[(size_t) (e0 + k) * (FF / 32) + c] : f16_at(xb);
-        const int8_t* q = (const int8_t*) (xb + 2);
+    for (int k0 = 0; k0 < n_ent; k0 += GMAX) {
+        const int e0 = g0 + k0, ne = min(n_ent - k0, GMAX);
+        if (k0 > 0) __syncthreads();   // the last chunk's reads are done
+        for (int i = t; i < ne * (FF / 32); i += blockDim.x) {
+            const int k = i / (FF / 32), c = i - k * (FF / 32);
+            const uint8_t* xb = h_q8_0 + (size_t) (e0 + k) * (size_t) (FF / 32) * 34 + (size_t) c * 34;
+            hs_d[k][c] = h_scales ? h_scales[(size_t) (e0 + k) * (FF / 32) + c] : f16_at(xb);
+            const int8_t* q = (const int8_t*) (xb + 2);
 #pragma unroll
-        for (int w = 0; w < 8; ++w) {
-            int v;
-            memcpy(&v, q + 4 * w, 4);
-            hs_q[k][c * 8 + w] = v;
+            for (int w = 0; w < 8; ++w) {
+                int v;
+                memcpy(&v, q + 4 * w, 4);
+                hs_q[k][c * 8 + w] = v;
+            }
         }
-    }
-    __syncthreads();
-    const uint8_t* blob = (const uint8_t*) grp_ptr[g];
-    const int row0 = blockIdx.x * D_ROWS;
-    for (int rr = warp; rr < D_ROWS; rr += 8) {
-        const int r = row0 + rr;
-        const uint8_t* codes = blob + O_D_CODES + (size_t) r * ROW_D;
-        const uint8_t* scales = blob + O_D_SCALES + (size_t) r * SC_D * 2;
-        const int c = lane;
-        uint2 cb = make_uint2(0, 0);
-        float dw = 0.0f;
-        if (c < FF / 32) {
-            cb = *(const uint2*) (codes + (size_t) c * 8);
-            dw = f16_at(scales + (size_t) (c >> 1) * 2);
-        }
-        for (int k = 0; k < ne; ++k) {
-            float acc = 0.0f;
-            if (c < FF / 32) acc += chunk_dot(cb, &hs_q[k][c * 8], dw, hs_d[k][c]);
-            const float sum = warp_sum(acc);
-            if (lane == 0) out[(size_t) ent_dst[e0 + k] * H + r] = sum;
+        __syncthreads();
+        const uint8_t* blob = (const uint8_t*) grp_ptr[g];
+        const int row0 = blockIdx.x * D_ROWS;
+        for (int rr = warp; rr < D_ROWS; rr += 8) {
+            const int r = row0 + rr;
+            const uint8_t* codes = blob + O_D_CODES + (size_t) r * ROW_D;
+            const uint8_t* scales = blob + O_D_SCALES + (size_t) r * SC_D * 2;
+            const int c = lane;
+            uint2 cb = make_uint2(0, 0);
+            float dw = 0.0f;
+            if (c < FF / 32) {
+                cb = *(const uint2*) (codes + (size_t) c * 8);
+                dw = f16_at(scales + (size_t) (c >> 1) * 2);
+            }
+            for (int k = 0; k < ne; ++k) {
+                float acc = 0.0f;
+                if (c < FF / 32) acc += chunk_dot(cb, &hs_q[k][c * 8], dw, hs_d[k][c]);
+                const float sum = warp_sum(acc);
+                if (lane == 0) out[(size_t) ent_dst[e0 + k] * H + r] = sum;
+            }
         }
     }
 }
@@ -748,55 +755,59 @@ __global__ void __launch_bounds__(256) gu_grouped_t_kernel(const unsigned long l
     __shared__ int2 xs_dh[GMAX * NC];            // 5 KB: (dx as bits, hx)
     const int g = blockIdx.y;
     if (g >= *n_groups) return;
-    const int e0 = grp_start[g], ne = min(grp_start[g + 1] - e0, GMAX);
+    const int g0 = grp_start[g], n_ent = grp_start[g + 1] - g0;
     const int t = threadIdx.x, lane = t & 31, warp = t >> 5;
-    for (int i = t; i < ne * NC; i += blockDim.x) {
-        const int k = i / NC, c = i - k * NC;
-        const int tok = ent_tok[e0 + k];
-        const uint8_t* xb = x_q8_0 + (size_t) tok * (size_t) NC * 34 + (size_t) c * 34;
-        const float dx = x_scales ? x_scales[(size_t) tok * NC + c] : f16_ld(xb);
-        stage_chunk<GMAX * NC>(xb, dx, xs_w, xs_dh, i);
-    }
-    __syncthreads();
-    const uint8_t* blob = (const uint8_t*) grp_ptr[g];
-    const int row0 = blockIdx.x * GU_ROWS;                 // even: a pair is always (gate r, up r)
-    for (int pp = warp; pp < GU_ROWS / 2; pp += 8) {
-        const int i = row0 + 2 * pp;
-        const uint8_t* codes = blob + (size_t) i * ROW_GU;
-        const uint8_t* scales = blob + O_GU_SCALES + (size_t) i * SC_GU * 2;
-        int m0[GU_CHUNKS][8], m1[GU_CHUNKS][8];
-        float dw0[GU_CHUNKS], dw1[GU_CHUNKS];
-#pragma unroll
-        for (int q = 0; q < GU_CHUNKS; ++q) {
-            const int c = lane + 32 * q;
-            if (c < NC) {
-                expand_codes(*(const uint2*) (codes + (size_t) c * 8), m0[q]);
-                expand_codes(*(const uint2*) (codes + ROW_GU + (size_t) c * 8), m1[q]);
-                dw0[q] = f16_ld(scales + (size_t) (c >> 1) * 2);
-                dw1[q] = f16_ld(scales + SC_GU * 2 + (size_t) (c >> 1) * 2);
-            }
+    for (int k0 = 0; k0 < n_ent; k0 += GMAX) {
+        const int e0 = g0 + k0, ne = min(n_ent - k0, GMAX);
+        if (k0 > 0) __syncthreads();   // the last chunk's reads are done
+        for (int i = t; i < ne * NC; i += blockDim.x) {
+            const int k = i / NC, c = i - k * NC;
+            const int tok = ent_tok[e0 + k];
+            const uint8_t* xb = x_q8_0 + (size_t) tok * (size_t) NC * 34 + (size_t) c * 34;
+            const float dx = x_scales ? x_scales[(size_t) tok * NC + c] : f16_ld(xb);
+            stage_chunk<GMAX * NC>(xb, dx, xs_w, xs_dh, i);
         }
-        for (int k = 0; k < ne; ++k) {
-            float acc0 = 0.0f, acc1 = 0.0f;
+        __syncthreads();
+        const uint8_t* blob = (const uint8_t*) grp_ptr[g];
+        const int row0 = blockIdx.x * GU_ROWS;                 // even: a pair is always (gate r, up r)
+        for (int pp = warp; pp < GU_ROWS / 2; pp += 8) {
+            const int i = row0 + 2 * pp;
+            const uint8_t* codes = blob + (size_t) i * ROW_GU;
+            const uint8_t* scales = blob + O_GU_SCALES + (size_t) i * SC_GU * 2;
+            int m0[GU_CHUNKS][8], m1[GU_CHUNKS][8];
+            float dw0[GU_CHUNKS], dw1[GU_CHUNKS];
 #pragma unroll
             for (int q = 0; q < GU_CHUNKS; ++q) {
                 const int c = lane + 32 * q;
-                if (c >= NC) break;
-                const int at = k * NC + c;
-                int X[8];
-#pragma unroll
-                for (int j = 0; j < 8; ++j) X[j] = xs_w[j * (GMAX * NC) + at];
-                const int2 dh = xs_dh[at];
-                const float dx = __int_as_float(dh.x);
-                acc0 += dw0[q] * dx * (float) (chunk_s(m0[q], X) - dh.y);
-                acc1 += dw1[q] * dx * (float) (chunk_s(m1[q], X) - dh.y);
+                if (c < NC) {
+                    expand_codes(*(const uint2*) (codes + (size_t) c * 8), m0[q]);
+                    expand_codes(*(const uint2*) (codes + ROW_GU + (size_t) c * 8), m1[q]);
+                    dw0[q] = f16_ld(scales + (size_t) (c >> 1) * 2);
+                    dw1[q] = f16_ld(scales + SC_GU * 2 + (size_t) (c >> 1) * 2);
+                }
             }
-            const float s0 = warp_sum(acc0);
-            const float s1 = warp_sum(acc1);
-            if (lane == 0) {
-                const int e = e0 + k, r = i >> 1;
-                gate_up[(size_t) e * FF + (size_t) r] = s0;
-                gate_up[(size_t) cap_entries * FF + (size_t) e * FF + (size_t) r] = s1;
+            for (int k = 0; k < ne; ++k) {
+                float acc0 = 0.0f, acc1 = 0.0f;
+#pragma unroll
+                for (int q = 0; q < GU_CHUNKS; ++q) {
+                    const int c = lane + 32 * q;
+                    if (c >= NC) break;
+                    const int at = k * NC + c;
+                    int X[8];
+#pragma unroll
+                    for (int j = 0; j < 8; ++j) X[j] = xs_w[j * (GMAX * NC) + at];
+                    const int2 dh = xs_dh[at];
+                    const float dx = __int_as_float(dh.x);
+                    acc0 += dw0[q] * dx * (float) (chunk_s(m0[q], X) - dh.y);
+                    acc1 += dw1[q] * dx * (float) (chunk_s(m1[q], X) - dh.y);
+                }
+                const float s0 = warp_sum(acc0);
+                const float s1 = warp_sum(acc1);
+                if (lane == 0) {
+                    const int e = e0 + k, r = i >> 1;
+                    gate_up[(size_t) e * FF + (size_t) r] = s0;
+                    gate_up[(size_t) cap_entries * FF + (size_t) e * FF + (size_t) r] = s1;
+                }
             }
         }
     }
@@ -814,48 +825,52 @@ __global__ void __launch_bounds__(256) down_grouped_t_kernel(const unsigned long
     __shared__ int2 hs_dh[GMAX * NC];
     const int g = blockIdx.y;
     if (g >= *n_groups) return;
-    const int e0 = grp_start[g], ne = min(grp_start[g + 1] - e0, GMAX);
+    const int g0 = grp_start[g], n_ent = grp_start[g + 1] - g0;
     const int t = threadIdx.x, lane = t & 31, warp = t >> 5;
-    for (int i = t; i < ne * NC; i += blockDim.x) {
-        const int k = i / NC, c = i - k * NC;
-        const uint8_t* xb = h_q8_0 + (size_t) (e0 + k) * (size_t) NC * 34 + (size_t) c * 34;
-        const float dx = h_scales ? h_scales[(size_t) (e0 + k) * NC + c] : f16_ld(xb);
-        stage_chunk<GMAX * NC>(xb, dx, hs_w, hs_dh, i);
-    }
-    __syncthreads();
-    const uint8_t* blob = (const uint8_t*) grp_ptr[g];
-    const int row0 = blockIdx.x * D_ROWS;
-    for (int pp = warp; pp < D_ROWS / 2; pp += 8) {
-        const int r = row0 + 2 * pp;
-        const uint8_t* codes = blob + O_D_CODES + (size_t) r * ROW_D;
-        const uint8_t* scales = blob + O_D_SCALES + (size_t) r * SC_D * 2;
-        const int c = lane;                                // lanes 0..19 hold one chunk each, as above
-        int m0[8], m1[8];
-        float dw0 = 0.0f, dw1 = 0.0f;
-        if (c < NC) {
-            expand_codes(*(const uint2*) (codes + (size_t) c * 8), m0);
-            expand_codes(*(const uint2*) (codes + ROW_D + (size_t) c * 8), m1);
-            dw0 = f16_ld(scales + (size_t) (c >> 1) * 2);
-            dw1 = f16_ld(scales + SC_D * 2 + (size_t) (c >> 1) * 2);
+    for (int k0 = 0; k0 < n_ent; k0 += GMAX) {
+        const int e0 = g0 + k0, ne = min(n_ent - k0, GMAX);
+        if (k0 > 0) __syncthreads();   // the last chunk's reads are done
+        for (int i = t; i < ne * NC; i += blockDim.x) {
+            const int k = i / NC, c = i - k * NC;
+            const uint8_t* xb = h_q8_0 + (size_t) (e0 + k) * (size_t) NC * 34 + (size_t) c * 34;
+            const float dx = h_scales ? h_scales[(size_t) (e0 + k) * NC + c] : f16_ld(xb);
+            stage_chunk<GMAX * NC>(xb, dx, hs_w, hs_dh, i);
         }
-        for (int k = 0; k < ne; ++k) {
-            float acc0 = 0.0f, acc1 = 0.0f;
+        __syncthreads();
+        const uint8_t* blob = (const uint8_t*) grp_ptr[g];
+        const int row0 = blockIdx.x * D_ROWS;
+        for (int pp = warp; pp < D_ROWS / 2; pp += 8) {
+            const int r = row0 + 2 * pp;
+            const uint8_t* codes = blob + O_D_CODES + (size_t) r * ROW_D;
+            const uint8_t* scales = blob + O_D_SCALES + (size_t) r * SC_D * 2;
+            const int c = lane;                                // lanes 0..19 hold one chunk each, as above
+            int m0[8], m1[8];
+            float dw0 = 0.0f, dw1 = 0.0f;
             if (c < NC) {
-                const int at = k * NC + c;
-                int X[8];
-#pragma unroll
-                for (int j = 0; j < 8; ++j) X[j] = hs_w[j * (GMAX * NC) + at];
-                const int2 dh = hs_dh[at];
-                const float dx = __int_as_float(dh.x);
-                acc0 += dw0 * dx * (float) (chunk_s(m0, X) - dh.y);
-                acc1 += dw1 * dx * (float) (chunk_s(m1, X) - dh.y);
+                expand_codes(*(const uint2*) (codes + (size_t) c * 8), m0);
+                expand_codes(*(const uint2*) (codes + ROW_D + (size_t) c * 8), m1);
+                dw0 = f16_ld(scales + (size_t) (c >> 1) * 2);
+                dw1 = f16_ld(scales + SC_D * 2 + (size_t) (c >> 1) * 2);
             }
-            const float s0 = warp_sum(acc0);
-            const float s1 = warp_sum(acc1);
-            if (lane == 0) {
-                const size_t o = (size_t) ent_dst[e0 + k] * H + (size_t) r;
-                out[o] = s0;
-                out[o + 1] = s1;
+            for (int k = 0; k < ne; ++k) {
+                float acc0 = 0.0f, acc1 = 0.0f;
+                if (c < NC) {
+                    const int at = k * NC + c;
+                    int X[8];
+#pragma unroll
+                    for (int j = 0; j < 8; ++j) X[j] = hs_w[j * (GMAX * NC) + at];
+                    const int2 dh = hs_dh[at];
+                    const float dx = __int_as_float(dh.x);
+                    acc0 += dw0 * dx * (float) (chunk_s(m0, X) - dh.y);
+                    acc1 += dw1 * dx * (float) (chunk_s(m1, X) - dh.y);
+                }
+                const float s0 = warp_sum(acc0);
+                const float s1 = warp_sum(acc1);
+                if (lane == 0) {
+                    const size_t o = (size_t) ent_dst[e0 + k] * H + (size_t) r;
+                    out[o] = s0;
+                    out[o + 1] = s1;
+                }
             }
         }
     }
@@ -864,12 +879,14 @@ __global__ void __launch_bounds__(256) down_grouped_t_kernel(const unsigned long
 
 namespace {
 // Plan v0.3 P6: groups built on the device when every expert is resident at `base + id * blob` (the MTP layer):
-// one block of 128 threads, groups in first-appearance order, entries of a group in routing order.
+// one block of kGroupResidentMax threads, groups in first-appearance order, entries of a group in routing order.
+constexpr int kGroupResidentMax = 160;   // a window of 16 tokens x top-10
 __global__ void group_resident_kernel(const int32_t* __restrict__ ids, int n, int k_per_tok, const uint8_t* base,
                                       long long blob, unsigned long long* __restrict__ grp_ptr,
                                       int32_t* __restrict__ grp_start, int32_t* __restrict__ counts,
                                       int32_t* __restrict__ ent_dst, int32_t* __restrict__ ent_tok) {
-    __shared__ int e_s[128], first_s[128], size_s[128], gidx_s[128], gstart_s[129];
+    __shared__ int e_s[kGroupResidentMax], first_s[kGroupResidentMax], size_s[kGroupResidentMax],
+        gidx_s[kGroupResidentMax], gstart_s[kGroupResidentMax + 1];
     const int i = threadIdx.x;
     const int e = i < n ? ids[i] : -1;
     e_s[i] = e;
@@ -911,8 +928,11 @@ __global__ void group_resident_kernel(const int32_t* __restrict__ ids, int n, in
 void moe_group_resident(const int32_t* ids, int n, int k_per_tok, const uint8_t* base, int64_t blob,
                         unsigned long long* grp_ptr, int32_t* grp_start, int32_t* counts, int32_t* ent_dst,
                         int32_t* ent_tok, void* stream) {
-    if (n < 1 || n > 128) { basalt::log::error("basalt", "moe_group_resident: n must be 1..128"); std::exit(1); }
-    group_resident_kernel<<<1, 128, 0, (cudaStream_t) stream>>>(ids, n, k_per_tok, base, (long long) blob, grp_ptr,
+    if (n < 1 || n > kGroupResidentMax) {
+        basalt::log::error("basalt", "moe_group_resident: n must be 1..%d", kGroupResidentMax);
+        std::exit(1);
+    }
+    group_resident_kernel<<<1, kGroupResidentMax, 0, (cudaStream_t) stream>>>(ids, n, k_per_tok, base, (long long) blob, grp_ptr,
                                                                grp_start, counts, ent_dst, ent_tok);
     check("moe_group_resident", stream);
 }

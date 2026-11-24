@@ -84,7 +84,7 @@ uint16_t sane_half(std::mt19937& rng) {
 }
 
 // T = 4 is the last width where the two layouts coincide, T = 5 the first where they differ
-const int WIDTHS[] = {1, 2, 3, 4, 5, 6, 8};
+const int WIDTHS[] = {1, 2, 3, 4, 5, 6, 8, 9, 12, 16};   // past 8: one kernel of 16 columns
 constexpr int COINCIDE_MAX_T = 4;
 
 bool ck(cudaError_t e, const char* what) {
@@ -362,7 +362,7 @@ void bench(cudaStream_t s) {
     cudaEventCreate(&e1);
     for (const MmaCase& c : shapes) {
         std::printf("%5d -> %5d:", c.n_in, c.n_out);
-        for (int T = 2; T <= 8; ++T) {
+        for (int T : {2, 4, 6, 8, 12, 16}) {   // past 8 the tensor-core path declines: both dp4a
             Buffers b;
             if (!fill(b, c.n_in, c.n_out, T, 0, 0, 99u, s)) break;
             float us[2] = {0, 0};

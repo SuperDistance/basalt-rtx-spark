@@ -27,7 +27,7 @@ bool peer_portable() { return g_peer_portable; }
 
 namespace {
 
-constexpr int64_t CAP = basalt::kernels::cpu::MAXT * 10;   // entries per layer: MAXT tokens x top-10
+constexpr int64_t CAP = basalt::kernels::cpu::kWindowMaxT * 10;   // entries per layer: a window's tokens x top-10
 
 struct Meta {                           // one block, uploaded with one copy per layer
     unsigned long long ptr[CAP];

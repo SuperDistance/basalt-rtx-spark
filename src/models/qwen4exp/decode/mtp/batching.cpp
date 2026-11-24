@@ -49,7 +49,7 @@ bool MtpDrafter::draft_batch(int S, const int* ids, const float* R_rows, const i
         Ttot += Ts[s];
         if (!flush(ids[s], err)) return false;   // its deferred rows, in its own store
     }
-    if (Ttot > std::min(max_t_, kVerifyMaxT)) { err = "mtp: a batched draft's window rows exceed the window"; return false; }
+    if (Ttot > batch_rows_max()) { err = "mtp: a batched draft's window rows exceed the window"; return false; }
     // per sequence, what draft_rows does before its launch: the committed picks into the subset's context, the tier
     for (int s = 0; s < S; ++s) {
         if (n_xcap_ > 0)

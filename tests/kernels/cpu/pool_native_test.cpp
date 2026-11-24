@@ -5,7 +5,8 @@
 // `run_split_multi_native` cuts a layer's experts into row ranges and hands them to the workers; whatever the
 // cut, every output row must be bitwise what one thread computes alone (the gate/up rows, the intermediate's
 // quantization, the down rows).  The check runs the formats of the i-quant and NVFP4 packs on random blobs, 1 to 130
-// experts (more than the pool's buffers too), 1 to 8 tokens per expert, at several active worker counts, with a
+// experts (more than the pool's buffers too), 1 to 16 tokens per expert (a job past MAXT tokens runs them MAXT at a
+// time), at several active worker counts, with a
 // pause longer than the workers' spin in the middle, and fails on the first differing word or untouched output.
 // `--bench` prints the time and rate of one layer of 15 experts.
 #include "basalt/models/qwen4exp/geometry.hpp"
@@ -30,7 +31,7 @@ namespace cpu = basalt::kernels::cpu;
 
 namespace {
 
-constexpr int H = cpu::H, FF = cpu::FF, MAXT = cpu::MAXT;
+constexpr int H = cpu::H, FF = cpu::FF, MAXT = cpu::MAXT, WT = cpu::kWindowMaxT;
 constexpr int kBlobs = 48;   // distinct blobs per format; experts index into them
 
 // NVFP4: rows quantized from random values with a spread of block scales, and the blob's FP32 scale tail.
@@ -82,18 +83,18 @@ struct Format {
     std::vector<cpu::ActQ> actq;              // the same inputs for a Q2_0 gate/up
 };
 
-// One expert for `nt` tokens on a single thread: the definition of the right answer.
-void serial_expert(const Format& fm, const uint8_t* blob, int nt, float* const* out) {
+// One expert for `nt` (<= MAXT) tokens on a single thread: the definition of the right answer.
+void serial_expert(const Format& fm, const uint8_t* blob, int nt, float* const* out, int t0 = 0) {
     const cpu::NativeFmt& f = fm.f;
     alignas(64) float ff[MAXT][FF];
     float* ffp[MAXT];
     const void* act[MAXT];
-    for (int t = 0; t < nt; ++t) { ffp[t] = ff[t]; act[t] = fm.nact[(size_t) t].data(); }
+    for (int t = 0; t < nt; ++t) { ffp[t] = ff[t]; act[t] = fm.nact[(size_t) (t0 + t)].data(); }
     if (cpu::q2_native_kernels(f.gu_type)) {
         alignas(64) float gate[MAXT][FF], up[MAXT][FF];
         float *gp[MAXT], *upp[MAXT];
         const cpu::ActQ* ap[MAXT];
-        for (int t = 0; t < nt; ++t) { gp[t] = gate[t]; upp[t] = up[t]; ap[t] = &fm.actq[(size_t) t]; }
+        for (int t = 0; t < nt; ++t) { gp[t] = gate[t]; upp[t] = up[t]; ap[t] = &fm.actq[(size_t) (t0 + t)]; }
         const int nbk = (int) (f.n_embd / 64);
         cpu::q2_rows_any(blob, f.gu_row, nbk, ap, nt, gp, 0, FF);
         cpu::q2_rows_any(blob + f.up_off, f.gu_row, nbk, ap, nt, upp, 0, FF);
@@ -113,6 +114,11 @@ void serial_expert(const Format& fm, const uint8_t* blob, int nt, float* const* 
         for (int t = 0; t < nt; ++t) { cpu::native_quant_h(f, ff[t], hq[t]); hp[t] = hq[t]; }
         cpu::native_down_rows(f, blob, hp, nt, out, 0, H);
     }
+}
+
+// any token count: MAXT at a time, as the pool runs a job
+void serial_expert_any(const Format& fm, const uint8_t* blob, int nt, float* const* out) {
+    for (int t0 = 0; t0 < nt; t0 += MAXT) serial_expert(fm, blob, std::min(MAXT, nt - t0), out + t0, t0);
 }
 
 double now_ms() {
@@ -145,9 +151,9 @@ int main(int argc, char** argv) {
         std::mt19937 rng((uint32_t) (fm.gu * 31 + fm.d));
         std::normal_distribution<float> nd(0.f, 1.f);
         std::vector<float> x(H);
-        fm.nact.assign(MAXT, std::vector<uint8_t>(cpu::kNativeActBytes));
-        fm.actq.resize(MAXT);
-        for (int t = 0; t < MAXT; ++t) {
+        fm.nact.assign(WT, std::vector<uint8_t>(cpu::kNativeActBytes));
+        fm.actq.resize(WT);
+        for (int t = 0; t < WT; ++t) {
             for (auto& v : x) v = nd(rng);
             cpu::native_quant_act(fm.f, x.data(), fm.nact[(size_t) t].data());
             cpu::act_quant_any(x.data(), H, fm.actq[(size_t) t]);
@@ -165,12 +171,12 @@ int main(int argc, char** argv) {
     for (const Format& fm : formats) {
         for (int n : ns) {
             std::vector<int> nts((size_t) n), idx((size_t) n);
-            for (int e = 0; e < n; ++e) { nts[(size_t) e] = 1 + (int) (rng() % MAXT); idx[(size_t) e] = (int) (rng() % kBlobs); }
-            std::vector<std::vector<float>> want((size_t) n * MAXT, std::vector<float>(H)), got((size_t) n * MAXT, std::vector<float>(H));
+            for (int e = 0; e < n; ++e) { nts[(size_t) e] = 1 + (int) (rng() % WT); idx[(size_t) e] = (int) (rng() % kBlobs); }
+            std::vector<std::vector<float>> want((size_t) n * WT, std::vector<float>(H)), got((size_t) n * WT, std::vector<float>(H));
             for (int e = 0; e < n; ++e) {
-                float* o[MAXT];
-                for (int t = 0; t < nts[(size_t) e]; ++t) o[t] = want[(size_t) e * MAXT + (size_t) t].data();
-                serial_expert(fm, fm.blobs[(size_t) idx[(size_t) e]].data(), nts[(size_t) e], o);
+                float* o[WT];
+                for (int t = 0; t < nts[(size_t) e]; ++t) o[t] = want[(size_t) e * WT + (size_t) t].data();
+                serial_expert_any(fm, fm.blobs[(size_t) idx[(size_t) e]].data(), nts[(size_t) e], o);
             }
             std::vector<cpu::ExpertJobMulti> jobs((size_t) n);
             for (int e = 0; e < n; ++e) {
@@ -180,7 +186,7 @@ int main(int argc, char** argv) {
                 for (int t = 0; t < j.nt; ++t) {
                     j.nact[t] = fm.nact[(size_t) t].data();
                     j.act[t] = &fm.actq[(size_t) t];
-                    j.out[t] = got[(size_t) e * MAXT + (size_t) t].data();
+                    j.out[t] = got[(size_t) e * WT + (size_t) t].data();
                 }
             }
             for (int k : {W, 1, 2, std::max(1, W / 2), W, W}) {
@@ -191,7 +197,7 @@ int main(int argc, char** argv) {
                 bool ok = true;
                 for (int e = 0; e < n && ok; ++e)
                     for (int t = 0; t < nts[(size_t) e]; ++t)
-                        if (std::memcmp(want[(size_t) e * MAXT + (size_t) t].data(), got[(size_t) e * MAXT + (size_t) t].data(), H * sizeof(float)) != 0) {
+                        if (std::memcmp(want[(size_t) e * WT + (size_t) t].data(), got[(size_t) e * WT + (size_t) t].data(), H * sizeof(float)) != 0) {
                             std::printf("MISMATCH gu %d down %d: %d experts, active workers %d, expert %d token %d\n", fm.gu, fm.d, n, k, e, t);
                             ok = false;
                             break;

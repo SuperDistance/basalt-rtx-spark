@@ -1,7 +1,8 @@
 // tests/models/qwen4exp/kernels/hc_fused_parity.cpp - hc_fused_read against the kernels it replaces (fused_gr_read_multi on the 8-bit
 // copies, then the MMVF router GEMV and the native top-10), with real geometry and random inputs.  The fused read
 // has its own reduction order and fast exponentials, so against those kernels each output must agree within
-// kRelTol of its largest value and pick the same experts; against itself it must be bitwise: repeated launches,
+// kRelTol of its largest value and pick the same experts. It also checks the widest window against double-precision
+// CPU math on the stored weights. Against itself it must be bitwise: repeated launches,
 // every window width, reversed token order and overlapped launches (--stress).  A read that counts its progress
 // against one that does not, its q8_1 rows against a CPU quantizer.  Then the time of both with the weights hot in L2
 // and cold (L2 overwritten before every read).
@@ -10,7 +11,9 @@
 //
 // --tol prints every case's differences against the plain kernels, not only the failing ones.
 #include "basalt/core/diag.hpp"
+#include "basalt/kernels/bf16_bits.hpp"
 #include "basalt/kernels/bf16_gemv.hpp"
+#include "basalt/kernels/f16_bits.hpp"
 #include "basalt/models/qwen4exp/kernels/fused_gr.hpp"
 #include "basalt/models/qwen4exp/kernels/hc_fused.hpp"
 #include "basalt/kernels/native_mmvq.hpp"
@@ -38,11 +41,142 @@ namespace K = basalt::kernels;
 
 // the fused read's largest deviation from the plain kernels, relative to the output's largest value
 constexpr double kRelTol = 2e-6;
+constexpr int N = 2560, HC = 4, D = N * HC, LR = 320, NE = 512, KT = 10, TM = 16;
+constexpr int part_width[] = {D, LR, HC, HC, N, NE, KT, KT};
+constexpr const char* part_name[] = {"R", "lo", "rs", "inject", "mixed", "logits", "weights", "ids"};
 
 static uint16_t bf16(float x) {
     uint32_t u;
     std::memcpy(&u, &x, 4);
     return (uint16_t) ((u + 0x7fff + ((u >> 16) & 1)) >> 16);
+}
+
+// The same stored int8 codes and FP16 scales as the GPU reads, without rounding the dequantized weights to BF16.
+static bool read_hc8_weights(const void* key, std::vector<float>& weights) {
+    K::Hc8View v;
+    if (!K::hc8_view(key, v)) return false;
+    std::vector<int8_t> q((size_t) v.rows * v.cols);
+    std::vector<uint16_t> s((size_t) v.rows * v.srow);
+    if (cudaMemcpy(q.data(), v.q, q.size(), cudaMemcpyDeviceToHost) != cudaSuccess ||
+        cudaMemcpy(s.data(), v.s, s.size() * sizeof(uint16_t), cudaMemcpyDeviceToHost) != cudaSuccess)
+        return false;
+    weights.resize(q.size());
+    for (int r = 0; r < v.rows; ++r)
+        for (int c = 0; c < v.cols; ++c) {
+            const size_t i = (size_t) r * v.cols + c;
+            weights[i] = q[i] * K::f32_from_f16(s[(size_t) r * v.srow + c / 32]);
+        }
+    return true;
+}
+
+// GR's pending write, per-stream RMS, low-rank gated mean, and the router's normalized top ten for one token.
+static void reference_read(const float* r, const float* bo, const float* inj, const float* norm,
+                           const std::vector<float>& down, const std::vector<float>& up,
+                           const std::vector<float>& inject, const std::vector<float>& router,
+                           std::array<std::vector<double>, 7>& ref, std::array<int32_t, KT>& ids) {
+    for (size_t p = 0; p < ref.size(); ++p) ref[p].resize(part_width[p]);
+    auto& [residual, lo, rs, injection, mixed, logits, weights] = ref;
+    auto sigmoid = [](double x) { return 1.0 / (1.0 + std::exp(-x)); };
+    auto dot = [](const float* w, const double* x, int count) {
+        double sum = 0.0;
+        for (int j = 0; j < count; ++j) sum += w[j] * x[j];
+        return sum;
+    };
+    std::vector<double> xn(D);
+    for (int c = 0; c < HC; ++c) {
+        double squares = 0.0;
+        const double gate = 2.0 * sigmoid((double) inj[c] / HC);
+        for (int i = 0; i < N; ++i) {
+            const int j = c * N + i;
+            residual[j] = r[j] + bo[i] * gate;
+            squares += residual[j] * residual[j];
+        }
+        rs[c] = 1.0 / std::sqrt(squares / N + 1e-6);
+        for (int i = 0; i < N; ++i) {
+            const int j = c * N + i;
+            xn[j] = residual[j] * norm[j] * rs[c];
+        }
+    }
+    for (int i = 0; i < LR; ++i) {
+        const double x = dot(down.data() + (size_t) i * D, xn.data(), D) / HC;
+        lo[i] = x * sigmoid(x);
+    }
+    for (int c = 0; c < HC; ++c) injection[c] = dot(inject.data() + (size_t) c * D, xn.data(), D);
+    for (int i = 0; i < N; ++i) {
+        double sum = 0.0;
+        for (int c = 0; c < HC; ++c) {
+            const int j = c * N + i;
+            sum += xn[j] * sigmoid(dot(up.data() + (size_t) j * LR, lo.data(), LR));
+        }
+        mixed[i] = sum / HC;
+    }
+    std::array<int32_t, NE> rank;
+    for (int e = 0; e < NE; ++e) {
+        logits[e] = dot(router.data() + (size_t) e * N, mixed.data(), N);
+        rank[e] = e;
+    }
+    std::partial_sort(rank.begin(), rank.begin() + KT, rank.end(), [&](int a, int b) {
+        return logits[a] > logits[b] || (logits[a] == logits[b] && a < b);
+    });
+    const double maximum = logits[rank[0]];
+    double total = 0.0, selected = 0.0;
+    for (double logit : logits) total += std::exp(logit - maximum);
+    for (int j = 0; j < KT; ++j) {
+        ids[j] = rank[j];
+        weights[j] = std::exp(logits[ids[j]] - maximum) / total;
+        selected += weights[j];
+    }
+    for (double& w : weights) w /= std::max(selected, 0x1p-14);
+}
+
+static bool check_cpu_reference(int width, const std::vector<float>& out,
+                                const std::vector<float>& r, const std::vector<float>& bo,
+                                const std::vector<float>& inj, const std::vector<float>& norm,
+                                const void* wd, const void* wu, const void* wi, const std::vector<uint16_t>& wr) {
+    std::vector<float> down, up, inject, router(wr.size());
+    if (!read_hc8_weights(wd, down) || !read_hc8_weights(wu, up) || !read_hc8_weights(wi, inject)) {
+        std::printf("hc_fused_parity: could not read the HC8 weights for CPU reference\n");
+        return false;
+    }
+    std::transform(wr.begin(), wr.end(), router.begin(), K::f32_from_bf16);
+    std::array<std::vector<double>, 7> ref;
+    std::array<int32_t, KT> ids;
+    double error[7] = {}, magnitude[7] = {};
+    int differing_ids = 0;
+    bool finite = true;
+    const int tokens = std::min(2, width);   // the first and last token, spanning both tiles when the window is 16
+    for (int i = 0; i < tokens; ++i) {
+        const size_t t = i == 0 ? 0 : width - 1;
+        reference_read(r.data() + t * D, bo.data() + t * N, inj.data() + t * HC, norm.data(),
+                       down, up, inject, router, ref, ids);
+        size_t offset = 0;
+        for (size_t p = 0; p < ref.size(); ++p) {
+            for (int j = 0; j < part_width[p]; ++j) {
+                const double actual = out[offset + t * part_width[p] + j], expected = ref[p][j];
+                finite = finite && std::isfinite(actual);
+                error[p] = std::max(error[p], std::fabs(actual - expected));
+                magnitude[p] = std::max(magnitude[p], std::fabs(expected));
+            }
+            offset += (size_t) width * part_width[p];
+        }
+        for (int j = 0; j < KT; ++j) {
+            int32_t actual;
+            std::memcpy(&actual, out.data() + offset + t * KT + j, sizeof(actual));
+            differing_ids += actual != ids[j];
+        }
+    }
+    // The CUDA sums, fast exponentials and split-FP16 up product all introduce rounding before the later stages.
+    constexpr double kCpuRelTol = 1e-5;
+    bool ok = finite && differing_ids == 0;
+    std::printf("hc_fused_parity: CPU double reference, T %d, %d token%s (max abs / relative to max):", width, tokens,
+                tokens == 1 ? "" : "s");
+    for (size_t p = 0; p < ref.size(); ++p) {
+        const double relative = magnitude[p] > 0 ? error[p] / magnitude[p] : error[p];
+        std::printf(" %s %.2e / %.2e |", part_name[p], error[p], relative);
+        ok = ok && relative <= kCpuRelTol;
+    }
+    std::printf(" differing routed ids %d of %d%s\n", differing_ids, tokens * KT, ok ? "" : " FAIL");
+    return ok;
 }
 
 int main(int argc, char** argv) {
@@ -53,7 +187,7 @@ int main(int argc, char** argv) {
     int stamp_reps = 1;
     bool check_only = false;   // --check-only: stop after the output checks (for the sanitizers)
     int rot = 0, rotpad = 0, stress = 0;   // --rot N: the timing and stamp runs cycle through N weight sets (every read starts with its matrices out of L2)
-    std::string block_list = "2:4,2:100,2:165,6:4,6:100,8:169";
+    std::string block_list = "2:4,2:100,2:165,6:4,6:100,8:169,16:4";
     for (int i = 1; i < argc; ++i) {
         const std::string a = argv[i];
         if (a == "--tol") tol = true;
@@ -66,13 +200,16 @@ int main(int argc, char** argv) {
         else pos.push_back(a);
     }
     const int iters = pos.size() > 0 ? std::atoi(pos[0].c_str()) : 200;
-    const int t_lo = pos.size() > 1 ? std::atoi(pos[1].c_str()) : 1, t_hi = pos.size() > 2 ? std::atoi(pos[2].c_str()) : 8;
+    const int t_lo = pos.size() > 1 ? std::atoi(pos[1].c_str()) : 1, t_hi = pos.size() > 2 ? std::atoi(pos[2].c_str()) : 16;
+    if (iters < 1 || t_lo < 1 || t_hi < t_lo || t_hi > TM) {
+        std::printf("hc_fused_parity: expected positive iterations and 1 <= T min <= T max <= %d\n", TM);
+        return 1;
+    }
     if (!K::hc_fused_supported()) {
         std::printf("hc_fused_parity: the fused read does not run on this device\n");
         return 1;
     }
     K::fused_gr_check();
-    const int N = 2560, HC = 4, D = N * HC, LR = 320, NE = 512, KT = 10, TM = 8;
     std::mt19937 rng(11);
     std::normal_distribution<float> nd(0.f, 1.f);
     auto fill = [&](std::vector<float>& v, float sc) { for (auto& x : v) x = sc * nd(rng); };
@@ -192,7 +329,8 @@ int main(int argc, char** argv) {
                 a[t].lo = x.lo + (size_t) t * LR; a[t].rs = x.rs + (size_t) t * HC;
                 a[t].inject_out = x.io + (size_t) t * HC; a[t].mixed = x.mix + (size_t) t * N;
             }
-            K::fused_gr_read_multi(a, T, x.xn, s);
+            for (int t0 = 0; t0 < T; t0 += 8)   // fused_gr_read_multi takes 8 tokens at a time
+                K::fused_gr_read_multi(a + t0, std::min(8, T - t0), x.xn + (size_t) t0 * D, s);
             if (router) {
                 K::bf16_gemv_fp32_mmvf_multi(x.mix, N, dwr, x.logits, NE, N, NE, T, s);
                 K::native_router_top10_multi(x.logits, x.ids, x.w, T, s);
@@ -232,7 +370,6 @@ int main(int argc, char** argv) {
         cudaMemcpy(p, x.ids, (size_t) T * KT * 4, cudaMemcpyDeviceToHost);
         return v;
     };
-    static const char* const part_name[8] = {"R", "lo", "rs", "inject", "mixed", "logits", "weights", "ids"};
     auto part_of = [&](size_t i, int T) {
         const size_t sz[8] = {(size_t) T * D, (size_t) T * LR, (size_t) T * HC, (size_t) T * HC, (size_t) T * N,
                               (size_t) T * NE, (size_t) T * KT, (size_t) T * KT};
@@ -363,6 +500,7 @@ int main(int argc, char** argv) {
     }
     std::printf("hc_fused_parity: %d differing cases (T %d..%d, 3 modes, with and without the pending write)\n",
                 failures, t_lo, t_hi);
+    failures += !check_cpu_reference(t_hi, by_t[t_hi], R, bo, inj, wn, dwd, dwu, dwi, wr);
 
     // a counting read (the MoE ring's block starts before it ends): the router items' and the top-10's counts land,
     // and every output - xq included - is the read's without them; xq is also checked against a CPU quantizer
@@ -495,7 +633,7 @@ int main(int argc, char** argv) {
         cudaEvent_t evf, evj;
         cudaEventCreateWithFlags(&evf, cudaEventDisableTiming);
         cudaEventCreateWithFlags(&evj, cudaEventDisableTiming);
-        int sbad = 0;
+        int sbad = 0, mbad = 0;
         for (int T = t_lo; T <= t_hi; ++T) {
             reset(1);
             cudaMemset(dxqs, 0xee, qb);
@@ -555,10 +693,31 @@ int main(int argc, char** argv) {
                             T, !by_t[T].empty() && std::memcmp(v.data(), by_t[T].data(), v.size() * 4) != 0 ? "differ" : "same",
                             qbad ? "differs" : "same", ybad, T * N, nonfin);
             sbad += bad;
+
+            // The mixer's read writes the same q8_1 rows with its up items and no router.
+            reset(1);
+            cudaMemset(dxq, 0xee, qb);
+            a.w_router = nullptr;
+            a.w_gate_sh = nullptr;
+            a.xq_sh = nullptr;
+            K::hc_fused_read(a, s);
+            K::native_quantize_q8_1(x.mix, dxqn, N, T, s);
+            if (cudaStreamSynchronize(s) != cudaSuccess) {
+                std::printf("mixer read failed: %s\n", cudaGetErrorString(cudaGetLastError()));
+                return 1;
+            }
+            cudaMemcpy(qs.data(), dxq, qs.size(), cudaMemcpyDeviceToHost);
+            cudaMemcpy(qn.data(), dxqn, qn.size(), cudaMemcpyDeviceToHost);
+            if (std::memcmp(qs.data(), qn.data(), qs.size()) != 0) {
+                std::printf("T %d: mixer read's q8_1 rows differ\n", T);
+                ++mbad;
+            }
         }
         std::printf("hc_fused_parity: %d window sizes where the shared expert's gate, rows or the read's outputs differ "
                     "(must be 0)\n", sbad);
         failures += sbad ? 1 : 0;
+        std::printf("hc_fused_parity: %d window sizes where the mixer's q8_1 rows differ (must be 0)\n", mbad);
+        failures += mbad ? 1 : 0;
         cudaEventDestroy(evf);
         cudaEventDestroy(evj);
         cudaStreamDestroy(s2);
@@ -574,7 +733,7 @@ int main(int argc, char** argv) {
         Out so[NS];
         for (auto& x : so) alloc_out(x);
         std::mt19937 kr(5);
-        std::vector<std::vector<float>> first(8 * 8);
+        std::vector<std::vector<float>> first(t_hi * 8);
         long mism = 0, reads = 0;
         for (int base = 0; base < stress; base += NS) {
             int key[NS];
@@ -585,7 +744,7 @@ int main(int argc, char** argv) {
                 o[1] = saved;
             }
             for (int i = 0; i < NS; ++i) {
-                const int T = 1 + (int) (kr() % 8), seed = (int) (kr() % 8);
+                const int T = 1 + (int) (kr() % t_hi), seed = (int) (kr() % 8);
                 key[i] = (T - 1) * 8 + seed;
                 std::vector<float> r((size_t) T * D);
                 for (int t = 0; t < T; ++t)

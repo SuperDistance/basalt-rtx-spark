@@ -1,5 +1,5 @@
 // tests/models/qwen4exp/kernels/q6k_head_parity.cpp - q6k_head_mmvq against native_mmvq (Q6_K, the exact layout), bitwise, on random
-// Q6_K rows and quantized random columns, 1..8 columns; then a microbench of both at the head's shape.  Last, the draft
+// Q6_K rows and quantized random columns, 1..16 columns; then a microbench of both at the head's shape.  Last, the draft
 // head read through a row map (rows of the whole head) against the same rows gathered into a copy, bitwise: the 2-bit
 // copy, the two-stage argmax, the one-column head, and the copy's 2..8-column head against the row map one column at a
 // time.
@@ -32,7 +32,7 @@ void ck(cudaError_t e, const char* w) {
 int main(int argc, char** argv) {
     const int rows = argc > 1 ? std::atoi(argv[1]) : 248320;
     const int iters = argc > 2 ? std::atoi(argv[2]) : 50;
-    const int n_in = 2560, MT = 8, blk = 210, bpr = n_in / 256;
+    const int n_in = 2560, MT = 16, blk = 210, bpr = n_in / 256;
     const size_t wbytes = (size_t) rows * bpr * blk;
     std::mt19937 rng(5);
     std::vector<uint8_t> hw(wbytes);

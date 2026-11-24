@@ -85,7 +85,7 @@ bool Verifier::capture_commit_batch(int R, std::string& err) {
     try {
         copy_i32_from_mapped(commitb_, m_commitb_, (int64_t) slots_.size() * CB, cs_);
         copy_i32_from_mapped((int32_t*) segb_, (const int32_t*) m_segb_, (int64_t) R * 8, cs_);
-        copy_i32_from_mapped((int32_t*) d_qrows_, (const int32_t*) m_qseg_, (int64_t) (kQsaSegMaxRows + 8) * 4, cs_);
+        copy_i32_from_mapped((int32_t*) d_qrows_, (const int32_t*) m_qseg_, (int64_t) (kQsaSegMaxRows + kVerifyMaxT) * 4, cs_);
         copy_i32_from_mapped(deferb_, m_deferb_, R, cs_);
         int64_t qsa_index = 0, gdn_index = 0;
         for (int64_t l = 0; l < lb_; ++l) (is_qsa_layer(g, l) ? qsa_index : gdn_index) += 1;

@@ -23,6 +23,7 @@ namespace {
 using q80p::kBlocks;
 using q80p::kRowBytes;
 constexpr int WARP = 32, WPB = 8;
+constexpr int kTileCols = 8, kLocalCols = 2 * kTileCols;
 constexpr int VHIST = 1024;        // bins per column of the block-maximum histogram
 constexpr float VBIN = 8.0f;       // bins per logit unit, centred on zero
 constexpr int kListCap = 1024;     // rows per block of the exact pass
@@ -684,29 +685,35 @@ void check(const char* what) {
 
 void dispatch(const void* w, const void* x, float* y, int n_in, int n_out, int ncols, const int* k, void* scratch,
               void* stream, const char* who, int n_scr, unsigned* pub = nullptr, const unsigned* sub = nullptr) {
-    if (!q80p_supported(n_in, ncols) || n_out <= 0 || !w || !x || !y || (k != nullptr && scratch == nullptr) ||
-        n_scr <= 0 || n_scr > n_out) {
+    const int max_cols = pub != nullptr || sub != nullptr ? kTileCols : kLocalCols;
+    if (ncols > max_cols || !q80p_supported(n_in, std::min(ncols, kTileCols)) ||
+        n_out <= 0 || !w || !x || !y || (k != nullptr && scratch == nullptr) || n_scr <= 0 || n_scr > n_out) {
         basalt::log::error("basalt", "%s: unsupported shape (n_in %d, n_out %d, ncols %d)", who, n_in, n_out, ncols);
         std::exit(1);
     }
     const auto s = (cudaStream_t) stream;
-    VScratch* vs = (VScratch*) scratch;
-    switch (ncols) {
-        case 1: launch<1>(w, x, y, n_out, n_scr, k, vs, s, pub, sub); break;
-        case 2: launch<2>(w, x, y, n_out, n_scr, k, vs, s, pub, sub); break;
-        case 3: launch<3>(w, x, y, n_out, n_scr, k, vs, s, pub, sub); break;
-        case 4: launch<4>(w, x, y, n_out, n_scr, k, vs, s, pub, sub); break;
-        case 5: launch<5>(w, x, y, n_out, n_scr, k, vs, s, pub, sub); break;
-        case 6: launch<6>(w, x, y, n_out, n_scr, k, vs, s, pub, sub); break;
-        case 7: launch<7>(w, x, y, n_out, n_scr, k, vs, s, pub, sub); break;
-        default: launch<8>(w, x, y, n_out, n_scr, k, vs, s, pub, sub); break;
+    auto* vs = static_cast<VScratch*>(scratch);
+    for (int col = 0; col < ncols; col += kTileCols) {
+        // Each tile uses the same scratch after the preceding tile's exact pass.
+        const auto* xx = static_cast<const Q81Block*>(x) + (size_t) col * kBlocks;
+        float* yy = y + (size_t) col * n_out;
+        switch (std::min(ncols - col, kTileCols)) {
+            case 1: launch<1>(w, xx, yy, n_out, n_scr, k, vs, s, pub, sub); break;
+            case 2: launch<2>(w, xx, yy, n_out, n_scr, k, vs, s, pub, sub); break;
+            case 3: launch<3>(w, xx, yy, n_out, n_scr, k, vs, s, pub, sub); break;
+            case 4: launch<4>(w, xx, yy, n_out, n_scr, k, vs, s, pub, sub); break;
+            case 5: launch<5>(w, xx, yy, n_out, n_scr, k, vs, s, pub, sub); break;
+            case 6: launch<6>(w, xx, yy, n_out, n_scr, k, vs, s, pub, sub); break;
+            case 7: launch<7>(w, xx, yy, n_out, n_scr, k, vs, s, pub, sub); break;
+            default: launch<kTileCols>(w, xx, yy, n_out, n_scr, k, vs, s, pub, sub); break;
+        }
+        check(who);
     }
-    check(who);
 }
 
 }  // namespace
 
-bool q80p_supported(int n_in, int ncols) { return n_in == kBlocks * 32 && ncols >= 1 && ncols <= 8; }
+bool q80p_supported(int n_in, int ncols) { return n_in == kBlocks * 32 && ncols >= 1 && ncols <= kTileCols; }
 
 void q80p_pack(void* rows, int64_t n, void* stream) {
     if (n <= 0) return;

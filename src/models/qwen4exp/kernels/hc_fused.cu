@@ -36,7 +36,8 @@ constexpr int D = N * HC;            // 10240
 constexpr int LR = 320;              // hc_lr
 constexpr int NE = 512;              // experts
 constexpr int KT = 10;               // routed per token
-constexpr int MAXT = 8;
+constexpr int MAXT = 8;              // tokens of one read (hc_fused_read splits a window of up to kHcMaxT)
+constexpr int kHcMaxT = 16;
 constexpr int THREADS = 256;
 constexpr int WARPS = THREADS / 32;
 constexpr int NRT = 81;              // router items: the experts split over this many CTAs
@@ -1475,7 +1476,42 @@ bool cn_maps(const HcFusedArgs& h, CUtensorMap* tm) {
 }
 
 
+// A window of more than MAXT tokens: tokens [0, MAXT) and then the rest as reads of their own (every token's outputs
+// are independent of the read's width).  The first read counts nothing and prefetches nothing; the second, stream-
+// ordered after it, publishes the counts for every token and lets the next kernel in as asked.
+static void hc_fused_read_split(const HcFusedArgs& a, void* stream) {
+    HcFusedArgs h = a;
+    h.T = MAXT;
+    h.pub_ctr = nullptr;
+    h.next_early = false;
+    for (int r = 0; r < 4; ++r) { h.pf[r] = nullptr; h.pf_bytes[r] = 0; }
+    hc_fused_read(h, stream);
+    h = a;
+    h.T = a.T - MAXT;
+    const auto adv = [](auto* p, size_t n) { return p == nullptr ? p : p + n; };
+    h.R = adv(a.R, (size_t) MAXT * D);
+    h.R_out = adv(a.R_out, (size_t) MAXT * D);
+    h.bo_prev = adv(a.bo_prev, (size_t) MAXT * N);
+    h.inj_prev = adv(a.inj_prev, (size_t) MAXT * HC);
+    h.lo = adv(a.lo, (size_t) MAXT * LR);
+    h.rs = adv(a.rs, (size_t) MAXT * HC);
+    h.inject_out = adv(a.inject_out, (size_t) MAXT * HC);
+    h.mixed = adv(a.mixed, (size_t) MAXT * N);
+    h.xn = adv(a.xn, (size_t) MAXT * D);
+    h.logits = adv(a.logits, (size_t) MAXT * NE);
+    h.ids = adv(a.ids, (size_t) MAXT * KT);
+    h.weights = adv(a.weights, (size_t) MAXT * KT);
+    h.gate_sh = adv(a.gate_sh, (size_t) MAXT);
+    h.xq = a.xq == nullptr ? nullptr : (void*) ((char*) a.xq + (size_t) MAXT * (N / 32) * sizeof(HcQ81));
+    h.xq_sh = a.xq_sh == nullptr ? nullptr : (void*) ((char*) a.xq_sh + (size_t) MAXT * (N / 32) * sizeof(HcQ81));
+    hc_fused_read(h, stream);
+}
+
 void hc_fused_read(const HcFusedArgs& a, void* stream) {
+    if (a.T > MAXT && a.T <= kHcMaxT) {
+        hc_fused_read_split(a, stream);
+        return;
+    }
     const DevInfo& d = dev_info();
     if (!d.ok || a.T < 1 || a.T > MAXT || !a.R || !a.R_out || !a.w_norm || !a.w_down || !a.w_up || !a.lo || !a.rs ||
         !a.mixed || !a.xn || (a.w_inject && !a.inject_out) || (a.apply && (!a.bo_prev || !a.inj_prev)) ||

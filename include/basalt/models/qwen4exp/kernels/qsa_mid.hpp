@@ -13,7 +13,7 @@ namespace basalt::kernels {
 /// the halves reproduce; n_out a multiple of 512; and the device has the SMs to run the gate half beside the attention.
 bool qsa_qproj_half_supported(int ggml_type, const void* weights, int n_in, int n_out);
 
-/// One half (0: query rows, 1: gate rows) of y = W x for ncols (1..8) q8_1 columns, written at the rows dense_tc
+/// One half (0: query rows, 1: gate rows) of y = W x for ncols (1..16) q8_1 columns, written at the rows dense_tc
 /// writes them (y[c * n_out + row]).  blocks: the grid (0: one block per SM for the query half, the gate share of the
 /// SMs for the gate half).  The query half lets its dependents in once its last tile is read, as dense_tc; the gate
 /// half at its start (whatever waits for it still waits for its end).  A programmatic dependent inside a PdlScope.

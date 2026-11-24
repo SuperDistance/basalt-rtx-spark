@@ -41,10 +41,10 @@ namespace basalt::kernels::cpu {
 struct ExpertJobMulti {
     const uint8_t* blob = nullptr;
     int nt = 0;
-    const ActQ* act[MAXT] = {};
-    float* out[MAXT] = {};
+    const ActQ* act[kWindowMaxT] = {};
+    float* out[kWindowMaxT] = {};
     /// a native pack's activations (the layer's `vec_dot_type`), one per token.
-    const void* nact[MAXT] = {};
+    const void* nact[kWindowMaxT] = {};
 };
 
 /// How worker threads are allocated across physical/logical CPU cores.  `All` uses every core and is the default; the
@@ -203,9 +203,9 @@ private:
     int mode_ = 0;   // 7 idle work, 8 the native batch
     ExpertJobMulti* mjobs_ = nullptr;
     struct SplitBufMulti {
-        alignas(64) float ff[MAXT][kNativeMaxFF];
-        ActQ a2[MAXT];
-        alignas(64) uint8_t hq[MAXT][kNativeHBytes];   // native down activations
+        alignas(64) float ff[kWindowMaxT][kNativeMaxFF];
+        ActQ a2[kWindowMaxT];
+        alignas(64) uint8_t hq[kWindowMaxT][kNativeHBytes];   // native down activations
     };
     const NativeFmt* nfmt_ = nullptr;
     // run_split_multi_native's one batch per layer (mode 8): per expert, the gate/up parts left to do and whether its

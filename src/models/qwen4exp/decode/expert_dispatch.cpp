@@ -37,11 +37,19 @@ namespace basalt::core {
 
 // ================================ THE ADAPTER ================================
 
+namespace {
+// the verify window's per-entry tables in `expert_pool_dispatch_multi` (`kind`, `distinct`, `first_of`)
+// are fixed arrays of this many entries: a window's tokens of the model's 10 routed experts must fit, and a larger k
+// is refused at run time rather than written past them.
+constexpr int64_t kMaxWindowEntries = 160;
+static_assert(basalt::kernels::cpu::kWindowMaxT * 10 <= kMaxWindowEntries, "a verify window's entries overflow the tables");
+}  // namespace
+
 // Read-ahead for what the CPU tier may read from the file: every routed id that no GPU holds.
 static void advise_routed(ExpertDispatch& d, const int32_t* ids, int64_t n) {
-    int32_t want[128];
+    int32_t want[kMaxWindowEntries];
     int64_t m = 0;
-    for (int64_t i = 0; i < n && m < 128; ++i) {
+    for (int64_t i = 0; i < n && m < kMaxWindowEntries; ++i) {
         const int32_t e = ids[i];
         if (e < 0 || e >= d.n_expert) continue;
         if (d.host_res != nullptr && d.host_res[(size_t) d.layers * (size_t) d.n_expert + (size_t) e] >= 0) continue;
@@ -73,19 +81,11 @@ void expert_pool_dispatch(void* user, const float*, const int32_t*, const float*
     d.fail_layer = d.layers;
 }
 
-namespace {
-// the verify window's per-entry tables in `expert_pool_dispatch_multi` (`kind`, `distinct`, `first_of`)
-// are fixed arrays of this many entries: MAXT tokens of the model's 10 routed experts must fit, and a larger k is
-// refused at run time rather than written past them.
-constexpr int64_t kMaxWindowEntries = 128;
-static_assert(basalt::kernels::cpu::MAXT * 10 <= kMaxWindowEntries, "a verify window's entries overflow the tables");
-}  // namespace
-
 void expert_pool_dispatch_multi(ExpertDispatch& d, const float* x_f, const int32_t* ids, int64_t n_tok, int64_t k,
                                 float* out) {
     using namespace basalt::kernels::cpu;
     if (d.failed) return;
-    if (n_tok < 1 || n_tok > MAXT) {
+    if (n_tok < 1 || n_tok > kWindowMaxT) {
         d.failed = true;
         d.fail = "a verify window has more tokens than the multi-token expert kernel takes";
         d.fail_layer = d.layers;
@@ -97,12 +97,12 @@ void expert_pool_dispatch_multi(ExpertDispatch& d, const float* x_f, const int32
         d.fail_layer = d.layers;
         return;
     }
-    if ((int64_t) d.act_multi.size() < n_tok) d.act_multi.resize((size_t) MAXT);
+    if ((int64_t) d.act_multi.size() < n_tok) d.act_multi.resize((size_t) kWindowMaxT);
     const ExpertLayout& lay = expert_layout();
     const bool native = lay.native;
-    if (native && d.nact_multi.size() < (size_t) MAXT * kNativeActBytes) d.nact_multi.resize((size_t) MAXT * kNativeActBytes);
+    if (native && d.nact_multi.size() < (size_t) kWindowMaxT * kNativeActBytes) d.nact_multi.resize((size_t) kWindowMaxT * kNativeActBytes);
     if (d.job_of.size() != (size_t) d.n_expert) d.job_of.assign((size_t) d.n_expert, (int16_t) -1);
-    if (d.jobs_multi.size() < (size_t) (n_tok * k)) d.jobs_multi.resize((size_t) (MAXT * k));
+    if (d.jobs_multi.size() < (size_t) (n_tok * k)) d.jobs_multi.resize((size_t) (kWindowMaxT * k));
     const auto c0 = std::chrono::steady_clock::now();
     if (!d.usage.empty())
         for (int64_t i = 0; i < n_tok * k; ++i)

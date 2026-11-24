@@ -369,10 +369,11 @@ bool dec_moe_zero_words(unsigned int* p, int n, void* stream) {
 // cooperative: the grid is resident at once (the down items wait on other blocks' gate/up items)
 template<typename F>
 void dm_vram_launch(F kernel, int blocks, void* stream, const DmPlan* plan, const block_q8_1* xq, NativeExpertLayout L,
-                    float* gate, float* up, float* out, unsigned int* sync) {
+                    float* gate, float* up, float* out, unsigned int* sync, size_t smem = 0) {
     cudaLaunchConfig_t cfg = {};
     cfg.gridDim = dim3((unsigned) blocks);
     cfg.blockDim = dim3(kDmThreads);
+    cfg.dynamicSmemBytes = smem;
     cfg.stream = (cudaStream_t) stream;
     cudaLaunchAttribute at[1];
     at[0].id = cudaLaunchAttributeCooperative;
@@ -439,7 +440,7 @@ void dec_moe_vram(const NativeExpertLayout& L, const DmPlan* plan, const void* x
 #define DM_T(TG, TD) case TG * 100 + TD: \
             blocks = dm_vram_tma_blocks<TG, TD>(); \
             if (blocks > 0) dm_vram_launch(dm_vram_tma_kernel<TG, TD>, blocks, stream, plan, (const block_q8_1*) xq, L, \
-                                           gate, up, out, sync); \
+                                           gate, up, out, sync, sizeof(DmTmaShared)); \
             break;
             DM_PAIRS(DM_T)
 #undef DM_T

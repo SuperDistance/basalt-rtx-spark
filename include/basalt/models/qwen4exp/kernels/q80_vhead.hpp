@@ -18,18 +18,20 @@
 
 namespace basalt::kernels {
 
+/// Whether the geometry fits one tile or the two-card link. Local calls may process two tiles.
 bool q80p_supported(int n_in, int ncols);
 /// Rows [0, n) of a Q8_0 head (2720 bytes each) rewritten as planes, in place.
 void q80p_pack(void* rows, int64_t n, void* stream);
 /// Planes back to Q8_0 rows, in place.
 void q80p_unpack(void* rows, int64_t n, void* stream);
-/// Every row exact: y[j * n_out + r] = row r . column j, the bits of native_mmvq on the Q8_0 rows.
+/// Every row exact, over 1..16 columns. y[j * n_out + r] is the native Q8_0 dot of row r with column j.
 void q80p_mmvq(const void* weights, const void* x_q8_1, float* y, int n_in, int n_out, int ncols, void* stream);
 /// One column: y[r] = row rows[r] . x, the same bits; a negative entry reads row 0.
 void q80p_mmvq_rows(const void* weights, const int32_t* rows, const void* x_q8_1, float* y, int n_in, int n_out,
                     void* stream);
 
-/// The two-stage head over 1..8 columns.  `k` (device): the exact list's length, 1..64; 0 runs every row exactly.
+/// The two-stage head over 1..16 local columns (1..8 with a link).
+/// `k` (device) is the exact list length, 1..64. Zero scores every row exactly.
 /// `scratch`: q80p_vhead_scratch_bytes(), zeroed once before first use (each call leaves it zeroed).
 /// `n_screen` (two-stage only): the rows [0, n_screen) are screened and scored as above; the entries of rows
 /// [n_screen, n_out) are set to -inf, for another card's share of the head.  `link_pub` / `link_sub`: the split's link

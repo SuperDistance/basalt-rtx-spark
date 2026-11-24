@@ -50,11 +50,11 @@ bool Verifier::init_slots(const std::vector<SessionState*>& slots, std::string& 
         return false;
     }
     using namespace basalt::kernels;
-    if (!mapped((size_t) (basalt::kernels::kQsaSegMaxRows + 8) * sizeof(QsaSeg), (void**) &h_qseg_, (void**) &m_qseg_)) {
+    if (!mapped((size_t) (basalt::kernels::kQsaSegMaxRows + basalt::kernels::kVerifyMaxT) * sizeof(QsaSeg), (void**) &h_qseg_, (void**) &m_qseg_)) {
         err = "verify: the batch QSA table staging failed";
         return false;
     }
-    std::fill_n(h_qseg_, basalt::kernels::kQsaSegMaxRows + 8, QsaSeg{});
+    std::fill_n(h_qseg_, basalt::kernels::kQsaSegMaxRows + basalt::kernels::kVerifyMaxT, QsaSeg{});
     // the QSA chain's segment kernels need unrotated INT8 K/V in every slot, resident or streamed (--kv-resident)
     if (!(qsa_dec_fused_supported(s))) {
         err = "verify: batch windows need the native QSA kernels";
@@ -81,7 +81,7 @@ bool Verifier::init_slots(const std::vector<SessionState*>& slots, std::string& 
     const uint64_t a = ((uint64_t) S * CB * 4 + 255) & ~255ull;
     const uint64_t b = (a + (uint64_t) S * std::max<int64_t>(nQ, 1) * TS * 4 + 255) & ~255ull;
     const uint64_t b2 = (b + (uint64_t) max_t_ * sizeof(basalt::kernels::SegRow) + 255) & ~255ull;
-    const uint64_t b3 = (b2 + (uint64_t) (basalt::kernels::kQsaSegMaxRows + 8) * sizeof(QsaSeg) + 255) & ~255ull;
+    const uint64_t b3 = (b2 + (uint64_t) (basalt::kernels::kQsaSegMaxRows + basalt::kernels::kVerifyMaxT) * sizeof(QsaSeg) + 255) & ~255ull;
     const uint64_t HSb = (uint64_t) NG_HIST * NG_HC_DIM * sizeof(float);
     const uint64_t b4 = (b3 + (uint64_t) S * sizeof(float*) + 255) & ~255ull;
     const uint64_t b5 = (b4 + (uint64_t) max_t_ * HSb + 255) & ~255ull;
@@ -185,7 +185,8 @@ bool Verifier::warm_session(SessionState* s, std::string& err) {
     if (!bind_session(s, err)) return false;
     refresh_ar();
     bool ok = capture_commit(err);
-    for (int T = 1; ok && T <= max_t_; ++T) ok = capture(T, err);
+    const int ts = solo_t_ > 0 ? std::min(solo_t_, max_t_) : max_t_;
+    for (int T = 1; ok && T <= ts; ++T) ok = capture(T, err);
     std::string e2;
     if (!bind_session(home, e2) && ok) { err = e2; return false; }
     return ok;
@@ -193,7 +194,8 @@ bool Verifier::warm_session(SessionState* s, std::string& err) {
 
 bool Verifier::warm_graphs(std::string& err) {
     refresh_ar();
-    for (int T = 1; T <= max_t_; ++T)
+    const int ts = solo_t_ > 0 ? std::min(solo_t_, max_t_) : max_t_;
+    for (int T = 1; T <= ts; ++T)
         if (!capture(T, err)) return false;
     if (slots_.empty()) return true;
     for (int R = 1; R <= max_t_; ++R)

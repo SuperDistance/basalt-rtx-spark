@@ -16,16 +16,17 @@ namespace {
 #if defined(__CUDA_ARCH__) && __CUDA_ARCH__ >= 900
 // dense_tc_tile_block over the tiles of one half: the block's tile i is the half's tile j = blk + i * nblk, which is
 // the projection's tile 32 (j / 16) + 16 half + j % 16; every step of a tile is dense_tc_tile_block's.  Two tiles in
-// flight per block.  early: the dependents are let in at the start, else once the last tile is read.
-template<int TYPE>
+// flight per block.  early: the dependents are let in at the start, else once the last tile is read.  NCT: the n-tiles
+// (8 columns each) a weight pass serves, as in dense_tc_tile_block.
+template<int TYPE, int NCT>
 __device__ __forceinline__ void qproj_half_block(int blk, int nblk, int half, bool early, uint8_t* smem,
                                                  const uint8_t* __restrict__ w, const uint8_t* __restrict__ x,
                                                  float* __restrict__ y, int n_in, int n_out, int ncols) {
     constexpr int NS = 2;
-    constexpr int SB = Fmt<TYPE>::SB, CB = 2 * SB;
+    constexpr int SB = Fmt<TYPE>::SB, CB = 2 * SB, KC = 8 * NCT;
     uint64_t* bar = reinterpret_cast<uint64_t*>(smem);
     float* red = reinterpret_cast<float*>(smem + 128);   // [warp][row][column]
-    uint8_t* slots = smem + 128 + 8 * 16 * kMaxCols * 4;
+    uint8_t* slots = smem + 128 + 8 * 16 * KC * 4;
     const int tid = threadIdx.x, wp = tid >> 5, lane = tid & 31, g = lane >> 2, t = lane & 3;
     const int hb = wp & 3, sbi = hb >> 1, n = hb & 1;
     const int nchunk = n_in / 512, nb32 = n_in / 32;
@@ -76,45 +77,30 @@ __device__ __forceinline__ void qproj_half_block(int blk, int nblk, int half, bo
         const uint8_t* slot = slots + (size_t) (i % NS) * ts;
         const uint8_t* rowA = slot + g * row_bytes + sbi * SB;
         const uint8_t* rowB = slot + (g + 8) * row_bytes + sbi * SB;
-        float acc[4] = {0.0f, 0.0f, 0.0f, 0.0f};
+        float acc[4 * NCT];
+#pragma unroll
+        for (int q = 0; q < 4 * NCT; ++q) acc[q] = 0.0f;
         for (int c = wp >> 2; c < nchunk; c += 2) {
-            XFrag xf;
+            XFrag xf[NCT];
 #pragma unroll
-            for (int k4 = 0; k4 < 4; ++k4) {
-                const int k = 16 * c + 4 * hb + k4;
-                xf.b0[k4] = xf.b1[k4] = 0;
-                if (g < ncols) {
-                    const uint8_t* xb = x + ((size_t) g * nb32 + k) * kQ81;
-                    xf.b0[k4] = __ldg(reinterpret_cast<const unsigned int*>(xb + 4) + t);
-                    xf.b1[k4] = __ldg(reinterpret_cast<const unsigned int*>(xb + 20) + t);
-                }
+            for (int j = 0; j < NCT; ++j)
 #pragma unroll
-                for (int e = 0; e < 2; ++e) {
-                    const int col = 2 * t + e;
-                    xf.d8[k4][e] = col < ncols ? __low2float(__ldg(reinterpret_cast<const half2*>(
-                                                     x + ((size_t) col * nb32 + k) * kQ81)))
-                                               : 0.0f;
-                }
-            }
+                for (int k4 = 0; k4 < 4; ++k4) xfrag_load(xf[j], k4, 16 * c + 4 * hb + k4, j, g, t, x, nb32, ncols);
             const uint8_t* const p[2] = {rowA + c * CB, rowB + c * CB};
-            half_sb_terms<TYPE>(acc, p, n, t, xf, t0, t1, t2, t3);
+            half_sb_terms_n<TYPE, NCT>(acc, p, n, t, xf, t0, t1, t2, t3);
         }
-        float* rw = red + wp * 16 * kMaxCols;
-        rw[g * kMaxCols + 2 * t] = acc[0];
-        rw[g * kMaxCols + 2 * t + 1] = acc[1];
-        rw[(g + 8) * kMaxCols + 2 * t] = acc[2];
-        rw[(g + 8) * kMaxCols + 2 * t + 1] = acc[3];
+        store_warp_sums<NCT>(red + wp * 16 * KC, acc, g, t);
         if (!early && i == mine - 1) pdl_launch_dependents();
         __syncthreads();   // the slot is read and the warp sums are in
         if (wp == 0 && i + NS < mine) {
             asm volatile("fence.proxy.async.shared::cta;" ::: "memory");
             issue(i + NS);
         }
-        if (tid < 16 * kMaxCols) {
-            const int row = tid / kMaxCols, col = tid % kMaxCols;
+        if (tid < 16 * KC) {
+            const int row = tid / KC, col = tid % KC;
             if (col < ncols) {
-                const float* rr = red + row * kMaxCols + col;
-                constexpr int WS = 16 * kMaxCols;   // one warp's sums
+                const float* rr = red + row * KC + col;
+                constexpr int WS = 16 * KC;   // one warp's sums
                 const float v = ((rr[0] + rr[4 * WS]) + (rr[WS] + rr[5 * WS])) +
                                 ((rr[2 * WS] + rr[6 * WS]) + (rr[3 * WS] + rr[7 * WS]));
                 y[(size_t) col * n_out + row0 + row] = v;
@@ -126,12 +112,12 @@ __device__ __forceinline__ void qproj_half_block(int blk, int nblk, int half, bo
 }
 #endif
 
-template<int TYPE>
+template<int TYPE, int NCT>
 __global__ void __launch_bounds__(256) qproj_half_kernel(const uint8_t* __restrict__ w, const uint8_t* __restrict__ x,
                                                          float* __restrict__ y, int n_in, int n_out, int ncols, int half) {
 #if defined(__CUDA_ARCH__) && __CUDA_ARCH__ >= 900
     extern __shared__ __align__(128) uint8_t smem_qh[];
-    qproj_half_block<TYPE>((int) blockIdx.x, (int) gridDim.x, half, half == 1, smem_qh, w, x, y, n_in, n_out, ncols);
+    qproj_half_block<TYPE, NCT>((int) blockIdx.x, (int) gridDim.x, half, half == 1, smem_qh, w, x, y, n_in, n_out, ncols);
 #elif defined(__CUDA_ARCH__)
     __trap();
 #endif
@@ -157,14 +143,14 @@ int sms_now() {
     return sms > 0 ? sms : 1;
 }
 
-template<int TYPE>
-void launch_half(const void* w, const void* x, float* y, int n_in, int n_out, int ncols, int half, int blocks,
-                 cudaStream_t s) {
-    const int smem = 128 + 8 * 16 * kMaxCols * 4 + 2 * 16 * ((n_in / 256) * Fmt<TYPE>::SB);
+template<int TYPE, int NCT>
+void launch_half_n(const void* w, const void* x, float* y, int n_in, int n_out, int ncols, int half, int blocks,
+                   cudaStream_t s) {
+    const int smem = 128 + 8 * 16 * kMaxCols * NCT * 4 + 2 * 16 * ((n_in / 256) * Fmt<TYPE>::SB);
     static std::atomic<bool> attr[64];
     const int dev = opt_in_device("qsa_qproj_half");
     if (!attr[dev].load(std::memory_order_acquire)) {
-        opt_in_check(cudaFuncSetAttribute(qproj_half_kernel<TYPE>, cudaFuncAttributeMaxDynamicSharedMemorySize, 99 * 1024),
+        opt_in_check(cudaFuncSetAttribute(qproj_half_kernel<TYPE, NCT>, cudaFuncAttributeMaxDynamicSharedMemorySize, 99 * 1024),
                      "qsa_qproj_half");
         attr[dev].store(true, std::memory_order_release);
     }
@@ -172,8 +158,16 @@ void launch_half(const void* w, const void* x, float* y, int n_in, int n_out, in
     // the gate half's share of the SMs leaves the attention's selection and chunk blocks the rest
     int grid = blocks > 0 ? blocks : half == 0 ? sms_now() : (3 * sms_now() + 4) / 8;
     if (grid > ntiles) grid = ntiles;
-    launch_pdl(qproj_half_kernel<TYPE>, dim3((unsigned) grid), dim3(256), (size_t) smem, s, (const uint8_t*) w,
+    launch_pdl(qproj_half_kernel<TYPE, NCT>, dim3((unsigned) grid), dim3(256), (size_t) smem, s, (const uint8_t*) w,
                (const uint8_t*) x, y, n_in, n_out, ncols, half);
+}
+
+// two n-tiles past 8 columns: two tiles of 90 KB and two n-tiles' warp sums fit in 99 KB
+template<int TYPE>
+void launch_half(const void* w, const void* x, float* y, int n_in, int n_out, int ncols, int half, int blocks,
+                 cudaStream_t s) {
+    if (ncols > kMaxCols) launch_half_n<TYPE, 2>(w, x, y, n_in, n_out, ncols, half, blocks, s);
+    else launch_half_n<TYPE, 1>(w, x, y, n_in, n_out, ncols, half, blocks, s);
 }
 
 }  // namespace
@@ -190,7 +184,7 @@ bool qsa_qproj_half_supported(int type, const void* w, int n_in, int n_out) {
 
 void qsa_qproj_half(int type, const void* w, const void* x, float* y, int n_in, int n_out, int ncols, int half,
                     int blocks, void* stream) {
-    if (!qsa_qproj_half_supported(type, w, n_in, n_out) || ncols < 1 || ncols > kMaxCols || (half != 0 && half != 1) ||
+    if (!qsa_qproj_half_supported(type, w, n_in, n_out) || ncols < 1 || ncols > kCallCols || (half != 0 && half != 1) ||
         ((uintptr_t) x & 3) != 0) {
         basalt::log::error("basalt", "qsa_qproj_half: type %d n_in %d n_out %d ncols %d not supported", type, n_in, n_out,
                            ncols);

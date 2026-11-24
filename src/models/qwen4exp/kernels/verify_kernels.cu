@@ -1072,8 +1072,9 @@ void gdn_step_norm_multi(float* state, const float* h, int conv_channels, const 
 }
 
 namespace {
-// one thread per window entry: up to kVerifyMaxT tokens x 10 routed experts (80), so 128 (a smaller table drops the last entries of a long window)
-constexpr int kResidentPlanMax = 128;
+// one thread per window entry: up to kVerifyMaxT tokens x 10 routed experts, for a window of up to 16 tokens (a smaller
+// table drops the last entries of a long window)
+constexpr int kResidentPlanMax = 160;
 static_assert(kVerifyMaxT * 10 <= kResidentPlanMax, "resident_plan: one thread per entry");
 __global__ void __launch_bounds__(kResidentPlanMax) resident_plan_kernel(const int32_t* __restrict__ ids, int n, int k, const int32_t* __restrict__ res,
                                      int n_expert, const uint8_t* cache_base, const unsigned long long* slot_off,

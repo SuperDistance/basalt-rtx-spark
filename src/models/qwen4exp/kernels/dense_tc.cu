@@ -6,7 +6,9 @@
 // block (two for Q6_K's 16-value scales; Q8_0's codes are the A operand as stored) gives the exact integer dots of 16 rows x 8 columns, and each lane adds its
 // four (row, column) terms in a fixed order: blocks in ascending order within the half super-block, chunks in order.
 // The four warps of an m-tile are then added in order.  The result does not depend on MT.  KS = 2: the chunk is 1024
-// values and warp group w / (4 MT) takes its half; the groups' sums are added in order after their own.
+// values and warp group w / (4 MT) takes its half; the groups' sums are added in order after their own.  Past 8
+// columns every layout runs two n-tiles (NCT = 2): a second mma per block on the same weight registers takes columns
+// 8..15 into four more terms per lane, each column added in the order of a call of 8.
 //
 // Persistent: block b takes tiles b, b + G, ...; their chunks stream through one ring of S slots (16-byte cp.async
 // per thread, issued S - 1 chunks ahead across tile boundaries, the first ones before the grid dependency wait:
@@ -31,7 +33,8 @@
 namespace basalt::kernels {
 namespace {
 
-constexpr int kMaxCols = 8;
+constexpr int kMaxCols = 8;    // columns of an n-tile (one mma's n)
+constexpr int kCallCols = 16;  // columns of a call: two n-tiles share each weight pass past 8
 constexpr int kQ81 = 36;   // bytes of a q8_1 block: half2 (d, d * sum), 32 codes
 
 template<int TYPE> struct Fmt;
@@ -101,11 +104,12 @@ struct XFrag {
 };
 
 // Half super-block n (blocks 4n..4n + 3) of the super-blocks at p[0] (row g) and p[1] (row g + 8): the four
-// (row, column) terms added to acc.
-template<int TYPE>
-__device__ __forceinline__ void half_sb_terms(float (&acc)[4], const uint8_t* const (&p)[2], int n, int t,
-                                              const XFrag& x, uint32_t t0, uint32_t t1, uint32_t t2, uint32_t t3,
-                                              const uint32_t* grid = nullptr) {
+// (row, column) terms of each of NCT n-tiles (x[c]: columns 8c..8c + 7) added to acc[4c..4c + 3].  The weights are
+// decoded once; each n-tile's terms are the one-tile arithmetic on its own columns.
+template<int TYPE, int NCT>
+__device__ __forceinline__ void half_sb_terms_n(float (&acc)[4 * NCT], const uint8_t* const (&p)[2], int n, int t,
+                                                const XFrag* x, uint32_t t0, uint32_t t1, uint32_t t2, uint32_t t3,
+                                                const uint32_t* grid = nullptr) {
     if constexpr (TYPE == 12 || TYPE == 13) {
         uint32_t qw[2][4], hw[2][2], sw[2][3];
         float2 dm[2];
@@ -146,16 +150,19 @@ __device__ __forceinline__ void half_sb_terms(float (&acc)[4], const uint8_t* co
                 f1[h] = dm[h].x * (float) sc;
                 f2[h] = dm[h].y * (float) m;
             }
-            int d[4];
-            mma_k32(d, lo[0], lo[1], hi[0], hi[1], x.b0[i], x.b1[i]);
-            // the code sums of columns 2t and 2t + 1 (column g's from lanes 4g..4g + 3)
-            int is = __dp4a(0x01010101, (int) x.b0[i], __dp4a(0x01010101, (int) x.b1[i], 0));
-            is += __shfl_xor_sync(0xffffffffu, is, 1);
-            is += __shfl_xor_sync(0xffffffffu, is, 2);
-            const int isum[2] = {__shfl_sync(0xffffffffu, is, 8 * t), __shfl_sync(0xffffffffu, is, 8 * t + 4)};
 #pragma unroll
-            for (int q = 0; q < 4; ++q)
-                acc[q] += x.d8[i][q & 1] * (f1[q >> 1] * (float) d[q] - f2[q >> 1] * (float) isum[q & 1]);
+            for (int c = 0; c < NCT; ++c) {
+                int d[4];
+                mma_k32(d, lo[0], lo[1], hi[0], hi[1], x[c].b0[i], x[c].b1[i]);
+                // the code sums of columns 2t and 2t + 1 (column g's from lanes 4g..4g + 3)
+                int is = __dp4a(0x01010101, (int) x[c].b0[i], __dp4a(0x01010101, (int) x[c].b1[i], 0));
+                is += __shfl_xor_sync(0xffffffffu, is, 1);
+                is += __shfl_xor_sync(0xffffffffu, is, 2);
+                const int isum[2] = {__shfl_sync(0xffffffffu, is, 8 * t), __shfl_sync(0xffffffffu, is, 8 * t + 4)};
+#pragma unroll
+                for (int q = 0; q < 4; ++q)
+                    acc[4 * c + q] += x[c].d8[i][q & 1] * (f1[q >> 1] * (float) d[q] - f2[q >> 1] * (float) isum[q & 1]);
+            }
         }
     } else if constexpr (TYPE == 14) {
         uint32_t lw[2][4], hw[2][2], sw[2][2];
@@ -172,7 +179,9 @@ __device__ __forceinline__ void half_sb_terms(float (&acc)[4], const uint8_t* co
             sw[h][1] = ld32_b2(p[h] + 196 + 8 * n);
             dd[h] = __half2float(*reinterpret_cast<const __half*>(p[h] + 208));
         }
-        float part[4] = {0.0f, 0.0f, 0.0f, 0.0f};
+        float part[4 * NCT];
+#pragma unroll
+        for (int q = 0; q < 4 * NCT; ++q) part[q] = 0.0f;
 #pragma unroll
         for (int i = 0; i < 4; ++i) {   // block 4n + i: ql bytes 32 (i & 1) + .., nibble i >> 1, qh bits 2i
             const int sh = 4 * (i >> 1), sq = 2 * i, li = 2 * (i & 1);
@@ -187,15 +196,18 @@ __device__ __forceinline__ void half_sb_terms(float (&acc)[4], const uint8_t* co
                 sc0[h] = sbyte_of(sw[h][i >> 1], 2 * (i & 1));
                 sc1[h] = sbyte_of(sw[h][i >> 1], 2 * (i & 1) + 1);
             }
-            int e0[4], e1[4];
-            mma_k16(e0, lo[0], lo[1], x.b0[i]);
-            mma_k16(e1, hi[0], hi[1], x.b1[i]);
 #pragma unroll
-            for (int q = 0; q < 4; ++q)
-                part[q] += x.d8[i][q & 1] * (float) (sc0[q >> 1] * e0[q] + sc1[q >> 1] * e1[q]);
+            for (int c = 0; c < NCT; ++c) {
+                int e0[4], e1[4];
+                mma_k16(e0, lo[0], lo[1], x[c].b0[i]);
+                mma_k16(e1, hi[0], hi[1], x[c].b1[i]);
+#pragma unroll
+                for (int q = 0; q < 4; ++q)
+                    part[4 * c + q] += x[c].d8[i][q & 1] * (float) (sc0[q >> 1] * e0[q] + sc1[q >> 1] * e1[q]);
+            }
         }
 #pragma unroll
-        for (int q = 0; q < 4; ++q) acc[q] += dd[q >> 1] * part[q];
+        for (int q = 0; q < 4 * NCT; ++q) acc[q] += dd[(q & 3) >> 1] * part[q];
     } else if constexpr (TYPE == 11) {   // Q3_K: hmask[32], qs[64], scales[12], d; 2-byte aligned
         uint32_t qw[2][2], hw[2][2], sc[2][2];
         float dd[2];
@@ -211,7 +223,9 @@ __device__ __forceinline__ void half_sb_terms(float (&acc)[4], const uint8_t* co
             sc[h][1] = ((n ? a1 >> 4 : a1) & 0x0f0f0f0fu) | (((a2 >> (4 * n + 2)) & 0x03030303u) << 4);
             dd[h] = __half2float(*reinterpret_cast<const __half*>(p[h] + 108));
         }
-        float part[4] = {0.0f, 0.0f, 0.0f, 0.0f};
+        float part[4 * NCT];
+#pragma unroll
+        for (int q = 0; q < 4 * NCT; ++q) part[q] = 0.0f;
 #pragma unroll
         for (int i = 0; i < 4; ++i) {   // block 4n + i: 2-bit plane i of the half's qs, hmask bit 4n + i
             const int j = 4 * n + i;
@@ -226,15 +240,18 @@ __device__ __forceinline__ void half_sb_terms(float (&acc)[4], const uint8_t* co
                 sc0[h] = byte_of(sc[h][i >> 1], 2 * (i & 1)) - 32;
                 sc1[h] = byte_of(sc[h][i >> 1], 2 * (i & 1) + 1) - 32;
             }
-            int e0[4], e1[4];
-            mma_k16(e0, lo[0], lo[1], x.b0[i]);
-            mma_k16(e1, hi[0], hi[1], x.b1[i]);
 #pragma unroll
-            for (int q = 0; q < 4; ++q)
-                part[q] += x.d8[i][q & 1] * (float) (sc0[q >> 1] * e0[q] + sc1[q >> 1] * e1[q]);
+            for (int c = 0; c < NCT; ++c) {
+                int e0[4], e1[4];
+                mma_k16(e0, lo[0], lo[1], x[c].b0[i]);
+                mma_k16(e1, hi[0], hi[1], x[c].b1[i]);
+#pragma unroll
+                for (int q = 0; q < 4; ++q)
+                    part[4 * c + q] += x[c].d8[i][q & 1] * (float) (sc0[q >> 1] * e0[q] + sc1[q >> 1] * e1[q]);
+            }
         }
 #pragma unroll
-        for (int q = 0; q < 4; ++q) acc[q] += dd[q >> 1] * part[q];
+        for (int q = 0; q < 4 * NCT; ++q) acc[q] += dd[(q & 3) >> 1] * part[q];
     } else if constexpr (TYPE == 8) {   // Q8_0: d, qs[32] per block; 2-byte aligned (the odd blocks' codes 4-byte)
 #pragma unroll
         for (int i = 0; i < 4; ++i) {
@@ -248,10 +265,13 @@ __device__ __forceinline__ void half_sb_terms(float (&acc)[4], const uint8_t* co
                 lo[h] = (i & 1) ? ld32(bp + 2 + 4 * t) : ld32_b2(bp + 2 + 4 * t);
                 hi[h] = (i & 1) ? ld32(bp + 18 + 4 * t) : ld32_b2(bp + 18 + 4 * t);
             }
-            int d[4];
-            mma_k32(d, lo[0], lo[1], hi[0], hi[1], x.b0[i], x.b1[i]);
 #pragma unroll
-            for (int q = 0; q < 4; ++q) acc[q] += x.d8[i][q & 1] * (dw[q >> 1] * (float) d[q]);
+            for (int c = 0; c < NCT; ++c) {
+                int d[4];
+                mma_k32(d, lo[0], lo[1], hi[0], hi[1], x[c].b0[i], x[c].b1[i]);
+#pragma unroll
+                for (int q = 0; q < 4; ++q) acc[4 * c + q] += x[c].d8[i][q & 1] * (dw[q >> 1] * (float) d[q]);
+            }
         }
     } else if constexpr (TYPE == 42) {   // Q2_0: four blocks of d, qs[16] (value v: 2 bits at 2 (v % 4) of byte v / 4,
                                          // code - 1); 2-byte aligned
@@ -269,7 +289,9 @@ __device__ __forceinline__ void half_sb_terms(float (&acc)[4], const uint8_t* co
                     qb[h][k][1] = bp[6 + 8 * k + t];
                 }
             }
-            float part[4] = {0.0f, 0.0f, 0.0f, 0.0f};
+            float part[4 * NCT];
+#pragma unroll
+            for (int q = 0; q < 4 * NCT; ++q) part[q] = 0.0f;
 #pragma unroll
             for (int k = 0; k < 2; ++k) {
                 const int i = 2 * b + k;
@@ -281,16 +303,21 @@ __device__ __forceinline__ void half_sb_terms(float (&acc)[4], const uint8_t* co
                         const uint32_t q = qb[h][k][e];
                         v[h][e] = __vsub4((q | q << 6 | q << 12 | q << 18) & 0x03030303u, 0x01010101u);
                     }
-                int d[4];
-                mma_k32(d, v[0][0], v[1][0], v[0][1], v[1][1], x.b0[i], x.b1[i]);
 #pragma unroll
-                for (int q = 0; q < 4; ++q) part[q] += x.d8[i][q & 1] * (float) d[q];
+                for (int c = 0; c < NCT; ++c) {
+                    int d[4];
+                    mma_k32(d, v[0][0], v[1][0], v[0][1], v[1][1], x[c].b0[i], x[c].b1[i]);
+#pragma unroll
+                    for (int q = 0; q < 4; ++q) part[4 * c + q] += x[c].d8[i][q & 1] * (float) d[q];
+                }
             }
 #pragma unroll
-            for (int q = 0; q < 4; ++q) acc[q] += dw[q >> 1] * part[q];
+            for (int q = 0; q < 4 * NCT; ++q) acc[q] += dw[(q & 3) >> 1] * part[q];
         }
     } else if constexpr (TYPE == 21) {   // IQ3_S: d, qs[64], qh[8], signs[32], scales[4]; 2-byte aligned
-        float part[4] = {0.0f, 0.0f, 0.0f, 0.0f};
+        float part[4 * NCT];
+#pragma unroll
+        for (int q = 0; q < 4 * NCT; ++q) part[q] = 0.0f;
         float dw[2];
 #pragma unroll
         for (int h = 0; h < 2; ++h) dw[h] = __half2float(*reinterpret_cast<const __half*>(p[h]));
@@ -308,13 +335,16 @@ __device__ __forceinline__ void half_sb_terms(float (&acc)[4], const uint8_t* co
                 hi[h] = iq3s_signed(grid[bp[6 + 8 * ib + t] | (((qh >> (4 + t)) & 1u) << 8)], (sg >> (16 + 4 * t)) & 15u);
                 ls[h] = 1 + 2 * ((bp[106 + ib / 2] >> (4 * (ib & 1))) & 0x0F);
             }
-            int d[4];
-            mma_k32(d, lo[0], lo[1], hi[0], hi[1], x.b0[i], x.b1[i]);
 #pragma unroll
-            for (int q = 0; q < 4; ++q) part[q] += x.d8[i][q & 1] * (float) (d[q] * ls[q >> 1]);
+            for (int c = 0; c < NCT; ++c) {
+                int d[4];
+                mma_k32(d, lo[0], lo[1], hi[0], hi[1], x[c].b0[i], x[c].b1[i]);
+#pragma unroll
+                for (int q = 0; q < 4; ++q) part[4 * c + q] += x[c].d8[i][q & 1] * (float) (d[q] * ls[q >> 1]);
+            }
         }
 #pragma unroll
-        for (int q = 0; q < 4; ++q) acc[q] += dw[q >> 1] * part[q];
+        for (int q = 0; q < 4 * NCT; ++q) acc[q] += dw[(q & 3) >> 1] * part[q];
     } else {   // IQ4_XS
         uint32_t qw[2][4];
         int sl[2], shh[2];
@@ -327,7 +357,9 @@ __device__ __forceinline__ void half_sb_terms(float (&acc)[4], const uint8_t* co
             shh[h] = *reinterpret_cast<const uint16_t*>(p[h] + 2);
             dw[h] = __half2float(*reinterpret_cast<const __half*>(p[h]));
         }
-        float part[4] = {0.0f, 0.0f, 0.0f, 0.0f};
+        float part[4 * NCT];
+#pragma unroll
+        for (int q = 0; q < 4 * NCT; ++q) part[q] = 0.0f;
 #pragma unroll
         for (int i = 0; i < 4; ++i) {
             const int j = 4 * n + i;
@@ -340,25 +372,67 @@ __device__ __forceinline__ void half_sb_terms(float (&acc)[4], const uint8_t* co
                 hi[h] = v.y;
                 ls[h] = (((sl[h] >> (4 * i)) & 0xf) | (((shh[h] >> (2 * j)) & 3) << 4)) - 32;
             }
-            int d[4];
-            mma_k32(d, lo[0], lo[1], hi[0], hi[1], x.b0[i], x.b1[i]);
 #pragma unroll
-            for (int q = 0; q < 4; ++q) part[q] += x.d8[i][q & 1] * (float) (d[q] * ls[q >> 1]);
+            for (int c = 0; c < NCT; ++c) {
+                int d[4];
+                mma_k32(d, lo[0], lo[1], hi[0], hi[1], x[c].b0[i], x[c].b1[i]);
+#pragma unroll
+                for (int q = 0; q < 4; ++q) part[4 * c + q] += x[c].d8[i][q & 1] * (float) (d[q] * ls[q >> 1]);
+            }
         }
 #pragma unroll
-        for (int q = 0; q < 4; ++q) acc[q] += dw[q >> 1] * part[q];
+        for (int q = 0; q < 4 * NCT; ++q) acc[q] += dw[(q & 3) >> 1] * part[q];
+    }
+}
+
+// half_sb_terms_n of one n-tile
+template<int TYPE>
+__device__ __forceinline__ void half_sb_terms(float (&acc)[4], const uint8_t* const (&p)[2], int n, int t,
+                                              const XFrag& x, uint32_t t0, uint32_t t1, uint32_t t2, uint32_t t3,
+                                              const uint32_t* grid = nullptr) {
+    half_sb_terms_n<TYPE, 1>(acc, p, n, t, &x, t0, t1, t2, t3, grid);
+}
+
+// n-tile c's data of the columns' 32-value block k into place i of xf: column 8c + g's codes and the scales of
+// columns 8c + 2t and 8c + 2t + 1, zero past ncols
+__device__ __forceinline__ void xfrag_load(XFrag& xf, int i, int k, int c, int g, int t, const uint8_t* __restrict__ x,
+                                           int nb32, int ncols) {
+    xf.b0[i] = xf.b1[i] = 0;
+    if (8 * c + g < ncols) {
+        const uint8_t* xb = x + ((size_t) (8 * c + g) * nb32 + k) * kQ81;
+        xf.b0[i] = __ldg(reinterpret_cast<const unsigned int*>(xb + 4) + t);
+        xf.b1[i] = __ldg(reinterpret_cast<const unsigned int*>(xb + 20) + t);
+    }
+#pragma unroll
+    for (int e = 0; e < 2; ++e) {
+        const int col = 8 * c + 2 * t + e;
+        xf.d8[i][e] = col < ncols ? __low2float(__ldg(reinterpret_cast<const half2*>(x + ((size_t) col * nb32 + k) * kQ81)))
+                                  : 0.0f;
+    }
+}
+
+// a warp's sums of its 16 rows x 8 NCT columns into its reduction rows rw (row stride 8 NCT)
+template<int NCT>
+__device__ __forceinline__ void store_warp_sums(float* rw, const float (&acc)[4 * NCT], int g, int t) {
+    constexpr int KC = 8 * NCT;
+#pragma unroll
+    for (int c = 0; c < NCT; ++c) {
+        rw[g * KC + 8 * c + 2 * t] = acc[4 * c];
+        rw[g * KC + 8 * c + 2 * t + 1] = acc[4 * c + 1];
+        rw[(g + 8) * KC + 8 * c + 2 * t] = acc[4 * c + 2];
+        rw[(g + 8) * KC + 8 * c + 2 * t + 1] = acc[4 * c + 3];
     }
 }
 #endif
 
 #if defined(__CUDA_ARCH__) && __CUDA_ARCH__ >= 900
-// block blk of nblk; smem: smem_bytes<TYPE, S, MT, KS>() bytes, 128-byte aligned
-template<int TYPE, int S, int MT, int KS>
+// block blk of nblk; smem: smem_bytes<TYPE, S, MT, KS, NCT>() bytes, 128-byte aligned.  NCT n-tiles of 8 columns.
+template<int TYPE, int S, int MT, int KS, int NCT>
 __device__ __forceinline__ void dense_tc_block(int blk, int nblk, uint8_t* smem, const uint8_t* __restrict__ w,
                                                const uint8_t* __restrict__ x, float* __restrict__ y, int n_in,
                                                int n_out, int ncols) {
     constexpr int SB = Fmt<TYPE>::SB, CB = 2 * KS * SB, RS = row_stride(KS * SB), R = 16 * MT, SLOT = R * RS;
-    constexpr int NU = RS / 16, NT = MT * KS * 128;
+    constexpr int NU = RS / 16, NT = MT * KS * 128, KC = 8 * NCT;
     uint8_t* ring = smem;
     float* red = reinterpret_cast<float*>(smem + S * SLOT);   // [warp][row][column]
     const int tid = threadIdx.x, wp = tid >> 5, lane = tid & 31, g = lane >> 2, t = lane & 3;
@@ -392,27 +466,17 @@ __device__ __forceinline__ void dense_tc_block(int blk, int nblk, uint8_t* smem,
     const uint32_t* tbl = reinterpret_cast<const uint32_t*>(dtc_iq4nl);
     uint32_t t0 = 0, t1 = 0, t2 = 0, t3 = 0;
     if constexpr (TYPE == 23) { t0 = tbl[0]; t1 = tbl[1]; t2 = tbl[2]; t3 = tbl[3]; }
-    float acc[4] = {0.0f, 0.0f, 0.0f, 0.0f};
+    float acc[4 * NCT];
+#pragma unroll
+    for (int q = 0; q < 4 * NCT; ++q) acc[q] = 0.0f;
     for (int u = 0; u < nunits; ++u) {
         const int tile = blk + (u / nchunk) * nblk, c = u % nchunk;
-        XFrag xf;   // read before the wait: it does not depend on the slot
+        XFrag xf[NCT];   // read before the wait: it does not depend on the slot
 #pragma unroll
-        for (int i = 0; i < 4; ++i) {
-            const int k = 16 * (KS * c + ks) + 4 * hb + i;   // the 32-value block of the columns
-            xf.b0[i] = xf.b1[i] = 0;
-            if (g < ncols) {
-                const uint8_t* xb = x + ((size_t) g * nb32 + k) * kQ81;
-                xf.b0[i] = __ldg(reinterpret_cast<const unsigned int*>(xb + 4) + t);
-                xf.b1[i] = __ldg(reinterpret_cast<const unsigned int*>(xb + 20) + t);
-            }
+        for (int j = 0; j < NCT; ++j)
 #pragma unroll
-            for (int e = 0; e < 2; ++e) {
-                const int col = 2 * t + e;
-                xf.d8[i][e] = col < ncols ? __low2float(__ldg(reinterpret_cast<const half2*>(
-                                                x + ((size_t) col * nb32 + k) * kQ81)))
-                                          : 0.0f;
-            }
-        }
+            for (int i = 0; i < 4; ++i)   // the 32-value block of the columns
+                xfrag_load(xf[j], i, 16 * (KS * c + ks) + 4 * hb + i, j, g, t, x, nb32, ncols);
         asm volatile("cp.async.wait_group %0;\n" ::"n"(S - 2) : "memory");
         __syncthreads();   // unit u is in for every thread; the slot of unit u - 1 is free
         if (u + S - 1 < nunits) issue(u + S - 1);
@@ -424,26 +488,25 @@ __device__ __forceinline__ void dense_tc_block(int blk, int nblk, uint8_t* smem,
             slot + (16 * mt + g) * RS + ((uintptr_t) (w + (size_t) rA * row_bytes + (size_t) c * CB) & 15) + sbi * SB,
             slot + (16 * mt + g + 8) * RS + ((uintptr_t) (w + (size_t) rB * row_bytes + (size_t) c * CB) & 15) +
                 sbi * SB};
-        half_sb_terms<TYPE>(acc, p, n, t, xf, t0, t1, t2, t3);
+        half_sb_terms_n<TYPE, NCT>(acc, p, n, t, xf, t0, t1, t2, t3);
         if (c == nchunk - 1) {   // the tile: each m-tile's warp sums, added in warp order (hb, then ks)
-            float* rw = red + wp * 16 * kMaxCols;
-            rw[g * kMaxCols + 2 * t] = acc[0];
-            rw[g * kMaxCols + 2 * t + 1] = acc[1];
-            rw[(g + 8) * kMaxCols + 2 * t] = acc[2];
-            rw[(g + 8) * kMaxCols + 2 * t + 1] = acc[3];
-            acc[0] = acc[1] = acc[2] = acc[3] = 0.0f;
+            store_warp_sums<NCT>(red + wp * 16 * KC, acc, g, t);
+#pragma unroll
+            for (int q = 0; q < 4 * NCT; ++q) acc[q] = 0.0f;
             if (u == nunits - 1) pdl_launch_dependents();
             __syncthreads();
-            const int row = tid / kMaxCols, col = tid % kMaxCols;   // R * kMaxCols threads
-            if (tid < R * kMaxCols && col < ncols && row0 + row < n_out) {
-                float v = 0.0f;
+            for (int o = tid; o < R * KC; o += NT) {   // R * KC outputs
+                const int row = o / KC, col = o % KC;
+                if (col < ncols && row0 + row < n_out) {
+                    float v = 0.0f;
 #pragma unroll
-                for (int q = 0; q < KS; ++q) {
-                    const float* rr = red + ((4 * (q * MT + row / 16)) * 16 + row % 16) * kMaxCols + col;
-                    const float vq = ((rr[0] + rr[16 * kMaxCols]) + rr[32 * kMaxCols]) + rr[48 * kMaxCols];
-                    v = q == 0 ? vq : v + vq;
+                    for (int q = 0; q < KS; ++q) {
+                        const float* rr = red + ((4 * (q * MT + row / 16)) * 16 + row % 16) * KC + col;
+                        const float vq = ((rr[0] + rr[16 * KC]) + rr[32 * KC]) + rr[48 * KC];
+                        v = q == 0 ? vq : v + vq;
+                    }
+                    y[(size_t) col * n_out + row0 + row] = v;
                 }
-                y[(size_t) col * n_out + row0 + row] = v;
             }
         }
     }
@@ -451,13 +514,13 @@ __device__ __forceinline__ void dense_tc_block(int blk, int nblk, uint8_t* smem,
 }
 #endif
 
-template<int TYPE, int S, int MT, int KS>
+template<int TYPE, int S, int MT, int KS, int NCT>
 __global__ void __launch_bounds__(MT * KS * 128) dense_tc_kernel(const uint8_t* __restrict__ w,
                                                                  const uint8_t* __restrict__ x, float* __restrict__ y,
                                                                  int n_in, int n_out, int ncols) {
 #if defined(__CUDA_ARCH__) && __CUDA_ARCH__ >= 900
     extern __shared__ __align__(128) uint8_t smem[];
-    dense_tc_block<TYPE, S, MT, KS>((int) blockIdx.x, (int) gridDim.x, smem, w, x, y, n_in, n_out, ncols);
+    dense_tc_block<TYPE, S, MT, KS, NCT>((int) blockIdx.x, (int) gridDim.x, smem, w, x, y, n_in, n_out, ncols);
 #elif defined(__CUDA_ARCH__)
     __trap();
 #endif
@@ -468,16 +531,16 @@ __global__ void __launch_bounds__(MT * KS * 128) dense_tc_kernel(const uint8_t* 
 // w / 4, w / 4 + 2, ... in order; a row's eight warp sums are added as
 // ((w0 + w4) + (w1 + w5)) + ((w2 + w6) + (w3 + w7)).
 #if defined(__CUDA_ARCH__) && __CUDA_ARCH__ >= 900
-// block blk of nblk (256 threads); smem: 128 + 4096 + 2 tiles of 16 rs bytes, 128-byte aligned.  rs: the staged rows'
-// stride - the row's bytes (one bulk copy per tile) or more (one per row, DEC_DTC2 & 32: one_row_stride)
-template<int TYPE>
+// block blk of nblk (256 threads); smem: 128 + 4096 NCT + 2 tiles of 16 rs bytes, 128-byte aligned.  rs: the staged
+// rows' stride - the row's bytes (one bulk copy per tile) or more (one per row, DEC_DTC2 & 32: one_row_stride)
+template<int TYPE, int NCT>
 __device__ __forceinline__ void dense_tc_tile_block(int blk, int nblk, uint8_t* smem, const uint8_t* __restrict__ w,
                                                     const uint8_t* __restrict__ x, float* __restrict__ y, int n_in,
                                                     int n_out, int ncols, int rs) {
-    constexpr int SB = Fmt<TYPE>::SB, CB = 2 * SB;
+    constexpr int SB = Fmt<TYPE>::SB, CB = 2 * SB, KC = 8 * NCT;
     uint64_t* bar = reinterpret_cast<uint64_t*>(smem);
     float* red = reinterpret_cast<float*>(smem + 128);   // [warp][row][column]
-    uint8_t* slots = smem + 128 + 8 * 16 * kMaxCols * 4;
+    uint8_t* slots = smem + 128 + 8 * 16 * KC * 4;
     const int tid = threadIdx.x, wp = tid >> 5, lane = tid & 31, g = lane >> 2, t = lane & 3;
     const int hb = wp & 3, sbi = hb >> 1, n = hb & 1;
     const int nchunk = n_in / 512, nb32 = n_in / 32;
@@ -536,45 +599,30 @@ __device__ __forceinline__ void dense_tc_tile_block(int blk, int nblk, uint8_t* 
         // rows past n_out read the slot's stale bytes: finite or not, they are never stored
         const uint8_t* rowA = slot + g * rs + sbi * SB;
         const uint8_t* rowB = slot + (g + 8) * rs + sbi * SB;
-        float acc[4] = {0.0f, 0.0f, 0.0f, 0.0f};
+        float acc[4 * NCT];
+#pragma unroll
+        for (int q = 0; q < 4 * NCT; ++q) acc[q] = 0.0f;
         for (int c = wp >> 2; c < nchunk; c += 2) {
-            XFrag xf;
+            XFrag xf[NCT];
 #pragma unroll
-            for (int k4 = 0; k4 < 4; ++k4) {
-                const int k = 16 * c + 4 * hb + k4;
-                xf.b0[k4] = xf.b1[k4] = 0;
-                if (g < ncols) {
-                    const uint8_t* xb = x + ((size_t) g * nb32 + k) * kQ81;
-                    xf.b0[k4] = __ldg(reinterpret_cast<const unsigned int*>(xb + 4) + t);
-                    xf.b1[k4] = __ldg(reinterpret_cast<const unsigned int*>(xb + 20) + t);
-                }
+            for (int j = 0; j < NCT; ++j)
 #pragma unroll
-                for (int e = 0; e < 2; ++e) {
-                    const int col = 2 * t + e;
-                    xf.d8[k4][e] = col < ncols ? __low2float(__ldg(reinterpret_cast<const half2*>(
-                                                     x + ((size_t) col * nb32 + k) * kQ81)))
-                                               : 0.0f;
-                }
-            }
+                for (int k4 = 0; k4 < 4; ++k4) xfrag_load(xf[j], k4, 16 * c + 4 * hb + k4, j, g, t, x, nb32, ncols);
             const uint8_t* const p[2] = {rowA + c * CB, rowB + c * CB};
-            half_sb_terms<TYPE>(acc, p, n, t, xf, t0, t1, t2, t3);
+            half_sb_terms_n<TYPE, NCT>(acc, p, n, t, xf, t0, t1, t2, t3);
         }
-        float* rw = red + wp * 16 * kMaxCols;
-        rw[g * kMaxCols + 2 * t] = acc[0];
-        rw[g * kMaxCols + 2 * t + 1] = acc[1];
-        rw[(g + 8) * kMaxCols + 2 * t] = acc[2];
-        rw[(g + 8) * kMaxCols + 2 * t + 1] = acc[3];
+        store_warp_sums<NCT>(red + wp * 16 * KC, acc, g, t);
         if (i == mine - 1) pdl_launch_dependents();
         __syncthreads();   // the slot is read and the warp sums are in
         if (wp == 0 && i + 2 < mine) {
             asm volatile("fence.proxy.async.shared::cta;" ::: "memory");
             issue(i + 2);
         }
-        if (tid < 16 * kMaxCols) {
-            const int row = tid / kMaxCols, col = tid % kMaxCols;
+        if (tid < 16 * KC) {
+            const int row = tid / KC, col = tid % KC;
             if (col < ncols && row0 + row < n_out) {
-                const float* rr = red + row * kMaxCols + col;
-                constexpr int WS = 16 * kMaxCols;   // one warp's sums
+                const float* rr = red + row * KC + col;
+                constexpr int WS = 16 * KC;   // one warp's sums
                 const float v = ((rr[0] + rr[4 * WS]) + (rr[WS] + rr[5 * WS])) +
                                 ((rr[2 * WS] + rr[6 * WS]) + (rr[3 * WS] + rr[7 * WS]));
                 y[(size_t) col * n_out + row0 + row] = v;
@@ -585,13 +633,13 @@ __device__ __forceinline__ void dense_tc_tile_block(int blk, int nblk, uint8_t* 
 }
 #endif
 
-template<int TYPE>
+template<int TYPE, int NCT>
 __global__ void __launch_bounds__(256) dense_tc_tile_kernel(const uint8_t* __restrict__ w,
                                                            const uint8_t* __restrict__ x, float* __restrict__ y,
                                                            int n_in, int n_out, int ncols, int rs) {
 #if defined(__CUDA_ARCH__) && __CUDA_ARCH__ >= 900
     extern __shared__ __align__(128) uint8_t smem[];
-    dense_tc_tile_block<TYPE>((int) blockIdx.x, (int) gridDim.x, smem, w, x, y, n_in, n_out, ncols, rs);
+    dense_tc_tile_block<TYPE, NCT>((int) blockIdx.x, (int) gridDim.x, smem, w, x, y, n_in, n_out, ncols, rs);
 #elif defined(__CUDA_ARCH__)
     __trap();
 #endif
@@ -602,12 +650,12 @@ __global__ void __launch_bounds__(256) dense_tc_tile_kernel(const uint8_t* __res
 // w % 4 of the chunks w / 4, w / 4 + NW / 4, ...  A row's sums: per half super-block the warp groups in order, then
 // (hb0 + hb1) + (hb2 + hb3).
 #if defined(__CUDA_ARCH__) && __CUDA_ARCH__ >= 900
-// tile blk; smem: one_smem_bytes<TYPE, NW>(n_in) bytes, 128-byte aligned
-template<int TYPE, int NW>
+// tile blk; smem: one_smem_bytes<TYPE, NW, NCT>(n_in) bytes, 128-byte aligned
+template<int TYPE, int NW, int NCT>
 __device__ __forceinline__ void dense_tc_one_block(int blk, uint8_t* smem, const uint8_t* __restrict__ w,
                                                    const uint8_t* __restrict__ x, float* __restrict__ y, int n_in,
                                                    int n_out, int ncols) {
-    constexpr int SB = Fmt<TYPE>::SB, CB = 2 * SB, NG = NW / 4;
+    constexpr int SB = Fmt<TYPE>::SB, CB = 2 * SB, NG = NW / 4, KC = 8 * NCT;
     uint64_t* bar = reinterpret_cast<uint64_t*>(smem);
     uint8_t* slot = smem + 128;
     float* red = reinterpret_cast<float*>(slot);   // [warp][row][column], over the rows once they are read
@@ -617,7 +665,7 @@ __device__ __forceinline__ void dense_tc_one_block(int blk, uint8_t* smem, const
     const int row_bytes = (n_in / 256) * SB, rs = one_row_stride(row_bytes);
     const int row0 = blk * 16, rows = min(16, n_out - row0);
     const uint32_t bb = (uint32_t) __cvta_generic_to_shared(bar);
-    uint32_t* grid = reinterpret_cast<uint32_t*>(slot + max(NW * 16 * kMaxCols * 4, 16 * rs));   // IQ3_S: the codebook
+    uint32_t* grid = reinterpret_cast<uint32_t*>(slot + max(NW * 16 * KC * 4, 16 * rs));   // IQ3_S: the codebook
     if constexpr (TYPE == 21)
         for (int i = tid; i < 512; i += NW * 32) grid[i] = iq3s_grid[i];
     if (tid == 0) {
@@ -637,26 +685,13 @@ __device__ __forceinline__ void dense_tc_one_block(int blk, uint8_t* smem, const
     uint32_t t0 = 0, t1 = 0, t2 = 0, t3 = 0;
     if constexpr (TYPE == 23) { t0 = tbl[0]; t1 = tbl[1]; t2 = tbl[2]; t3 = tbl[3]; }
     // the first chunk's column data while the tile lands
-    auto load_x = [&](XFrag& xf, int c) {
+    auto load_x = [&](XFrag (&xf)[NCT], int c) {
 #pragma unroll
-        for (int k4 = 0; k4 < 4; ++k4) {
-            const int k = 16 * c + 4 * hb + k4;
-            xf.b0[k4] = xf.b1[k4] = 0;
-            if (g < ncols) {
-                const uint8_t* xb = x + ((size_t) g * nb32 + k) * kQ81;
-                xf.b0[k4] = __ldg(reinterpret_cast<const unsigned int*>(xb + 4) + t);
-                xf.b1[k4] = __ldg(reinterpret_cast<const unsigned int*>(xb + 20) + t);
-            }
+        for (int j = 0; j < NCT; ++j)
 #pragma unroll
-            for (int e = 0; e < 2; ++e) {
-                const int col = 2 * t + e;
-                xf.d8[k4][e] = col < ncols ? __low2float(__ldg(reinterpret_cast<const half2*>(
-                                                 x + ((size_t) col * nb32 + k) * kQ81)))
-                                           : 0.0f;
-            }
-        }
+            for (int k4 = 0; k4 < 4; ++k4) xfrag_load(xf[j], k4, 16 * c + 4 * hb + k4, j, g, t, x, nb32, ncols);
     };
-    XFrag xf;
+    XFrag xf[NCT];
     int c = wp >> 2;
     if (c < nchunk) load_x(xf, c);
     {
@@ -670,26 +705,25 @@ __device__ __forceinline__ void dense_tc_one_block(int blk, uint8_t* smem, const
     // rows past n_out read the slot's stale bytes: finite or not, they are never stored
     const uint8_t* rowA = slot + g * rs + sbi * SB;
     const uint8_t* rowB = slot + (g + 8) * rs + sbi * SB;
-    float acc[4] = {0.0f, 0.0f, 0.0f, 0.0f};
+    float acc[4 * NCT];
+#pragma unroll
+    for (int q = 0; q < 4 * NCT; ++q) acc[q] = 0.0f;
     for (; c < nchunk; c += NG) {
-        XFrag xn;
+        XFrag xn[NCT];
         if (c + NG < nchunk) load_x(xn, c + NG);
         const uint8_t* const p[2] = {rowA + c * CB, rowB + c * CB};
-        half_sb_terms<TYPE>(acc, p, n, t, xf, t0, t1, t2, t3, grid);
-        xf = xn;
+        half_sb_terms_n<TYPE, NCT>(acc, p, n, t, xf, t0, t1, t2, t3, grid);
+#pragma unroll
+        for (int j = 0; j < NCT; ++j) xf[j] = xn[j];
     }
     __syncthreads();   // the rows are read
-    float* rw = red + wp * 16 * kMaxCols;
-    rw[g * kMaxCols + 2 * t] = acc[0];
-    rw[g * kMaxCols + 2 * t + 1] = acc[1];
-    rw[(g + 8) * kMaxCols + 2 * t] = acc[2];
-    rw[(g + 8) * kMaxCols + 2 * t + 1] = acc[3];
+    store_warp_sums<NCT>(red + wp * 16 * KC, acc, g, t);
     __syncthreads();
-    if (tid < 16 * kMaxCols) {
-        const int row = tid / kMaxCols, col = tid % kMaxCols;
+    if (tid < 16 * KC) {
+        const int row = tid / KC, col = tid % KC;
         if (col < ncols && row0 + row < n_out) {
-            constexpr int WS = 16 * kMaxCols;   // one warp's sums
-            const float* rr = red + row * kMaxCols + col;
+            constexpr int WS = 16 * KC;   // one warp's sums
+            const float* rr = red + row * KC + col;
             float h[4];
 #pragma unroll
             for (int q = 0; q < 4; ++q) {
@@ -704,21 +738,21 @@ __device__ __forceinline__ void dense_tc_one_block(int blk, uint8_t* smem, const
 }
 #endif
 
-template<int TYPE, int NW>
+template<int TYPE, int NW, int NCT>
 __global__ void __launch_bounds__(NW * 32) dense_tc_one_kernel(const uint8_t* __restrict__ w,
                                                               const uint8_t* __restrict__ x, float* __restrict__ y,
                                                               int n_in, int n_out, int ncols) {
 #if defined(__CUDA_ARCH__) && __CUDA_ARCH__ >= 900
     extern __shared__ __align__(128) uint8_t smem[];
-    dense_tc_one_block<TYPE, NW>((int) blockIdx.x, smem, w, x, y, n_in, n_out, ncols);
+    dense_tc_one_block<TYPE, NW, NCT>((int) blockIdx.x, smem, w, x, y, n_in, n_out, ncols);
 #elif defined(__CUDA_ARCH__)
     __trap();
 #endif
 }
 
-template<int TYPE, int NW>
+template<int TYPE, int NW, int NCT>
 constexpr int one_smem_bytes(int n_in) {
-    return 128 + std::max(NW * 16 * kMaxCols * 4, 16 * one_row_stride((n_in / 256) * Fmt<TYPE>::SB)) +
+    return 128 + std::max(NW * 16 * 8 * NCT * 4, 16 * one_row_stride((n_in / 256) * Fmt<TYPE>::SB)) +
            (TYPE == 21 ? 2048 : 0);
 }
 
@@ -742,10 +776,10 @@ __host__ __device__ constexpr int pair_sb(int type) {
     else return sb_bytes(type);
 }
 #if defined(__CUDA_ARCH__) && __CUDA_ARCH__ >= 900
-template<int TYPE>
-__device__ __forceinline__ void pair_terms(float (&acc)[4], const uint8_t* rowA, const uint8_t* rowB, int wp, int hb,
-                                           int n, int g, int t, const uint8_t* __restrict__ x, int nb32, int nchunk,
-                                           int ncols, const uint32_t* grid) {
+template<int TYPE, int NCT>
+__device__ __forceinline__ void pair_terms(float (&acc)[4 * NCT], const uint8_t* rowA, const uint8_t* rowB, int wp,
+                                           int hb, int n, int g, int t, const uint8_t* __restrict__ x, int nb32,
+                                           int nchunk, int ncols, const uint32_t* grid) {
     constexpr int CB = 2 * Fmt<TYPE>::SB;
     uint32_t t0 = 0, t1 = 0, t2 = 0, t3 = 0;
     if constexpr (TYPE == 23) {
@@ -755,55 +789,28 @@ __device__ __forceinline__ void pair_terms(float (&acc)[4], const uint8_t* rowA,
     rowA += (hb >> 1) * Fmt<TYPE>::SB;
     rowB += (hb >> 1) * Fmt<TYPE>::SB;
     for (int c = wp >> 2; c < nchunk; c += 2) {
-        XFrag xf;
+        XFrag xf[NCT];
 #pragma unroll
-        for (int k4 = 0; k4 < 4; ++k4) {
-            const int k = 16 * c + 4 * hb + k4;
-            xf.b0[k4] = xf.b1[k4] = 0;
-            if (g < ncols) {
-                const uint8_t* xb = x + ((size_t) g * nb32 + k) * kQ81;
-                xf.b0[k4] = __ldg(reinterpret_cast<const unsigned int*>(xb + 4) + t);
-                xf.b1[k4] = __ldg(reinterpret_cast<const unsigned int*>(xb + 20) + t);
-            }
+        for (int j = 0; j < NCT; ++j)
 #pragma unroll
-            for (int e = 0; e < 2; ++e) {
-                const int col = 2 * t + e;
-                xf.d8[k4][e] = col < ncols ? __low2float(__ldg(reinterpret_cast<const half2*>(
-                                                 x + ((size_t) col * nb32 + k) * kQ81)))
-                                           : 0.0f;
-            }
-        }
+            for (int k4 = 0; k4 < 4; ++k4) xfrag_load(xf[j], k4, 16 * c + 4 * hb + k4, j, g, t, x, nb32, ncols);
         const uint8_t* const p[2] = {rowA + c * CB, rowB + c * CB};
-        half_sb_terms<TYPE>(acc, p, n, t, xf, t0, t1, t2, t3, grid);
+        half_sb_terms_n<TYPE, NCT>(acc, p, n, t, xf, t0, t1, t2, t3, grid);
     }
 }
 
-// the x fragments of chunk c (as pair_terms loads them)
+// the x fragments of chunk c for n-tile j (as pair_terms loads them)
 __device__ __forceinline__ void pair_xfrag(XFrag& xf, int c, int hb, int g, int t, const uint8_t* __restrict__ x,
-                                           int nb32, int ncols) {
+                                           int nb32, int ncols, int j = 0) {
 #pragma unroll
-    for (int k4 = 0; k4 < 4; ++k4) {
-        const int k = 16 * c + 4 * hb + k4;
-        xf.b0[k4] = xf.b1[k4] = 0;
-        if (g < ncols) {
-            const uint8_t* xb = x + ((size_t) g * nb32 + k) * kQ81;
-            xf.b0[k4] = __ldg(reinterpret_cast<const unsigned int*>(xb + 4) + t);
-            xf.b1[k4] = __ldg(reinterpret_cast<const unsigned int*>(xb + 20) + t);
-        }
-#pragma unroll
-        for (int e = 0; e < 2; ++e) {
-            const int col = 2 * t + e;
-            xf.d8[k4][e] = col < ncols ? __low2float(__ldg(reinterpret_cast<const half2*>(
-                                             x + ((size_t) col * nb32 + k) * kQ81)))
-                                       : 0.0f;
-        }
-    }
+    for (int k4 = 0; k4 < 4; ++k4) xfrag_load(xf, k4, 16 * c + 4 * hb + k4, j, g, t, x, nb32, ncols);
 }
 
-// pair_terms with the warp's (at most 3) chunks' x fragments held in registers across tiles
-template<int TYPE>
-__device__ __forceinline__ void pair_terms_xr(float (&acc)[4], const uint8_t* rowA, const uint8_t* rowB, int wp,
-                                              int hb, int n, int t, int nchunk, const XFrag (&xs)[3],
+// pair_terms with the warp's (at most 3) chunks' x fragments held in registers across tiles: chunk j's n-tile q at
+// xs[NCT j + q]
+template<int TYPE, int NCT = 1>
+__device__ __forceinline__ void pair_terms_xr(float (&acc)[4 * NCT], const uint8_t* rowA, const uint8_t* rowB, int wp,
+                                              int hb, int n, int t, int nchunk, const XFrag (&xs)[3 * NCT],
                                               const uint32_t* grid) {
     constexpr int CB = 2 * Fmt<TYPE>::SB;
     uint32_t t0 = 0, t1 = 0, t2 = 0, t3 = 0;
@@ -818,18 +825,19 @@ __device__ __forceinline__ void pair_terms_xr(float (&acc)[4], const uint8_t* ro
         const int c = (wp >> 2) + 2 * j;
         if (c >= nchunk) break;
         const uint8_t* const p[2] = {rowA + c * CB, rowB + c * CB};
-        half_sb_terms<TYPE>(acc, p, n, t, xs[j], t0, t1, t2, t3, grid);
+        half_sb_terms_n<TYPE, NCT>(acc, p, n, t, xs + NCT * j, t0, t1, t2, t3, grid);
     }
 }
 
-// block blk of nblk (256 threads); smem: 128 + 4096 (DB: 8192) + 2048 (IQ3_S grid) + 2 slots of the larger tile.  XR:
+// block blk of nblk (256 threads); smem: 128 + 4096 NCT (DB: twice) + 2048 (IQ3_S grid) + 2 slots of the larger tile.  XR:
 // the x fragments in registers (n_in <= 3072); DB: two warp-sum buffers, one barrier per tile less; LQ: Q3_K and Q2_0
 // tiles too (a build of their own, so the other formats' kernels stay as they were)
-template<bool XR, bool DB, bool LQ>
+template<bool XR, bool DB, bool LQ, int NCT>
 __device__ __forceinline__ void dense_tc_pair_block(int blk, int nblk, uint8_t* smem, PairMat m0, PairMat m1,
                                                     const uint8_t* __restrict__ x, int n_in, int ncols) {
+    constexpr int KC = 8 * NCT;
     uint64_t* bar = reinterpret_cast<uint64_t*>(smem);
-    constexpr int RB = (DB ? 2 : 1) * 8 * 16 * kMaxCols * 4;
+    constexpr int RB = (DB ? 2 : 1) * 8 * 16 * KC * 4;
     float* red0 = reinterpret_cast<float*>(smem + 128);   // [buffer][warp][row][column]
     uint32_t* grid = reinterpret_cast<uint32_t*>(smem + 128 + RB);
     uint8_t* slots = smem + 128 + RB + 2048;
@@ -864,11 +872,13 @@ __device__ __forceinline__ void dense_tc_pair_block(int blk, int nblk, uint8_t* 
     }
     __syncthreads();
     pdl_wait();
-    XFrag xs[3];
+    XFrag xs[3 * NCT];
     if constexpr (XR) {
 #pragma unroll
         for (int j = 0; j < 3; ++j)
-            if ((wp >> 2) + 2 * j < nchunk) pair_xfrag(xs[j], (wp >> 2) + 2 * j, hb, g, t, x, nb32, ncols);
+#pragma unroll
+            for (int q = 0; q < NCT; ++q)
+                if ((wp >> 2) + 2 * j < nchunk) pair_xfrag(xs[NCT * j + q], (wp >> 2) + 2 * j, hb, g, t, x, nb32, ncols, q);
     }
     for (int i = 0; i < mine; ++i) {
         const int tile = blk + i * nblk;
@@ -887,63 +897,61 @@ __device__ __forceinline__ void dense_tc_pair_block(int blk, int nblk, uint8_t* 
         const uint8_t* slot = slots + (size_t) (i & 1) * slot_bytes;
         const uint8_t* rowA = slot + g * row_bytes;
         const uint8_t* rowB = slot + (g + 8) * row_bytes;
-        float acc[4] = {0.0f, 0.0f, 0.0f, 0.0f};
+        float acc[4 * NCT];
+#pragma unroll
+        for (int q = 0; q < 4 * NCT; ++q) acc[q] = 0.0f;
         if constexpr (XR && LQ) {
             switch (m.type) {
-                case 12: pair_terms_xr<12>(acc, rowA, rowB, wp, hb, n, t, nchunk, xs, grid); break;
-                case 13: pair_terms_xr<13>(acc, rowA, rowB, wp, hb, n, t, nchunk, xs, grid); break;
-                case 14: pair_terms_xr<14>(acc, rowA, rowB, wp, hb, n, t, nchunk, xs, grid); break;
-                case 21: pair_terms_xr<21>(acc, rowA, rowB, wp, hb, n, t, nchunk, xs, grid); break;
-                case 11: pair_terms_xr<11>(acc, rowA, rowB, wp, hb, n, t, nchunk, xs, grid); break;
-                case 42: pair_terms_xr<42>(acc, rowA, rowB, wp, hb, n, t, nchunk, xs, grid); break;
-                case 8: pair_terms_xr<8>(acc, rowA, rowB, wp, hb, n, t, nchunk, xs, grid); break;
-                default: pair_terms_xr<23>(acc, rowA, rowB, wp, hb, n, t, nchunk, xs, grid); break;
+                case 12: pair_terms_xr<12, NCT>(acc, rowA, rowB, wp, hb, n, t, nchunk, xs, grid); break;
+                case 13: pair_terms_xr<13, NCT>(acc, rowA, rowB, wp, hb, n, t, nchunk, xs, grid); break;
+                case 14: pair_terms_xr<14, NCT>(acc, rowA, rowB, wp, hb, n, t, nchunk, xs, grid); break;
+                case 21: pair_terms_xr<21, NCT>(acc, rowA, rowB, wp, hb, n, t, nchunk, xs, grid); break;
+                case 11: pair_terms_xr<11, NCT>(acc, rowA, rowB, wp, hb, n, t, nchunk, xs, grid); break;
+                case 42: pair_terms_xr<42, NCT>(acc, rowA, rowB, wp, hb, n, t, nchunk, xs, grid); break;
+                case 8: pair_terms_xr<8, NCT>(acc, rowA, rowB, wp, hb, n, t, nchunk, xs, grid); break;
+                default: pair_terms_xr<23, NCT>(acc, rowA, rowB, wp, hb, n, t, nchunk, xs, grid); break;
             }
         } else if constexpr (XR) {
             switch (m.type) {
-                case 12: pair_terms_xr<12>(acc, rowA, rowB, wp, hb, n, t, nchunk, xs, grid); break;
-                case 13: pair_terms_xr<13>(acc, rowA, rowB, wp, hb, n, t, nchunk, xs, grid); break;
-                case 14: pair_terms_xr<14>(acc, rowA, rowB, wp, hb, n, t, nchunk, xs, grid); break;
-                case 21: pair_terms_xr<21>(acc, rowA, rowB, wp, hb, n, t, nchunk, xs, grid); break;
-                default: pair_terms_xr<23>(acc, rowA, rowB, wp, hb, n, t, nchunk, xs, grid); break;
+                case 12: pair_terms_xr<12, NCT>(acc, rowA, rowB, wp, hb, n, t, nchunk, xs, grid); break;
+                case 13: pair_terms_xr<13, NCT>(acc, rowA, rowB, wp, hb, n, t, nchunk, xs, grid); break;
+                case 14: pair_terms_xr<14, NCT>(acc, rowA, rowB, wp, hb, n, t, nchunk, xs, grid); break;
+                case 21: pair_terms_xr<21, NCT>(acc, rowA, rowB, wp, hb, n, t, nchunk, xs, grid); break;
+                default: pair_terms_xr<23, NCT>(acc, rowA, rowB, wp, hb, n, t, nchunk, xs, grid); break;
             }
         } else if constexpr (LQ) {
             switch (m.type) {
-                case 12: pair_terms<12>(acc, rowA, rowB, wp, hb, n, g, t, x, nb32, nchunk, ncols, grid); break;
-                case 13: pair_terms<13>(acc, rowA, rowB, wp, hb, n, g, t, x, nb32, nchunk, ncols, grid); break;
-                case 14: pair_terms<14>(acc, rowA, rowB, wp, hb, n, g, t, x, nb32, nchunk, ncols, grid); break;
-                case 21: pair_terms<21>(acc, rowA, rowB, wp, hb, n, g, t, x, nb32, nchunk, ncols, grid); break;
-                case 11: pair_terms<11>(acc, rowA, rowB, wp, hb, n, g, t, x, nb32, nchunk, ncols, grid); break;
-                case 42: pair_terms<42>(acc, rowA, rowB, wp, hb, n, g, t, x, nb32, nchunk, ncols, grid); break;
-                case 8: pair_terms<8>(acc, rowA, rowB, wp, hb, n, g, t, x, nb32, nchunk, ncols, grid); break;
-                default: pair_terms<23>(acc, rowA, rowB, wp, hb, n, g, t, x, nb32, nchunk, ncols, grid); break;
+                case 12: pair_terms<12, NCT>(acc, rowA, rowB, wp, hb, n, g, t, x, nb32, nchunk, ncols, grid); break;
+                case 13: pair_terms<13, NCT>(acc, rowA, rowB, wp, hb, n, g, t, x, nb32, nchunk, ncols, grid); break;
+                case 14: pair_terms<14, NCT>(acc, rowA, rowB, wp, hb, n, g, t, x, nb32, nchunk, ncols, grid); break;
+                case 21: pair_terms<21, NCT>(acc, rowA, rowB, wp, hb, n, g, t, x, nb32, nchunk, ncols, grid); break;
+                case 11: pair_terms<11, NCT>(acc, rowA, rowB, wp, hb, n, g, t, x, nb32, nchunk, ncols, grid); break;
+                case 42: pair_terms<42, NCT>(acc, rowA, rowB, wp, hb, n, g, t, x, nb32, nchunk, ncols, grid); break;
+                case 8: pair_terms<8, NCT>(acc, rowA, rowB, wp, hb, n, g, t, x, nb32, nchunk, ncols, grid); break;
+                default: pair_terms<23, NCT>(acc, rowA, rowB, wp, hb, n, g, t, x, nb32, nchunk, ncols, grid); break;
             }
         } else {
             switch (m.type) {
-                case 12: pair_terms<12>(acc, rowA, rowB, wp, hb, n, g, t, x, nb32, nchunk, ncols, grid); break;
-                case 13: pair_terms<13>(acc, rowA, rowB, wp, hb, n, g, t, x, nb32, nchunk, ncols, grid); break;
-                case 14: pair_terms<14>(acc, rowA, rowB, wp, hb, n, g, t, x, nb32, nchunk, ncols, grid); break;
-                case 21: pair_terms<21>(acc, rowA, rowB, wp, hb, n, g, t, x, nb32, nchunk, ncols, grid); break;
-                default: pair_terms<23>(acc, rowA, rowB, wp, hb, n, g, t, x, nb32, nchunk, ncols, grid); break;
+                case 12: pair_terms<12, NCT>(acc, rowA, rowB, wp, hb, n, g, t, x, nb32, nchunk, ncols, grid); break;
+                case 13: pair_terms<13, NCT>(acc, rowA, rowB, wp, hb, n, g, t, x, nb32, nchunk, ncols, grid); break;
+                case 14: pair_terms<14, NCT>(acc, rowA, rowB, wp, hb, n, g, t, x, nb32, nchunk, ncols, grid); break;
+                case 21: pair_terms<21, NCT>(acc, rowA, rowB, wp, hb, n, g, t, x, nb32, nchunk, ncols, grid); break;
+                default: pair_terms<23, NCT>(acc, rowA, rowB, wp, hb, n, g, t, x, nb32, nchunk, ncols, grid); break;
             }
         }
-        float* red = red0 + (DB ? (i & 1) * 8 * 16 * kMaxCols : 0);
-        float* rw = red + wp * 16 * kMaxCols;
-        rw[g * kMaxCols + 2 * t] = acc[0];
-        rw[g * kMaxCols + 2 * t + 1] = acc[1];
-        rw[(g + 8) * kMaxCols + 2 * t] = acc[2];
-        rw[(g + 8) * kMaxCols + 2 * t + 1] = acc[3];
+        float* red = red0 + (DB ? (i & 1) * 8 * 16 * KC : 0);
+        store_warp_sums<NCT>(red + wp * 16 * KC, acc, g, t);
         if (i == mine - 1) pdl_launch_dependents();
         __syncthreads();   // the slot is read and the warp sums are in
         if (tid == 0 && i + 2 < mine) {
             asm volatile("fence.proxy.async.shared::cta;" ::: "memory");
             issue(i + 2);
         }
-        if (tid < 16 * kMaxCols) {
-            const int row = tid / kMaxCols, col = tid % kMaxCols;
+        if (tid < 16 * KC) {
+            const int row = tid / KC, col = tid % KC;
             if (col < ncols && row0 + row < m.n_out) {
-                const float* rr = red + row * kMaxCols + col;
-                constexpr int WS = 16 * kMaxCols;   // one warp's sums
+                const float* rr = red + row * KC + col;
+                constexpr int WS = 16 * KC;   // one warp's sums
                 const float v = ((rr[0] + rr[4 * WS]) + (rr[WS] + rr[5 * WS])) +
                                 ((rr[2 * WS] + rr[6 * WS]) + (rr[3 * WS] + rr[7 * WS]));
                 m.y[(size_t) col * m.n_out + row0 + row] = v;
@@ -954,12 +962,12 @@ __device__ __forceinline__ void dense_tc_pair_block(int blk, int nblk, uint8_t* 
 }
 #endif
 
-template<bool XR, bool DB, bool LQ>
+template<bool XR, bool DB, bool LQ, int NCT>
 __global__ void __launch_bounds__(256) dense_tc_pair_kernel(PairMat m0, PairMat m1, const uint8_t* __restrict__ x,
                                                             int n_in, int ncols) {
 #if defined(__CUDA_ARCH__) && __CUDA_ARCH__ >= 900
     extern __shared__ __align__(128) uint8_t smem[];
-    dense_tc_pair_block<XR, DB, LQ>((int) blockIdx.x, (int) gridDim.x, smem, m0, m1, x, n_in, ncols);
+    dense_tc_pair_block<XR, DB, LQ, NCT>((int) blockIdx.x, (int) gridDim.x, smem, m0, m1, x, n_in, ncols);
 #elif defined(__CUDA_ARCH__)
     __trap();
 #endif
@@ -982,9 +990,9 @@ __global__ void __launch_bounds__(32) dense_tc_l2_kernel(const uint8_t* __restri
 #endif
 }
 
-template<int TYPE, int S, int MT, int KS>
+template<int TYPE, int S, int MT, int KS, int NCT>
 size_t smem_bytes() {
-    return (size_t) S * 16 * MT * row_stride(KS * Fmt<TYPE>::SB) + (size_t) MT * KS * 4 * 16 * kMaxCols * 4;
+    return (size_t) S * 16 * MT * row_stride(KS * Fmt<TYPE>::SB) + (size_t) MT * KS * 4 * 16 * kMaxCols * NCT * 4;
 }
 
 int sm_count() {
@@ -1019,73 +1027,77 @@ static void opt_in_check(cudaError_t e, const char* who) {
 // The live configuration: DEC_DTC2 2 | 4 | 8 | 16 and DEC_PAIR 2 | 4 | 16 (see src/core/verify/).
 constexpr int g_pair = 22;
 
-template<int TYPE, int S, int MT, int KS>
+template<int TYPE, int S, int MT, int KS, int NCT>
 void launch_s(const void* w, const void* x, float* y, int n_in, int n_out, int ncols, cudaStream_t s) {
-    const size_t smem = smem_bytes<TYPE, S, MT, KS>();
+    const size_t smem = smem_bytes<TYPE, S, MT, KS, NCT>();
     static std::atomic<bool> attr[64];
     const int dev = opt_in_device("dense_tc");
     if (!attr[dev].load(std::memory_order_acquire)) {
-        opt_in_check(cudaFuncSetAttribute(dense_tc_kernel<TYPE, S, MT, KS>, cudaFuncAttributeMaxDynamicSharedMemorySize, (int) smem), "dense_tc");
+        opt_in_check(cudaFuncSetAttribute(dense_tc_kernel<TYPE, S, MT, KS, NCT>, cudaFuncAttributeMaxDynamicSharedMemorySize, (int) smem), "dense_tc");
         attr[dev].store(true, std::memory_order_release);
     }
     int occ = 0;
-    cudaOccupancyMaxActiveBlocksPerMultiprocessor(&occ, dense_tc_kernel<TYPE, S, MT, KS>, MT * KS * 128, smem);
+    cudaOccupancyMaxActiveBlocksPerMultiprocessor(&occ, dense_tc_kernel<TYPE, S, MT, KS, NCT>, MT * KS * 128, smem);
     if (occ < 1) occ = 1;
     const int ntiles = (n_out + 16 * MT - 1) / (16 * MT);
     const int grid = ntiles < occ * sm_count() ? ntiles : occ * sm_count();
-    launch_pdl(dense_tc_kernel<TYPE, S, MT, KS>, dim3((unsigned) grid), dim3(MT * KS * 128), smem, s,
+    launch_pdl(dense_tc_kernel<TYPE, S, MT, KS, NCT>, dim3((unsigned) grid), dim3(MT * KS * 128), smem, s,
                (const uint8_t*) w, (const uint8_t*) x, y, n_in, n_out, ncols);
 }
 
-template<int TYPE>
+template<int TYPE, int NCT>
 void launch_tile(const void* w, const void* x, float* y, int n_in, int n_out, int ncols, cudaStream_t s) {
     const int row_bytes = (n_in / 256) * Fmt<TYPE>::SB;
     const int rs = row_bytes;
-    const int smem = 128 + 8 * 16 * kMaxCols * 4 + 2 * 16 * rs;
+    const int smem = 128 + 8 * 16 * kMaxCols * NCT * 4 + 2 * 16 * rs;
     static std::atomic<bool> attr[64];
     const int dev = opt_in_device("dense_tc_tile");
     if (!attr[dev].load(std::memory_order_acquire)) {
-        opt_in_check(cudaFuncSetAttribute(dense_tc_tile_kernel<TYPE>, cudaFuncAttributeMaxDynamicSharedMemorySize, 99 * 1024), "dense_tc_tile");
+        opt_in_check(cudaFuncSetAttribute(dense_tc_tile_kernel<TYPE, NCT>, cudaFuncAttributeMaxDynamicSharedMemorySize, 99 * 1024), "dense_tc_tile");
         attr[dev].store(true, std::memory_order_release);
     }
     int occ = 0;
-    cudaOccupancyMaxActiveBlocksPerMultiprocessor(&occ, dense_tc_tile_kernel<TYPE>, 256, smem);
+    cudaOccupancyMaxActiveBlocksPerMultiprocessor(&occ, dense_tc_tile_kernel<TYPE, NCT>, 256, smem);
     if (occ < 1) occ = 1;
     const int ntiles = (n_out + 15) / 16;
     const int grid = ntiles < occ * sm_count() ? ntiles : occ * sm_count();
-    launch_pdl(dense_tc_tile_kernel<TYPE>, dim3((unsigned) grid), dim3(256), (size_t) smem, s, (const uint8_t*) w,
+    launch_pdl(dense_tc_tile_kernel<TYPE, NCT>, dim3((unsigned) grid), dim3(256), (size_t) smem, s, (const uint8_t*) w,
                (const uint8_t*) x, y, n_in, n_out, ncols, rs);
 }
 
-// the one-tile path takes the shape
+// the one-tile path takes the shape (judged at one n-tile: the layout never depends on the column count)
 template<int TYPE>
 bool one_ok(const void* w, int n_in, int n_out) {
     return ((uintptr_t) w & 15) == 0 && (n_in / 256) * Fmt<TYPE>::SB % 16 == 0 &&
-           (n_out + 15) / 16 <= sm_count() && one_smem_bytes<TYPE, 24>(n_in) <= 99 * 1024;
+           (n_out + 15) / 16 <= sm_count() && one_smem_bytes<TYPE, 24, 1>(n_in) <= 99 * 1024;
 }
 
-template<int TYPE, int NW>
+template<int TYPE, int NW, int NCT>
 void launch_one(const void* w, const void* x, float* y, int n_in, int n_out, int ncols, cudaStream_t s) {
     static std::atomic<bool> attr[64];
     const int dev = opt_in_device("dense_tc_one");
     if (!attr[dev].load(std::memory_order_acquire)) {
-        opt_in_check(cudaFuncSetAttribute(dense_tc_one_kernel<TYPE, NW>, cudaFuncAttributeMaxDynamicSharedMemorySize, 99 * 1024), "dense_tc_one");
+        opt_in_check(cudaFuncSetAttribute(dense_tc_one_kernel<TYPE, NW, NCT>, cudaFuncAttributeMaxDynamicSharedMemorySize, 99 * 1024), "dense_tc_one");
         attr[dev].store(true, std::memory_order_release);
     }
-    launch_pdl(dense_tc_one_kernel<TYPE, NW>, dim3((unsigned) ((n_out + 15) / 16)), dim3(NW * 32),
-               (size_t) one_smem_bytes<TYPE, NW>(n_in), s, (const uint8_t*) w, (const uint8_t*) x, y, n_in, n_out,
+    launch_pdl(dense_tc_one_kernel<TYPE, NW, NCT>, dim3((unsigned) ((n_out + 15) / 16)), dim3(NW * 32),
+               (size_t) one_smem_bytes<TYPE, NW, NCT>(n_in), s, (const uint8_t*) w, (const uint8_t*) x, y, n_in, n_out,
                ncols);
 }
 
 // The layout follows the shape alone (never the column count): where every 16-row tile has a block of its own and fits
 // in shared memory, one bulk copy per row, issued before the grid dependency wait; else whole 16-row tiles where two
 // fit in shared memory and the weights are 16-byte aligned; else 16-row tiles in 512-value chunks, and where those
-// leave SMs idle, two warp groups per tile taking alternate 512-value halves of 1024.
-template<int TYPE>
+// leave SMs idle, two warp groups per tile taking alternate 512-value halves of 1024.  NCT: the n-tiles (columns
+// 8 NCT) each weight pass serves.
+template<int TYPE, int NCT>
 void launch(const void* w, const void* x, float* y, int n_in, int n_out, int ncols, cudaStream_t s) {
+    static_assert(NCT == 1 || NCT == 2, "one or two n-tiles");
+    // the one-tile path's warp sums of two n-tiles are smaller than the rows any shape it takes stages
+    static_assert(128 + 24 * 16 * 16 * 4 + 2048 <= 99 * 1024, "the one-tile path fits two n-tiles");
     const bool aligned = ((uintptr_t) w & 15) == 0;
     if (one_ok<TYPE>(w, n_in, n_out)) {
-        launch_one<TYPE, 24>(w, x, y, n_in, n_out, ncols, s);
+        launch_one<TYPE, 24, NCT>(w, x, y, n_in, n_out, ncols, s);
         return;
     }
     if constexpr (TYPE == 21) {
@@ -1093,13 +1105,19 @@ void launch(const void* w, const void* x, float* y, int n_in, int n_out, int nco
         std::exit(1);
     } else {
     if (aligned && 2 * 16 * (n_in / 256) * Fmt<TYPE>::SB <= 90 * 1024) {
-        launch_tile<TYPE>(w, x, y, n_in, n_out, ncols, s);
+        launch_tile<TYPE, NCT>(w, x, y, n_in, n_out, ncols, s);
         return;
     }
     const bool few = (n_out + 15) / 16 < sm_count();
-    if (n_in % 1024 == 0 && few) launch_s<TYPE, 3, 1, 2>(w, x, y, n_in, n_out, ncols, s);
-    else launch_s<TYPE, 3, 1, 1>(w, x, y, n_in, n_out, ncols, s);
+    if (n_in % 1024 == 0 && few) launch_s<TYPE, 3, 1, 2, NCT>(w, x, y, n_in, n_out, ncols, s);
+    else launch_s<TYPE, 3, 1, 1, NCT>(w, x, y, n_in, n_out, ncols, s);
     }
+}
+
+template<int TYPE>
+void launch_cols(const void* w, const void* x, float* y, int n_in, int n_out, int ncols, cudaStream_t s) {
+    if (ncols > kMaxCols) launch<TYPE, 2>(w, x, y, n_in, n_out, ncols, s);
+    else launch<TYPE, 1>(w, x, y, n_in, n_out, ncols, s);
 }
 
 #endif
@@ -1121,21 +1139,21 @@ bool dense_tc_type_on(int t) noexcept {
 }
 
 void dense_tc(int type, const void* w, const void* x, float* y, int n_in, int n_out, int ncols, void* stream) {
-    if (!dense_tc_supported(type, n_in, n_out, w) || ncols < 1 || ncols > kMaxCols || n_out < 1 || ((uintptr_t) w & 3) != 0 ||
+    if (!dense_tc_supported(type, n_in, n_out, w) || ncols < 1 || ncols > kCallCols || n_out < 1 || ((uintptr_t) w & 3) != 0 ||
         ((uintptr_t) x & 3) != 0) {
         basalt::log::error("basalt", "dense_tc: type %d n_in %d n_out %d ncols %d not supported", type, n_in, n_out, ncols);
         std::exit(1);
     }
     const auto s = (cudaStream_t) stream;
     switch (type) {
-        case 12: launch<12>(w, x, y, n_in, n_out, ncols, s); break;
-        case 13: launch<13>(w, x, y, n_in, n_out, ncols, s); break;
-        case 14: launch<14>(w, x, y, n_in, n_out, ncols, s); break;
-        case 21: launch<21>(w, x, y, n_in, n_out, ncols, s); break;
-        case 11: launch<11>(w, x, y, n_in, n_out, ncols, s); break;
-        case 42: launch<42>(w, x, y, n_in, n_out, ncols, s); break;
-        case 8: launch<8>(w, x, y, n_in, n_out, ncols, s); break;
-        default: launch<23>(w, x, y, n_in, n_out, ncols, s); break;
+        case 12: launch_cols<12>(w, x, y, n_in, n_out, ncols, s); break;
+        case 13: launch_cols<13>(w, x, y, n_in, n_out, ncols, s); break;
+        case 14: launch_cols<14>(w, x, y, n_in, n_out, ncols, s); break;
+        case 21: launch_cols<21>(w, x, y, n_in, n_out, ncols, s); break;
+        case 11: launch_cols<11>(w, x, y, n_in, n_out, ncols, s); break;
+        case 42: launch_cols<42>(w, x, y, n_in, n_out, ncols, s); break;
+        case 8: launch_cols<8>(w, x, y, n_in, n_out, ncols, s); break;
+        default: launch_cols<23>(w, x, y, n_in, n_out, ncols, s); break;
     }
     const cudaError_t e = cudaGetLastError();
     if (e != cudaSuccess) {
@@ -1148,49 +1166,71 @@ bool dense_tc_pair_supported(int t0, int t1, int n_in) noexcept {
     auto ok = [&](int t) { return t == 12 || t == 13 || t == 14 || t == 21 || t == 23 || t == 11 || t == 42 || t == 8; };
     if (!ok(t0) || !ok(t1) || n_in <= 0 || n_in % 512 != 0) return false;
     const int tb = 16 * (n_in / 256) * std::max(sb_bytes_lq(t0), sb_bytes_lq(t1));
-    return 128 + 8 * 16 * kMaxCols * 4 + 2048 + 2 * tb <= 99 * 1024;
+    return 128 + 8 * 16 * kMaxCols * 4 + 2048 + 2 * tb <= 99 * 1024;   // judged at one n-tile (wider calls fit or split)
 }
 
-void dense_tc_pair(int t0, const void* w0, float* y0, int n_out0, int t1, const void* w1, float* y1, int n_out1,
-                   const void* x_q8_1, int n_in, int ncols, void* stream) {
-    if (!dense_tc_pair_supported(t0, t1, n_in) || ncols < 1 || ncols > kMaxCols || n_out0 < 1 || n_out1 < 1 ||
-        ((uintptr_t) w0 & 15) != 0 || ((uintptr_t) w1 & 15) != 0 || ((uintptr_t) x_q8_1 & 3) != 0) {
-        basalt::log::error("basalt", "dense_tc_pair: types %d/%d n_in %d not supported", t0, t1, n_in);
-        std::exit(1);
-    }
-    int smem = 128 + 8 * 16 * kMaxCols * 4 + 2048 + 2 * 16 * (n_in / 256) * std::max(sb_bytes_lq(t0), sb_bytes_lq(t1));
+namespace {
+int pair_smem(int t0, int t1, int n_in, int nct) {
+    return 128 + 8 * 16 * kMaxCols * nct * 4 + 2048 + 2 * 16 * (n_in / 256) * std::max(sb_bytes_lq(t0), sb_bytes_lq(t1));
+}
+
+template<int NCT>
+void pair_launch(const PairMat& m0, const PairMat& m1, const void* x_q8_1, int n_in, int ncols, cudaStream_t stream) {
+    int smem = pair_smem(m0.type, m1.type, n_in, NCT);
     static std::atomic<bool> attr[64];
     const int dev = opt_in_device("dense_tc_pair");
     if (!attr[dev].load(std::memory_order_acquire)) {
         // The type is spelled out because some front ends cannot deduce it from a braced list of these kernel
         // pointers. The six instantiations in a fixed order.
         void (*const pair_kernels[])(PairMat, PairMat, const uint8_t*, int, int) = {
-            dense_tc_pair_kernel<false, false, false>, dense_tc_pair_kernel<true, false, false>,
-            dense_tc_pair_kernel<true, true, false>, dense_tc_pair_kernel<false, false, true>,
-            dense_tc_pair_kernel<true, false, true>, dense_tc_pair_kernel<true, true, true>};
+            dense_tc_pair_kernel<false, false, false, NCT>, dense_tc_pair_kernel<true, false, false, NCT>,
+            dense_tc_pair_kernel<true, true, false, NCT>, dense_tc_pair_kernel<false, false, true, NCT>,
+            dense_tc_pair_kernel<true, false, true, NCT>, dense_tc_pair_kernel<true, true, true, NCT>};
         for (auto k : pair_kernels)
             opt_in_check(cudaFuncSetAttribute(k, cudaFuncAttributeMaxDynamicSharedMemorySize, 99 * 1024),
                          "dense_tc_pair");
         attr[dev].store(true, std::memory_order_release);
     }
+    const int t0 = m0.type, t1 = m1.type;
     const bool lq = t0 == 11 || t0 == 42 || t0 == 8 || t1 == 11 || t1 == 42 || t1 == 8;
     // each warp's x fragments in registers across its tiles, and two warp-sum buffers where the block is alone on its
-    // SM either way
+    // SM either way (where they fit)
     const bool xr = (g_pair & 2) && n_in <= 3072;
-    auto kern = lq ? (xr ? dense_tc_pair_kernel<true, false, true> : dense_tc_pair_kernel<false, false, true>)
-                   : (xr ? dense_tc_pair_kernel<true, false, false> : dense_tc_pair_kernel<false, false, false>);
+    auto kern = lq ? (xr ? dense_tc_pair_kernel<true, false, true, NCT> : dense_tc_pair_kernel<false, false, true, NCT>)
+                   : (xr ? dense_tc_pair_kernel<true, false, false, NCT> : dense_tc_pair_kernel<false, false, false, NCT>);
     int occ = 0;
     cudaOccupancyMaxActiveBlocksPerMultiprocessor(&occ, kern, 256, smem);
-    if (xr && (g_pair & 4) && occ == 1 && smem + 4096 <= 99 * 1024) {
-        kern = lq ? dense_tc_pair_kernel<true, true, true> : dense_tc_pair_kernel<true, true, false>;
-        smem += 4096;
+    constexpr int RB = 8 * 16 * kMaxCols * NCT * 4;   // the second warp-sum buffer
+    if (xr && (g_pair & 4) && occ == 1 && smem + RB <= 99 * 1024) {
+        kern = lq ? dense_tc_pair_kernel<true, true, true, NCT> : dense_tc_pair_kernel<true, true, false, NCT>;
+        smem += RB;
     }
     if (occ < 1) occ = 1;
-    const int ntiles = (n_out0 + 15) / 16 + (n_out1 + 15) / 16;
+    const int ntiles = (m0.n_out + 15) / 16 + (m1.n_out + 15) / 16;
     const int grid = ntiles < occ * sm_count() ? ntiles : occ * sm_count();
+    launch_pdl(kern, dim3((unsigned) grid), dim3(256), (size_t) smem, stream, m0, m1, (const uint8_t*) x_q8_1, n_in,
+               ncols);
+}
+}  // namespace
+
+void dense_tc_pair(int t0, const void* w0, float* y0, int n_out0, int t1, const void* w1, float* y1, int n_out1,
+                   const void* x_q8_1, int n_in, int ncols, void* stream) {
+    if (!dense_tc_pair_supported(t0, t1, n_in) || ncols < 1 || ncols > kCallCols || n_out0 < 1 || n_out1 < 1 ||
+        ((uintptr_t) w0 & 15) != 0 || ((uintptr_t) w1 & 15) != 0 || ((uintptr_t) x_q8_1 & 3) != 0) {
+        basalt::log::error("basalt", "dense_tc_pair: types %d/%d n_in %d not supported", t0, t1, n_in);
+        std::exit(1);
+    }
+    const auto s = (cudaStream_t) stream;
     const PairMat m0{(const uint8_t*) w0, y0, t0, n_out0}, m1{(const uint8_t*) w1, y1, t1, n_out1};
-    launch_pdl(kern, dim3((unsigned) grid), dim3(256), (size_t) smem, (cudaStream_t) stream, m0, m1,
-               (const uint8_t*) x_q8_1, n_in, ncols);
+    if (ncols <= kMaxCols) {
+        pair_launch<1>(m0, m1, x_q8_1, n_in, ncols, s);
+    } else if (pair_smem(t0, t1, n_in, 2) <= 99 * 1024) {
+        pair_launch<2>(m0, m1, x_q8_1, n_in, ncols, s);
+    } else {   // two n-tiles' warp sums do not fit: the columns 8 at a time, the same bits
+        pair_launch<1>(m0, m1, x_q8_1, n_in, kMaxCols, s);
+        const PairMat h0{m0.w, y0 + (size_t) kMaxCols * n_out0, t0, n_out0}, h1{m1.w, y1 + (size_t) kMaxCols * n_out1, t1, n_out1};
+        pair_launch<1>(h0, h1, (const uint8_t*) x_q8_1 + (size_t) kMaxCols * (n_in / 32) * kQ81, n_in, ncols - kMaxCols, s);
+    }
     const cudaError_t e = cudaGetLastError();
     if (e != cudaSuccess) {
         basalt::log::error("basalt", "dense_tc_pair: %s", cudaGetErrorString(e));

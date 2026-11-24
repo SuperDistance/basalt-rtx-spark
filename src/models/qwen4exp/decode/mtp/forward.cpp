@@ -117,7 +117,7 @@ bool MtpDrafter::record_forward(int T, int step_row0, cudaStream_t cs, std::stri
             // ---- the attention hyper-connection
             bool q8_done = false;
             {
-                FusedGrArgs fa[kFusedGrMaxT];
+                FusedGrArgs fa[kVerifyMaxT];
                 for (int t = 0; t < T; ++t) {
                     fa[t].R = R_ + (size_t) t * HC * N; fa[t].R_out = R_ + (size_t) t * HC * N; fa[t].apply = false;
                     fa[t].w_norm = f32("attn_hyper_connection.hc_norm.weight");
@@ -136,7 +136,8 @@ bool MtpDrafter::record_forward(int T, int step_row0, cudaStream_t cs, std::stri
                     gr_read(R_, fa[0].w_norm, fa[0].w_down, fa[0].w_up, fa[0].w_inject, EPS, gs, ss.block.gr, mixed_, inj_,
                             cs);
                 else
-                    fused_gr_read_multi(fa, T, xn_, cs);
+                    for (int t0 = 0; t0 < T; t0 += kFusedGrMaxT)   // a row's outputs do not depend on the group
+                        fused_gr_read_multi(fa + t0, std::min<int>(kFusedGrMaxT, (int) T - t0), xn_ + (size_t) t0 * HC * N, cs);
             }
             // ---- attention: K/V into the layer's own cache, then (full) dense attention over every cell
             if (!q8_done) native_quantize_q8_1(mixed_, xq_, (int) N, T, cs);
@@ -227,7 +228,7 @@ bool MtpDrafter::record_forward(int T, int step_row0, cudaStream_t cs, std::stri
         // ---- the MLP hyper-connection (the attention write folded in)
         bool routed = false;   // the read ran the router too
         {
-            FusedGrArgs fa[kFusedGrMaxT];
+            FusedGrArgs fa[kVerifyMaxT];
             for (int t = 0; t < T; ++t) {
                 fa[t].R = R_ + (size_t) t * HC * N; fa[t].R_out = R_ + (size_t) t * HC * N; fa[t].apply = true;
                 fa[t].bo_prev = bo_ + t * N; fa[t].inj_prev = inj_ + t * HC;
@@ -249,7 +250,8 @@ bool MtpDrafter::record_forward(int T, int step_row0, cudaStream_t cs, std::stri
                 gr_write(R_, bo_, inj_, gs, R_, cs);
                 gr_read(R_, fa[0].w_norm, fa[0].w_down, fa[0].w_up, fa[0].w_inject, EPS, gs, ss.block.gr, mixed_, inj2_, cs);
             } else {
-                fused_gr_read_multi(fa, T, xn_, cs);
+                for (int t0 = 0; t0 < T; t0 += kFusedGrMaxT)   // a row's outputs do not depend on the group
+                        fused_gr_read_multi(fa + t0, std::min<int>(kFusedGrMaxT, (int) T - t0), xn_ + (size_t) t0 * HC * N, cs);
             }
         }
         pscope_off();

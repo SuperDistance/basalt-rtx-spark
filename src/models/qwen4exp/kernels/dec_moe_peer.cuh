@@ -7,7 +7,7 @@ namespace {
 // The peer's shared memory: the expert rings' or the mixer recurrence's (never both at once in a block).
 union DmPeerShared {
     DmShared d;
-    RecSmem<10> r;
+    RecSmem<10, rec_rows(kVerifyMaxT)> r;
 };
 
 // The peer window.  Per ring: block 0 waits for CUDA0's doorbell and copies the ring's header and q8_1 rows to the

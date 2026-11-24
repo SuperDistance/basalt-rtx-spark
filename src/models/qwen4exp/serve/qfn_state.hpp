@@ -58,6 +58,7 @@
 #include "basalt/program/probe_rates.hpp"
 namespace basalt::models::qwen4exp { std::shared_ptr<basalt::program::ProbePeerPath> make_probe_peer_path(); }
 #include "basalt/spec/draft_policy.hpp"
+#include "batch_row_cost.hpp"
 #include "basalt/spec/suffix_drafter.hpp"
 #include "basalt/core/progress.hpp"
 #include "basalt/vision/encoder_cuda.hpp"
@@ -177,6 +178,8 @@ private:
     using Context::n_vocab;
     using Context::grammar_vocab;
     friend class Request;
+    std::unique_ptr<void, decltype(&cudaFree)> owned_prompt{nullptr, &cudaFree};
+    uint64_t owned_prompt_bytes{};
     basalt::prefill::Prefill sp{};
     void* borrow{};
     uint64_t borrow_bytes{};
@@ -196,7 +199,7 @@ private:
         int64_t lb = 0, le = 0;        // the layers whose rows this cache holds - the only rows it may lend
         int32_t first = -1;            // the first slot it may lend, for the chunk that was chosen
         int32_t first_now = -1;        // where its buffers are laid out now
-        int64_t lent_chunk = 0;
+        int64_t lent_chunk = 0;        // chunk kept across parts of the same request, with or without a physical loan
         std::vector<std::pair<int32_t, int32_t>> lent;
     };
     std::vector<PfPart> pf_parts{};
@@ -328,6 +331,11 @@ private:
     bool solo_draft_in0{};
     int S_all{};
     std::optional<basalt::spec::DraftPolicy> bpolicy;
+    BatchRowCost batch_row_cost;
+    int batch_row_prepared{};          // the budget that paid for the drafts about to be verified
+    double batch_row_commit_tail{};
+    bool batch_row_cost_enabled{};
+    bool batch_row_cost_trace{};
     double bt_draft{};
     double bt_draft_last{};
     int64_t bt_slotwin{};
@@ -382,6 +390,11 @@ private:
 
     int64_t part_slots(const PfPart& p, int64_t c);
     uint64_t part_bytes(const PfPart& p, int32_t first);
+    int64_t prompt_file_slots(int32_t first) const;
+    bool prompt_scratch_fits(uint64_t bytes) const;
+    uint64_t prompt_decode_kv() const;
+    bool prompt_park_fits(const basalt::core::SessionState& to, int64_t upto) const;
+    bool release_segmented_prompt(std::string& e);
     int init_prompt_paths();
     bool split_region(PromptStage& st, int64_t cells, int64_t chunk, int64_t l0, int64_t l1, uint8_t*& w_at, uint8_t*& s_at, uint8_t*& b_at);
     basalt::core::Verifier& stage_ver(int st);

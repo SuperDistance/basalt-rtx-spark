@@ -203,14 +203,14 @@ uint64_t page_file_growth() {
 }
 }  // namespace
 
-bool commit_headroom(uint64_t& available, uint64_t& limit) {
+bool commit_headroom(uint64_t& available, uint64_t& limit, bool allow_growth) {
     MEMORYSTATUSEX ms{};
     ms.dwLength = sizeof ms;
     if (!GlobalMemoryStatusEx(&ms) || ms.ullTotalPageFile == 0) {
         available = limit = 0;
         return false;
     }
-    const uint64_t growth = page_file_growth();
+    const uint64_t growth = allow_growth ? page_file_growth() : 0;
     available = (uint64_t) ms.ullAvailPageFile + growth;
     limit = (uint64_t) ms.ullTotalPageFile + growth;
     return true;
@@ -231,7 +231,7 @@ uint64_t meminfo_bytes(const char* key) {
 uint64_t os_available_memory() { return meminfo_bytes("MemAvailable"); }
 }  // namespace
 
-bool commit_headroom(uint64_t& available, uint64_t& limit) {   // Linux overcommits: no commit limit to keep under
+bool commit_headroom(uint64_t& available, uint64_t& limit, bool) {   // Linux overcommits: no commit limit to keep under
     available = limit = 0;
     return false;
 }

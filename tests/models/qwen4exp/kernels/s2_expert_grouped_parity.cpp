@@ -9,9 +9,11 @@
 // outputs - `moe_grouped_select_old(1)`, then `(0)` - and the two runs are compared byte for byte:
 //   1. `moe_hit_grouped_s2`          per hit, host count; with fp32 activation scales and with the blocks' fp16 `d`
 //   2. `moe_hit_grouped_s2_dev`      device count below the capacity (the rows past it must stay untouched)
-//   4. `moe_grouped_s2`              host-built groups of 1..8 entries, one of them a mapped HOST blob (the PCIe
+//   4. `moe_grouped_s2`              host-built groups of 1..16 entries (past 8 the kernels take a group's entries
+//                                    8 at a time), one of them a mapped HOST blob (the PCIe
 //                                    share), and more group capacity than groups
-//   5. `moe_group_resident` + `moe_grouped_s2`   the MTP layer's shape, with and without fp32 scales
+//   5. `moe_group_resident` + `moe_grouped_s2`   the MTP layer's shape at 16 rows (160 entries, groups past 8),
+//      with and without fp32 scales
 //   6. an activation row that is only 2-byte aligned: the new path must fall back to the previous kernels
 //   7. a slot stride that is not a multiple of 8 (BLOB + 4), and 8. an arena 4 bytes past an aligned address: the
 //      per-hit path must fall back as well (its codes are read as uint2)
@@ -264,10 +266,10 @@ void check_all() {
     const Fixture fx = make_blobs(12, rng);
     constexpr int K = 10;
 
-    // Activations for up to 8 tokens, device copies with and without the fp32 scales.
+    // Activations for up to 16 tokens, device copies with and without the fp32 scales.
     std::vector<uint8_t> x;
     std::vector<float> xs;
-    fill_x(x, xs, 8, rng);
+    fill_x(x, xs, 16, rng);
     uint8_t* d_x = dalloc<uint8_t>(x.size());
     float* d_xs = dalloc<float>(xs.size());
     up(d_x, x);
@@ -335,16 +337,16 @@ void check_all() {
         if (touched) ++g_fail;
     }
 
-    // ---- 4. moe_grouped_s2: 8 tokens x 10 entries in groups of 1..8, one group on a mapped host blob
+    // ---- 4. moe_grouped_s2: 16 tokens x 10 entries in groups of 1..16, one group on a mapped host blob
     {
-        const int T = 8, n = T * K;
+        const int T = 16, n = T * K;
         uint8_t* h_host = nullptr;
         uint8_t* d_host = nullptr;
         ck(cudaHostAlloc((void**) &h_host, BLOB, cudaHostAllocMapped), "host blob");
         std::memcpy(h_host, fx.hb(fx.nb - 1), BLOB);
         ck(cudaHostGetDevicePointer((void**) &d_host, h_host, 0), "host blob ptr");
-        // group sizes: 8, 1, 5, 2, 7, 3, 1, 6, 4, ... up to n entries
-        const int sizes[] = {8, 1, 5, 2, 7, 3, 1, 6, 4, 8, 1, 2, 3, 4, 5, 6, 7, 1, 1, 5};
+        // group sizes: 8, 1, 5, 2, 16, 3, 9, 6, 4, ... up to n entries
+        const int sizes[] = {8, 1, 5, 2, 16, 3, 9, 6, 4, 8, 12, 2, 3, 4, 5, 6, 7, 1, 15, 5};
         std::vector<int32_t> order(n);   // the output rows, in group order
         std::iota(order.begin(), order.end(), 0);
         std::shuffle(order.begin(), order.end(), rng);
@@ -395,7 +397,7 @@ void check_all() {
 
     // ---- 5. moe_group_resident + moe_grouped_s2: the MTP layer (experts resident at base + id * BLOB)
     {
-        const int T = 5, n = T * K;
+        const int T = 16, n = T * K;
         std::vector<int32_t> ids(n);
         for (int t = 0; t < T; ++t) {   // distinct within a token, shared across tokens
             std::vector<int32_t> pick(fx.nb);

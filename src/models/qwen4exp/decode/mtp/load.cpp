@@ -207,7 +207,10 @@ bool MtpDrafter::load(const MtpFiles& files, const ModelGeometry& g, SessionStat
     window_ = (window > 0 && window < max_cells) ? window : 0;
     cap_ = (((window_ > 0 ? window_ : max_cells) + 63) / 64) * 64;
     attn_scratch_floats_ = (int64_t) basalt::kernels::qsa_decode_attn_scratch_floats(cap_, s);
-    const uint64_t T = (uint64_t) max_t, N = (uint64_t) g.n_embd, HC = (uint64_t) g.hc, K = (uint64_t) ss.k;
+    // rows: a solo window's (max_t), or a batched draft's catch-up over every drafting slot's window rows
+    const uint64_t T = std::max<uint64_t>((uint64_t) max_t, (uint64_t) basalt::kernels::kVerifyMaxT);
+    const uint64_t N = (uint64_t) g.n_embd, HC = (uint64_t) g.hc, K = (uint64_t) ss.k;
+    rows_cap_ = (int) T;
     const uint64_t NH = (uint64_t) g.n_head, HD = (uint64_t) g.head_dim, NKV = (uint64_t) g.n_head_kv;
     const uint64_t R2 = 2 * T;   // step/pos rows: T catch-up rows + up to T-2 chain steps
     bool ok = mapped(T * 4 + 64, (void**) &h_tok_, (void**) &m_tok_) &&
@@ -236,8 +239,8 @@ bool MtpDrafter::load(const MtpFiles& files, const ModelGeometry& g, SessionStat
         mixed_ = b.take<float>(T * N); inj_ = b.take<float>(T * HC); inj2_ = b.take<float>(T * HC);
         lo_ = b.take<float>(T * (uint64_t) g.hc_lr); rs_ = b.take<float>(T * HC); bo_ = b.take<float>(T * N);
         xn_ = b.take<float>(T * HC * N);
-        xq_ = b.take<uint8_t>(basalt::kernels::native_q8_1_bytes((int) (NH * HD), 8));
-        xq2_ = b.take<uint8_t>(basalt::kernels::native_q8_1_bytes((int) (NH * HD), 8));
+        xq_ = b.take<uint8_t>(basalt::kernels::native_q8_1_bytes((int) (NH * HD), basalt::kernels::kVerifyMaxT));
+        xq2_ = b.take<uint8_t>(basalt::kernels::native_q8_1_bytes((int) (NH * HD), basalt::kernels::kVerifyMaxT));
         xqr_ = b.take<uint8_t>(basalt::kernels::native_q8_1_bytes((int) N, 1));
         qfull_ = b.take<float>(T * NH * 2 * HD); qcur_ = b.take<float>(T * NH * HD);
         kcur_ = b.take<float>(T * NKV * HD); vcur_ = b.take<float>(T * NKV * HD);

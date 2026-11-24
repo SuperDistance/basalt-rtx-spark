@@ -115,11 +115,14 @@ struct Top {
 
 // Lane L stands for native_mmvq's threads L, L+32, L+64, L+96, whose blocks are kbx = v, v + 4, v + 8 (v = tid / 32);
 // their sums are added in the cross-warp order before the same xor tree.  The next row's weights are loaded while
-// this one is computed.
+// this one is computed.  NC 16 takes nc (9..16) columns in two halves of 8 over the same weight registers, each column's
+// sums as in a call of 8 (xc past nc repeats a column; those sums are not stored).
 template <int NC, bool TOP = false>
 __device__ __forceinline__ void q6k_rows(const Q6KBlock* __restrict__ w, const int2* const* xc, float* __restrict__ y,
                                          int n_out, int row0, int stride, int lane, Top* top = nullptr,
-                                         const int32_t* __restrict__ map = nullptr) {
+                                         const int32_t* __restrict__ map = nullptr, int nc = NC) {
+    static_assert(NC <= 8 || NC == 16, "one or two halves of 8 columns");
+    constexpr int NH = NC > 8 ? 8 : NC;
     constexpr int kb[BPR] = {0, 4, 8, 1, 5, 9, 2, 6, 3, 7};
     constexpr int vt[BPR] = {0, 0, 0, 1, 1, 1, 2, 2, 3, 3};
     W6 cur[BPR];
@@ -134,27 +137,32 @@ __device__ __forceinline__ void q6k_rows(const Q6KBlock* __restrict__ w, const i
 #pragma unroll
             for (int c = 0; c < BPR; ++c) nxt[c] = q6_load(w + (size_t) nrow * BPR + kb[c], lane);
         }
-        float p[VT][NC];
 #pragma unroll
-        for (int v = 0; v < VT; ++v)
+        for (int h = 0; h < NC / NH; ++h) {
+            float p[VT][NH];
 #pragma unroll
-            for (int j = 0; j < NC; ++j) p[v][j] = 0.0f;
+            for (int v = 0; v < VT; ++v)
 #pragma unroll
-        for (int c = 0; c < BPR; ++c)
+                for (int jj = 0; jj < NH; ++jj) p[v][jj] = 0.0f;
 #pragma unroll
-            for (int j = 0; j < NC; ++j) p[vt[c]][j] += q6_apply(cur[c], xc[j], kb[c] * (QK / Q8K), lane);
+            for (int c = 0; c < BPR; ++c)
 #pragma unroll
-        for (int j = 0; j < NC; ++j) {
-            float t = p[0][j];
+                for (int jj = 0; jj < NH; ++jj) p[vt[c]][jj] += q6_apply(cur[c], xc[h * NH + jj], kb[c] * (QK / Q8K), lane);
 #pragma unroll
-            for (int v = 1; v < VT; ++v) t += p[v][j];
-            t = warp_sum(t);
-            if constexpr (TOP) {
-                // a row whose id is negative holds no token: it never wins and adds nothing to the sum
-                if (map != nullptr && map[row] < 0) t = __int_as_float(0xff800000);
-                else top->take(t, row);
+            for (int jj = 0; jj < NH; ++jj) {
+                const int j = h * NH + jj;
+                if (NC > 8 && j >= nc) continue;
+                float t = p[0][jj];
+#pragma unroll
+                for (int v = 1; v < VT; ++v) t += p[v][jj];
+                t = warp_sum(t);
+                if constexpr (TOP) {
+                    // a row whose id is negative holds no token: it never wins and adds nothing to the sum
+                    if (map != nullptr && map[row] < 0) t = __int_as_float(0xff800000);
+                    else top->take(t, row);
+                }
+                if (lane == 0) y[(size_t) j * n_out + row] = t;
             }
-            if (lane == 0) y[(size_t) j * n_out + row] = t;
         }
 #pragma unroll
         for (int c = 0; c < BPR; ++c) cur[c] = nxt[c];
@@ -166,9 +174,9 @@ constexpr int XBLK = BPR * QK / Q8K;   // q8_1 blocks per column
 template <int NC>
 __global__ void __launch_bounds__(WPB * WARP) q6k_head_kernel(const Q6KBlock* __restrict__ w,
                                                               const Q81Block* __restrict__ x, float* __restrict__ y,
-                                                              int n_out) {
+                                                              int n_out, int nc) {
     extern __shared__ __align__(16) int2 xe[];
-    for (int i = threadIdx.x; i < NC * XBLK * 8; i += blockDim.x) {
+    for (int i = threadIdx.x; i < nc * XBLK * 8; i += blockDim.x) {
         const int b = i / 8, pos = i % 8;
         const Q81Block* blk = x + b;
         const unsigned dsb = __ldg(reinterpret_cast<const unsigned*>(&blk->ds));
@@ -178,9 +186,9 @@ __global__ void __launch_bounds__(WPB * WARP) q6k_head_kernel(const Q6KBlock* __
     __syncthreads();
     const int2* xc[NC];
 #pragma unroll
-    for (int j = 0; j < NC; ++j) xc[j] = xe + (size_t) j * XBLK * 8;
+    for (int j = 0; j < NC; ++j) xc[j] = xe + (size_t) (j < nc ? j : nc - 1) * XBLK * 8;
     const int lane = threadIdx.x & 31, warp = threadIdx.x >> 5;
-    q6k_rows<NC>(w, xc, y, n_out, blockIdx.x * WPB + warp, gridDim.x * WPB, lane);
+    q6k_rows<NC>(w, xc, y, n_out, blockIdx.x * WPB + warp, gridDim.x * WPB, lane, nullptr, nullptr, nc);
 }
 
 // One column, n_in 2560: the logits, and the argmax (first on ties) with its softmax probability over all rows,
@@ -250,7 +258,7 @@ __global__ void __launch_bounds__(WPB * WARP) q6k_head_top1_kernel(const Q6KBloc
 }
 
 template <int NC>
-void launch_nc(const void* w, const void* x, float* y, int n_out, cudaStream_t s) {
+void launch_nc(const void* w, const void* x, float* y, int n_out, cudaStream_t s, int nc = NC) {
     // one resident wave: every warp walks rows with the grid's stride
     static int grid_max[64] = {};
     static std::atomic<bool> ready[64];
@@ -270,7 +278,7 @@ void launch_nc(const void* w, const void* x, float* y, int n_out, cudaStream_t s
     }
     const long long want = ((long long) n_out + WPB - 1) / WPB;
     const unsigned grid = (unsigned) (want < grid_max[dev] ? want : grid_max[dev]);
-    q6k_head_kernel<NC><<<grid, WPB * WARP, smem, s>>>((const Q6KBlock*) w, (const Q81Block*) x, y, n_out);
+    q6k_head_kernel<NC><<<grid, WPB * WARP, smem, s>>>((const Q6KBlock*) w, (const Q81Block*) x, y, n_out, nc);
 }
 
 // ---- the 2-bit copy and the two-stage argmax (head_proxy.cuh)
@@ -657,7 +665,7 @@ void vscore_launch(const void* proxy, const void* x, float* y, int n_out, VScrat
 
 }  // namespace
 
-bool q6k_head_supported(int n_in, int ncols) { return n_in == BPR * QK && ncols >= 1 && ncols <= 8; }
+bool q6k_head_supported(int n_in, int ncols) { return n_in == BPR * QK && ncols >= 1 && ncols <= 16; }
 
 size_t q6k_head_top1_scratch_bytes() { return 4096 * 3 * sizeof(float) + 256; }
 
@@ -703,7 +711,8 @@ void q6k_head_mmvq(const void* weights, const void* x_q8_1, float* y, int n_in, 
         case 5: launch_nc<5>(weights, x_q8_1, y, n_out, s); break;
         case 6: launch_nc<6>(weights, x_q8_1, y, n_out, s); break;
         case 7: launch_nc<7>(weights, x_q8_1, y, n_out, s); break;
-        default: launch_nc<8>(weights, x_q8_1, y, n_out, s); break;
+        case 8: launch_nc<8>(weights, x_q8_1, y, n_out, s); break;
+        default: launch_nc<16>(weights, x_q8_1, y, n_out, s, ncols); break;
     }
     const cudaError_t e = cudaGetLastError();
     if (e != cudaSuccess) {

@@ -1,4 +1,4 @@
-// include/basalt/models/qwen4exp/kernels/q6k_head.hpp - the Q6_K x q8_1 GEMV of a wide head (the output projection) for 1..8
+// include/basalt/models/qwen4exp/kernels/q6k_head.hpp - the Q6_K x q8_1 GEMV of a wide head (the output projection) for 1..16
 // columns with n_in 2560, bitwise equal to native_mmvq (type 14, the exact layout): one warp per row holds what four
 // warps did, a block reads the columns' activations once into shared memory for all its rows, and a warp loads its
 // next row's weights while it computes this one.

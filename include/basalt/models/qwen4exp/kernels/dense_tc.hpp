@@ -13,7 +13,8 @@
 // fixed by the shape (n_in, n_out) alone, so a column's value does not depend on how many columns ride along or where
 // it sits.
 //
-// Weights are the GGUF row-major blocks; x_q8_1 holds ncols (1..8) columns of n_in / 32 q8_1 blocks.  n_in must be a
+// Weights are the GGUF row-major blocks; x_q8_1 holds ncols (1..16) columns of n_in / 32 q8_1 blocks (past 8, two
+// 8-column n-tiles ride on each weight pass, every column summed as in a call of 8).  n_in must be a
 // multiple of 512, x_q8_1 16-byte aligned.  Needs thread-block clusters.
 #pragma once
 

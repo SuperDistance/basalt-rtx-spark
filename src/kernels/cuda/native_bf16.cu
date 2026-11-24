@@ -139,14 +139,16 @@ int mmvf_block_size(int64_t n_in) {
 void bf16_gemv_fp32_mmvf_multi(const float* x, int64_t ldx, const uint16_t* w, float* y, int64_t ldy,
                                int64_t n_in, int64_t n_out, int n_tok, void* stream) {
     if (n_tok == 1 && ldy >= n_out) { bf16_gemv_fp32_mmvf(x, w, y, n_in, n_out, stream); return; }
-    if (n_tok < 1 || n_tok > 8 || n_in <= 0 || (n_in & 1) != 0 || n_out <= 0 || (ldx & 1) != 0 || x == nullptr ||
+    if (n_tok < 1 || n_tok > 16 || n_in <= 0 || (n_in & 1) != 0 || n_out <= 0 || (ldx & 1) != 0 || x == nullptr ||
         w == nullptr || y == nullptr || (reinterpret_cast<uintptr_t>(x) & 7u) != 0)
-        throw std::invalid_argument("bf16_gemv_fp32_mmvf_multi: 1..8 rows, even n_in/ldx, aligned pointers");
+        throw std::invalid_argument("bf16_gemv_fp32_mmvf_multi: 1..16 rows, even n_in/ldx, aligned pointers");
     const cudaStream_t st = (cudaStream_t) stream;
 #define MMVF_M(N) case N: \
     if (n_tok <= 4) launch_pdl(bf16_f32_mmvf_multi_kernel<N, 4>, dim3((unsigned) n_out), dim3(N), 0, st, x, ldx, w, y, \
                                ldy, (int) n_in, n_tok); \
-    else launch_pdl(bf16_f32_mmvf_multi_kernel<N, 8>, dim3((unsigned) n_out), dim3(N), 0, st, x, ldx, w, y, ldy, \
+    else if (n_tok <= 8) launch_pdl(bf16_f32_mmvf_multi_kernel<N, 8>, dim3((unsigned) n_out), dim3(N), 0, st, x, ldx, w, \
+                                    y, ldy, (int) n_in, n_tok); \
+    else launch_pdl(bf16_f32_mmvf_multi_kernel<N, 16>, dim3((unsigned) n_out), dim3(N), 0, st, x, ldx, w, y, ldy, \
                     (int) n_in, n_tok); \
     break
     switch (mmvf_block_size(n_in)) {
@@ -193,9 +195,9 @@ void bf16_gemv_fp32_mmvf(const float* x, const uint16_t* w, float* y,
 void bf16_gemv_fp32_mmvf_cols(const float* x, const uint16_t* w, float* y, int64_t n_in, int64_t n_out, int ncols,
                               void* stream) {
     // columns contiguous: the existing multi-row kernel (weight read once, each output bitwise its one-row call),
-    // up to 8 rows per launch
-    for (int c0 = 0; c0 < ncols; c0 += 8) {
-        const int nc = ncols - c0 < 8 ? ncols - c0 : 8;
+    // up to 16 rows per launch
+    for (int c0 = 0; c0 < ncols; c0 += 16) {
+        const int nc = ncols - c0 < 16 ? ncols - c0 : 16;
         if (nc == 1) bf16_gemv_fp32_mmvf(x + (size_t) c0 * n_in, w, y + (size_t) c0 * n_out, n_in, n_out, stream);
         else bf16_gemv_fp32_mmvf_multi(x + (size_t) c0 * n_in, n_in, w, y + (size_t) c0 * n_out, n_out, n_in, n_out, nc,
                                        stream);

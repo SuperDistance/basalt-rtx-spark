@@ -39,9 +39,16 @@ bool QfnRuntime::copy_to_slot(int b, const std::vector<int32_t>& ids, std::strin
         basalt::core::SessionState& to = *bslot_ss[k][(size_t) b];
         if (from.gdn_state == to.gdn_state) continue;   // the same state (slot 0, or the request's own slot)
         const basalt::core::OnDevice on_k(k == 0 ? 0 : stages[k - 1]->dev);
-        // the elastic KV: the slot backs the copied cells and its room past them, and gives back the rest
-        if (k == 0 && (!kv_fit(to, upto + kKvGrowCells, e) || !kv_release(to, upto + kKvGrowCells, e)))
+        if (k == 0 && owned_prompt && xcache.segmented()) {
+            // Keep the scratch bound if a parking copy is refused. The slot can map free VRAM without
+            // shrinking or regrowing the expert cache. Any spare backing stays available for re-admission.
+            if (!prompt_park_fits(to, upto) || !kv_fit(to, upto + kKvGrowCells, e, false)) {
+                if (e.empty()) e = "the slot's KV would require reclaiming prompt memory";
+                return false;
+            }
+        } else if (k == 0 && (!kv_fit(to, upto + kKvGrowCells, e) || !kv_release(to, upto + kKvGrowCells, e))) {
             return false;
+        }
         if (!sync_device("batch admission: device sync failed", e)) return false;
         basalt::core::ConversationCheckpoint ck;
         ck.ids = ids;

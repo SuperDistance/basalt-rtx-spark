@@ -1036,7 +1036,7 @@ target_link_libraries(pk_moe_bench PRIVATE model_qwen4exp_kernels ${_gpu_runtime
 add_executable(hc_fused_parity tests/models/qwen4exp/kernels/hc_fused_parity.cpp)
 target_include_directories(hc_fused_parity PRIVATE ${_gpu_include_directories})
 target_link_libraries(hc_fused_parity PRIVATE model_qwen4exp_kernels ${_gpu_runtime_target})
-basalt_gpu_test(NAME hc_fused_parity COMMAND hc_fused_parity 20 1 8 --check-only --stress 200)
+basalt_gpu_test(NAME hc_fused_parity COMMAND hc_fused_parity 20 1 16 --check-only --stress 200)
 add_executable(mid_chain_parity tests/models/qwen4exp/kernels/mid_chain_parity.cpp)
 target_include_directories(mid_chain_parity PRIVATE ${_gpu_include_directories})
 target_link_libraries(mid_chain_parity PRIVATE model_qwen4exp_kernels ${_gpu_runtime_target})

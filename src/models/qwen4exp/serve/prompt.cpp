@@ -1,9 +1,17 @@
 // src/models/qwen4exp/serve/prompt.cpp - prompt operations for the persistent engine.
 #include "basalt/models/qwen4exp/shared_names.hpp"
 #include "basalt/core/device_memory.hpp"
+#include "basalt/core/ram_load.hpp"
 #include "qfn_request.hpp"
 
 namespace basalt::models::qwen4exp::serve {
+
+namespace {
+bool prompt_scratch_device() {
+    const auto device = basalt::core::device_memory_model();
+    return device.integrated && device.commit_bound;
+}
+}  // namespace
 
 int64_t QfnRuntime::part_slots(const PfPart& p, int64_t c) {
     return serve_loans::cache_slots_for(*p.cache, basalt::prefill::Prefill::bytes_needed(g, *p.ses, c));
@@ -14,6 +22,58 @@ uint64_t QfnRuntime::part_bytes(const PfPart& p, int32_t first) {
     return xc.slot_offsets() ? (uint64_t) (xc.bytes() - (int64_t) xc.slot_offsets()[first])
                              : (uint64_t) (xc.slots() - first) *
                                    (uint64_t) basalt::kernels::cpu::expert_layout().max_blob;
+}
+
+int64_t QfnRuntime::prompt_file_slots(int32_t first) const {
+    int64_t count = 0;
+    for (size_t i = 0; i < host_res.size(); ++i) {
+        if (host_res[i] < first) continue;
+        const int64_t layer = (int64_t) i / g.n_expert, expert = (int64_t) i % g.n_expert;
+        if (!src.has_resident(layer, expert) && !src.file_resident(layer, expert)) ++count;
+    }
+    return count;
+}
+
+bool QfnRuntime::prompt_scratch_fits(uint64_t bytes) const {
+    const uint64_t budget = bytes + ((uint64_t) o.vram_reserve_mib << 20);
+    const uint64_t host_reserve = basalt::core::plan_reserve(basalt::platform::ram_reserve());
+    basalt::core::DeviceMemoryReading memory;
+    uint64_t free_commit = 0, limit = 0;
+    return basalt::core::device_mem_reading(memory) == cudaSuccess && memory.carveout &&
+           memory.device_free >= budget && basalt::platform::commit_headroom(free_commit, limit, false) &&
+           free_commit >= host_reserve + budget;
+}
+
+uint64_t QfnRuntime::prompt_decode_kv() const {
+    uint64_t bytes = 0;
+    for (size_t b = 0; b < bs.size(); ++b) {
+        const auto& slot = bs[b];
+        if (!slot.active) continue;
+        const auto& session = *bslot_ss[0][b];
+        const int64_t end = std::min(session.max_cells, slot.p + slot.max_new - slot.produced + kKvGrowCells);
+        bytes += basalt::core::session_kv_grow_bytes(session, end);
+    }
+    return bytes;
+}
+
+bool QfnRuntime::prompt_park_fits(const basalt::core::SessionState& to, int64_t upto) const {
+    const int64_t cells = std::min(std::max(upto + kKvGrowCells, kv_floor), to.max_cells);
+    const uint64_t add = basalt::core::session_kv_grow_bytes(to, cells);
+    return add == 0 || prompt_scratch_fits(add + prompt_decode_kv());
+}
+
+bool QfnRuntime::release_segmented_prompt(std::string& e) {
+    if (!owned_prompt || !xcache.segmented()) return true;
+    PfPart& p = pf_parts[0];
+    // Outside lend, the default ring limit is in force. Rebind without writing to the cache: relayout waits
+    // for both streams, including an interrupted read.
+    basalt::prefill::Prefill::set_ring_depth(p.sp->ring_depth());
+    const bool rebound = p.sp->relayout(p.sp->chunk(), p.cache->device_slot(p.first_now), part_bytes(p, p.first_now), e);
+    basalt::prefill::Prefill::set_ring_depth(1 << 20);
+    if (!rebound) return false;
+    owned_prompt.reset();
+    owned_prompt_bytes = 0;
+    return true;
 }
 
 // A layer split's prompt paths, one per stage, each handing its chunk's rows to the next.  A stage's cache is sized
@@ -39,7 +99,8 @@ int QfnRuntime::init_prompt_paths() {   // 0: ready; 1: failed (err set); 2: fai
     }
     if (multi_gpu) sp.set_stage(0, split_at[0], &stages[0]->sp);
     if (!multi_gpu && o.batch <= 0 && !o.no_pool) { sp.set_cpu_pool(&pool); sp.set_cpu_share(o.prefill_cpu_share); }   // the pool is idle while a prompt is read
-    if (!sp.init(wt, g, ss, srcp, &xcache, host_res.data(), o.prefill_chunk, main_cs, err, borrow, borrow_bytes))
+    if (!sp.init(wt, g, ss, srcp, &xcache, host_res.data(), o.prefill_chunk, main_cs, err,
+                 owned_prompt ? owned_prompt.get() : borrow, owned_prompt ? owned_prompt_bytes : borrow_bytes))
         return err.find("do not fit") != std::string::npos ? 2 : 1;
     return 0;
 }
@@ -101,6 +162,9 @@ bool QfnRequest::refill_one(PfPart& p, std::string& e) {
 // with several stages every stage's copies go out first (each card on its own link), then each is waited
 // for - the same copies into the same slots, so the same cache; one stage: refill_one exactly.
 bool QfnRequest::refill(std::string& e) {
+    if (!runtime_.pf_parts.empty() &&
+        (runtime_.owned_prompt || (runtime_.xcache.segmented() && runtime_.pf_parts[0].lent.empty())))
+        runtime_.pf_parts[0].lent_chunk = 0;
     int64_t n_lent = 0, n_parts = 0;
     for (PfPart& p : runtime_.pf_parts)
         if (!p.lent.empty()) { n_lent += (int64_t) p.lent.size(); ++n_parts; }
@@ -167,7 +231,7 @@ bool QfnRequest::lend(int64_t tokens, std::string& e, int64_t chunk, int64_t hea
         head_tok = chunk > 0 ? head : 0;
     }
     runtime_.sp.set_head_chunk(head_tok);
-    const int64_t want = want_full;
+    int64_t want = want_full;
     if (want <= 0) {
         e = "prefill: cannot lend buffers for an empty request segment";
         return false;
@@ -176,27 +240,85 @@ bool QfnRequest::lend(int64_t tokens, std::string& e, int64_t chunk, int64_t hea
     // loan takes - readable where it lies in RAM stages nothing, so the full ring would only take cache slots
     // (~380 experts the read then reads over the RAM link, and the refill copies back after it, ~11 ms): it lends
     // with the ring a read beside decoding slots has.  The ring is a staging buffer: the same bytes, the same results.
+    bool loan_reads_in_place = false;
     if (!beside && runtime_.pf_parts.size() == 1 && runtime_.pf_parts[0].first >= 0 && runtime_.pf_parts[0].sp != nullptr) {
         PfPart& p = runtime_.pf_parts[0];
         basalt::prefill::Prefill::set_ring_depth(runtime_.kRingDecoding);
         const int32_t first = std::max<int32_t>(p.first, (int32_t) (p.cache->slots() - runtime_.part_slots(p, want)));
+        // A previous part's loan is still missing from the residency table in the cache-backed path.
+        const bool kept_layout = p.lent_chunk > 0 && p.first_now >= 0 && p.lent.empty();
+        const int32_t missing_from = kept_layout ? std::min(first, p.first_now) : first;
         bool in_place = true;
         for (int64_t l = p.lb; l < p.le && in_place; ++l)
             for (int32_t ex = 0; ex < (int32_t) runtime_.g.n_expert; ++ex) {
                 const int32_t r = runtime_.host_res[(size_t) (l * runtime_.g.n_expert + ex)];
-                if ((r < 0 || r >= first) && !p.sp->reads_in_place(l, ex)) { in_place = false; break; }
+                if ((r < 0 || r >= missing_from) && !p.sp->reads_in_place(l, ex)) { in_place = false; break; }
             }
         if (!in_place) basalt::prefill::Prefill::set_ring_depth(1 << 20);
+        loan_reads_in_place = in_place;
     }
     bool any = false;
     const int ring_now = (int) basalt::prefill::Prefill::ring_slots_for(want);
+    auto reuse = [&](const PfPart& p) {
+        return want <= p.lent_chunk && p.sp->ring_depth() == ring_now && !ov_copied &&
+               (fixed_chunk <= 0 || want == p.sp->chunk());
+    };
+    if (runtime_.xcache.segmented() && runtime_.owned_prompt) {
+        e = "prefill: the previous part still owns separate scratch";
+        return false;
+    }
+    if (runtime_.xcache.segmented() && runtime_.pf_parts.size() == 1 && !runtime_.multi_gpu &&
+        !runtime_.peer.valid() && runtime_.xpeers.empty() && runtime_.srcp == &runtime_.src &&
+        runtime_.xcache.slots() == runtime_.xcache.full_slots() &&
+        runtime_.xcache.slots() == runtime_.g.n_layers * runtime_.g.n_expert &&
+        runtime_.xcache.resident() == runtime_.xcache.slots()) {
+        PfPart& p = runtime_.pf_parts[0];
+        if (p.first >= 0 && p.lent.empty()) {
+            // Match the chunk that an outstanding cache loan would reuse across prompt parts.
+            if (p.lent_chunk > 0 && p.first_now >= 0 && reuse(p)) want = p.sp->chunk();
+            const int32_t first = std::max<int32_t>(p.first, (int32_t) (p.cache->slots() - runtime_.part_slots(p, want)));
+            const int64_t file_slots = !loan_reads_in_place && prompt_scratch_device() ? runtime_.prompt_file_slots(first) : 0;
+            if (file_slots > 0) {
+                const uint64_t need = basalt::prefill::Prefill::bytes_needed(runtime_.g, *p.ses, want);
+                // Other slots may grow KV during the overlapped read. Leave room for their remaining decode.
+                const uint64_t kv = beside ? runtime_.prompt_decode_kv() : 0;
+                if (need <= runtime_.part_bytes(p, first) && runtime_.prompt_scratch_fits(need + kv)) {
+                    void* arena = nullptr;
+                    if (cudaMalloc(&arena, need) == cudaSuccess) {
+                        runtime_.owned_prompt.reset(arena);
+                        runtime_.owned_prompt_bytes = need;
+                        p.first_now = first;
+                        // A partial relayout can point into the arena. Keep it alive when the request fails.
+                        if (!p.sp->relayout(want, arena, need, e)) return false;
+                        p.lent_chunk = want;
+                        ov_copied = false;
+                        basalt::log::info("basalt serve", "prompt buffers: %.2f GiB outside the full expert cache for "
+                                          "a %lld-token chunk (%lld lent slots would require file reads)",
+                                          (double) need / 1073741824.0, (long long) want, (long long) file_slots);
+                        return true;
+                    }
+                    (void) cudaGetLastError();
+                    basalt::log::warn("basalt serve", "could not allocate prompt buffers outside the cache; using its loan");
+                }
+            }
+        }
+    }
+    if (runtime_.owned_prompt) {
+        PfPart& p = runtime_.pf_parts[0];
+        if (reuse(p)) return true;
+        if ((want != p.sp->chunk() || p.sp->ring_depth() != ring_now) &&
+            !p.sp->relayout(want, runtime_.owned_prompt.get(), runtime_.owned_prompt_bytes, e)) return false;
+        p.first_now = std::max<int32_t>(p.first, (int32_t) (p.cache->slots() - runtime_.part_slots(p, want)));
+        p.lent_chunk = want;
+        ov_copied = false;
+        return true;
+    }
     for (PfPart& p : runtime_.pf_parts) {
         if (p.first < 0) continue;
         const int32_t first = std::max<int32_t>(p.first, (int32_t) (p.cache->slots() - runtime_.part_slots(p, want)));
         std::vector<serve_loans::LentEntry> again;   // taken again: their slots hold no expert
         if (!p.lent.empty()) {
-            if (want <= p.lent_chunk && p.sp->ring_depth() == ring_now && !ov_copied &&
-                (fixed_chunk <= 0 || want == p.sp->chunk()))
+            if (reuse(p))
                 continue;   // its loan covers this (a fixed chunk must be the layout's)
             // the slots the new loan takes again are not refilled first (their experts would be
             // overwritten by the new layout): only their table entries go back, and the loop that follows
@@ -246,11 +368,15 @@ bool QfnRequest::lend(int64_t tokens, std::string& e, int64_t chunk, int64_t hea
 // way afterwards (more than a chunk and a short read left; beside decoding slots, `beside`, more than a short
 // read: the rest is read beside them in the same chunk), text only, and the slot is not decoding
 bool QfnRequest::can_yield(int64_t q, int64_t b0, int ys, bool beside) {
-    return ys >= 0 && ys < (int) runtime_.bs.size() && !runtime_.bs[(size_t) ys].active &&
-           n + (runtime_.admit_slot >= 0 ? runtime_.admit_max_new : (long long) max_new) + 8 <= runtime_.slot_cap[(size_t) ys] &&
-           (runtime_.admit_slot < 0 || ys == runtime_.admit_slot) && runtime_.req_imgs.empty() && runtime_.o.prompt_cache > 0 &&
-           (!in_slot || ys == slot_b) &&
-           b0 - q > (beside ? runtime_.o.short_read : std::max<int64_t>(std::max<int64_t>(runtime_.sp.chunk(), 1), runtime_.o.short_read));
+    const bool room = ys >= 0 && ys < (int) runtime_.bs.size() && !runtime_.bs[(size_t) ys].active &&
+                      n + (runtime_.admit_slot >= 0 ? runtime_.admit_max_new : (long long) max_new) + 8 <= runtime_.slot_cap[(size_t) ys] &&
+                      (runtime_.admit_slot < 0 || ys == runtime_.admit_slot) &&
+                      runtime_.req_imgs.empty() && runtime_.o.prompt_cache > 0 && (!in_slot || ys == slot_b) &&
+                      b0 - q > (beside ? runtime_.o.short_read : std::max<int64_t>(std::max<int64_t>(runtime_.sp.chunk(), 1), runtime_.o.short_read));
+    if (!room || !runtime_.owned_prompt || !runtime_.xcache.segmented()) return room;
+    // The scratch stays bound until the read ends, including when a parking copy is refused.
+    const auto& to = *runtime_.bslot_ss[0][(size_t) ys];
+    return runtime_.rsp->gdn_state == to.gdn_state || runtime_.prompt_park_fits(to, q);
 }
 
 // the first `q` tokens of this read go to slot `ys`, which holds them until the request is sent again
@@ -410,9 +536,37 @@ int QfnRuntime::init_prompt() {
     } else if (o.prefill_auto && d_res == nullptr) {
         o.prefill_chunk = 1024;   // no expert cache at all: small buffers of its own
     }
+    // Keep the planned loan and its chunk schedule as the fallback. When the only GPU already holds every expert,
+    // separate scratch avoids staging and refilling experts with no RAM copy. A segmented cache must still be able
+    // to release its prompt scratch with the cache's tail for elastic KV or sleep.
+    if (borrow != nullptr && pf_parts.size() == 1 && !xcache.segmented() && prompt_scratch_device() &&
+        !peer.valid() && xpeers.empty() && srcp == &src && xcache.resident() == g.n_layers * g.n_expert) {
+        const int64_t file_slots = prompt_file_slots(lend_first);
+        if (file_slots > 0) {
+            uint64_t kv = basalt::core::session_kv_grow_bytes(ss, ss.max_cells);
+            if (!bslot_ss.empty())
+                for (const auto& session : bslot_ss[0])
+                    if (session.get() != &ss) kv += basalt::core::session_kv_grow_bytes(*session, session->max_cells);
+            const uint64_t late = (3ull << 29) + ((uint64_t) std::max(o.batch, 0) * 24 << 20);
+            const uint64_t need = basalt::prefill::Prefill::bytes_needed(g, ss, o.prefill_chunk);
+            if (prompt_scratch_fits(need + kv + late)) {
+                void* arena = nullptr;
+                if (cudaMalloc(&arena, need) == cudaSuccess) {
+                    owned_prompt.reset(arena);
+                    owned_prompt_bytes = need;
+                    basalt::log::info("basalt serve", "prompt buffers: %.2f GiB outside the full expert cache "
+                                     "(%lld lent slots would require file reads)",
+                                     (double) need / 1073741824.0, (long long) file_slots);
+                } else {
+                    (void) cudaGetLastError();
+                    basalt::log::warn("basalt serve", "could not allocate prompt buffers outside the cache; using its loan");
+                }
+            }
+        }
+    }
     any_loan = borrow != nullptr;
     for (size_t i = 1; i < pf_parts.size(); ++i) any_loan = any_loan || pf_parts[i].first >= 0;
-    if (any_loan) {
+    if (!owned_prompt && any_loan) {
         if (borrow != nullptr)
             basalt::log::info("basalt serve", "the prompt path borrows %lld CUDA0 cache slots (%.2f GiB)",
                          (long long) (xcache.slots() - lend_first), (double) borrow_bytes / 1073741824.0);
@@ -421,7 +575,7 @@ int QfnRuntime::init_prompt() {
                          pf_parts[i].dev, (long long) (pf_parts[i].cache->slots() - pf_parts[i].first),
                          (long long) pf_parts[i].cache->slots(),
                          (double) part_bytes(pf_parts[i], pf_parts[i].first) / 1073741824.0);
-    } else {
+    } else if (!owned_prompt) {
         basalt::log::info("basalt serve", "the prompt path allocates its own buffers (too few cache slots to borrow)");
     }
 
@@ -466,6 +620,15 @@ int QfnRuntime::init_prompt() {
     for (;;) {
         const int r = init_prompt_paths();
         if (r == 0) break;
+        if (owned_prompt) {
+            basalt::log::warn("basalt serve", "%s with separate prompt buffers; using the cache loan", err.c_str());
+            sp.reset();
+            owned_prompt.reset();
+            owned_prompt_bytes = 0;
+            (void) cudaGetLastError();
+            err.clear();
+            continue;
+        }
         int64_t next = 0;
         for (const int64_t c : kStepChunks)
             if (c < o.prefill_chunk) { next = c; break; }

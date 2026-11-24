@@ -11,6 +11,8 @@ namespace basalt::kernels {
 namespace {
 
 constexpr int kDmThreads = 256;
+constexpr int kDmScanWarps = kDmCap / 32;   // warps of one entry per lane that cover a window's entries
+static_assert(kDmCap % 32 == 0 && kDmCap <= kDmThreads, "a block holds one thread per entry");
 
 __device__ __forceinline__ unsigned long long dm_clock() {
     unsigned long long t;
@@ -86,7 +88,7 @@ __device__ __forceinline__ void dm_group(const int32_t* s_ids, const int32_t* s_
 __device__ __forceinline__ void dm_group_keys(const int32_t* s_key, int n, int tid, int32_t* s_first, int32_t* s_cnt,
                                               int32_t* s_gstart, int32_t* s_gidx, int32_t* start, int32_t* s_ng,
                                               int32_t* s_ne, int& first_out, int& rank_out) {
-    static_assert(kDmCap == 128, "the scan takes four entries a lane");
+    constexpr int PL = kDmCap / 32;   // entries a lane of the scan takes
     int first = tid, rank = 0, cnt = 0;
     const int32_t e = tid < n ? s_key[tid] : -1;
     const bool mine = e >= 0;
@@ -111,25 +113,27 @@ __device__ __forceinline__ void dm_group_keys(const int32_t* s_key, int n, int t
     }
     __syncthreads();
     if (tid < 32) {
-        int f[4], c[4];
+        int f[PL], c[PL], fi = 0, ci = 0;
 #pragma unroll
-        for (int q = 0; q < 4; ++q) {
-            f[q] = s_first[4 * tid + q];
-            c[q] = s_cnt[4 * tid + q];
+        for (int q = 0; q < PL; ++q) {
+            f[q] = s_first[PL * tid + q];
+            c[q] = s_cnt[PL * tid + q];
+            fi += f[q];
+            ci += c[q];
         }
-        int fi = f[0] + f[1] + f[2] + f[3], ci = c[0] + c[1] + c[2] + c[3];
+        const int f0 = fi, c0 = ci;
 #pragma unroll
         for (int d = 1; d < 32; d <<= 1) {
             const int fu = __shfl_up_sync(0xffffffffu, fi, d), cu = __shfl_up_sync(0xffffffffu, ci, d);
             if (tid >= d) { fi += fu; ci += cu; }
         }
         const int ng = __shfl_sync(0xffffffffu, fi, 31), ne = __shfl_sync(0xffffffffu, ci, 31);
-        int gi = fi - (f[0] + f[1] + f[2] + f[3]), es = ci - (c[0] + c[1] + c[2] + c[3]);
+        int gi = fi - f0, es = ci - c0;
 #pragma unroll
-        for (int q = 0; q < 4; ++q) {
+        for (int q = 0; q < PL; ++q) {
             if (f[q]) {
-                s_gidx[4 * tid + q] = gi;
-                s_gstart[4 * tid + q] = es;
+                s_gidx[PL * tid + q] = gi;
+                s_gstart[PL * tid + q] = es;
                 start[gi] = es;
             }
             gi += f[q];
@@ -421,7 +425,7 @@ __global__ void __launch_bounds__(256, 2) dm_glue_gu_kernel(DmGlueArgs a, Native
     __shared__ int32_t s_ids[kDmCap], s_start[kDmCap + 1], s_tok[kDmCap];
     __shared__ unsigned long long s_ptr[kDmCap];
     __shared__ uint32_t s_tab[kDmGlueExperts];
-    __shared__ int2 s_wtot[4];
+    __shared__ int2 s_wtot[kDmScanWarps];
     __shared__ int s_dup;
     __shared__ alignas(16) uint32_t s_grid_buf[gu2::Fmt2<TG>::kGridWords];
     const int tid = threadIdx.x, n = a.n_tok * a.k;
@@ -470,7 +474,7 @@ __global__ void __launch_bounds__(256, 2) dm_glue_gu_kernel(DmGlueArgs a, Native
     const int gcnt = is_first ? __popc(bits) : 0;
     int cinc = gcnt;
     unsigned fb = 0u;
-    if (warp < 4) {   // entries are at most kDmCap
+    if (warp < kDmScanWarps) {   // entries are at most kDmCap
 #pragma unroll
         for (int d = 1; d < 32; d <<= 1) {
             const int v = __shfl_up_sync(0xffffffffu, cinc, d);
@@ -482,7 +486,7 @@ __global__ void __launch_bounds__(256, 2) dm_glue_gu_kernel(DmGlueArgs a, Native
     __syncthreads();
     int g0 = 0, e_off = 0, ng = 0, ne = 0;
 #pragma unroll
-    for (int w = 0; w < 4; ++w) {
+    for (int w = 0; w < kDmScanWarps; ++w) {
         const int2 t = s_wtot[w];
         if (w < warp) { g0 += t.x; e_off += t.y; }
         ng += t.x;
@@ -627,7 +631,7 @@ __global__ void __launch_bounds__(256, 4) dm_glue_gu1_kernel(DmGlueArgs a, Nativ
     __shared__ int32_t s_ids[kDmCap], s_start[kDmCap + 1], s_tok[kDmCap];
     __shared__ unsigned long long s_ptr[kDmCap];
     __shared__ uint32_t s_tab[kDmGlueExperts];
-    __shared__ int2 s_wtot[4];
+    __shared__ int2 s_wtot[kDmScanWarps];
     __shared__ int s_dup;
     const int tid = threadIdx.x, n = a.n_tok * a.k;
     const bool lead = blockIdx.x == 0;
@@ -701,7 +705,7 @@ __global__ void __launch_bounds__(256, 4) dm_glue_gu1_kernel(DmGlueArgs a, Nativ
     const int gcnt = is_first ? __popc(bits) : 0;
     int cinc = gcnt;
     unsigned fb = 0u;
-    if (warp < 4) {
+    if (warp < kDmScanWarps) {
 #pragma unroll
         for (int d = 1; d < 32; d <<= 1) {
             const int v = __shfl_up_sync(0xffffffffu, cinc, d);
@@ -713,7 +717,7 @@ __global__ void __launch_bounds__(256, 4) dm_glue_gu1_kernel(DmGlueArgs a, Nativ
     __syncthreads();
     int g0 = 0, e_off = 0, ng = 0, ne = 0;
 #pragma unroll
-    for (int w = 0; w < 4; ++w) {
+    for (int w = 0; w < kDmScanWarps; ++w) {
         const int2 t = s_wtot[w];
         if (w < warp) { g0 += t.x; e_off += t.y; }
         ng += t.x;
@@ -1518,7 +1522,9 @@ template<int TG, int TD>
 __global__ void __launch_bounds__(kDmThreads) dm_vram_tma_kernel(const DmPlan* __restrict__ plan,
                                                                  const block_q8_1* __restrict__ xq, NativeExpertLayout L,
                                                                  float* gate, float* up, float* out, unsigned int* sync) {
-    __shared__ DmTmaShared sm;
+    // dynamic: past 48 KB with a window of 16 tokens' entries per group (dm_vram_tma_blocks opts in)
+    extern __shared__ __align__(128) unsigned char dm_tma_smem[];
+    DmTmaShared& sm = *reinterpret_cast<DmTmaShared*>(dm_tma_smem);
     const int tid = threadIdx.x;
     const int ng = plan->counts[0];
     for (int i = tid; i <= ng; i += kDmThreads) {
@@ -1664,8 +1670,11 @@ int dm_vram_tma_blocks() {
     if (cudaGetDevice(&dev) != cudaSuccess || dev < 0 || dev >= 64) { cudaGetLastError(); return 0; }
     if (known[dev] == 0) {
         int sms = 0, per = 0;
+        constexpr int smem = (int) sizeof(DmTmaShared);
         if (cudaDeviceGetAttribute(&sms, cudaDevAttrMultiProcessorCount, dev) != cudaSuccess ||
-            cudaOccupancyMaxActiveBlocksPerMultiprocessor(&per, dm_vram_tma_kernel<TG, TD>, kDmThreads, 0) != cudaSuccess) {
+            (smem > 48 * 1024 && cudaFuncSetAttribute(dm_vram_tma_kernel<TG, TD>,
+                                                      cudaFuncAttributeMaxDynamicSharedMemorySize, smem) != cudaSuccess) ||
+            cudaOccupancyMaxActiveBlocksPerMultiprocessor(&per, dm_vram_tma_kernel<TG, TD>, kDmThreads, smem) != cudaSuccess) {
             cudaGetLastError();
             per = 0;
         }

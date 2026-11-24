@@ -102,7 +102,7 @@ struct ExpertDispatch {
     /// Verify window: one quantized activation per token, the multi-token jobs, and the expert -> job map (reset after
     /// every layer).
     std::vector<basalt::kernels::cpu::ActQ> act_multi;
-    /// a native pack's per-token activations (MAXT x kNativeActBytes).
+    /// a native pack's per-token activations (kWindowMaxT x kNativeActBytes).
     std::vector<uint8_t> nact_multi;
     std::vector<basalt::kernels::cpu::ExpertJobMulti> jobs_multi;
     std::vector<int16_t> job_of;
@@ -121,7 +121,7 @@ struct ExpertDispatch {
     int64_t multi_misses = 0;      ///< distinct (layer, expert) pairs the CPU computed in verify windows
     int64_t multi_entries = 0;     ///< routed (token, expert) entries the CPU served in verify windows
     bool count_cpu_group_sizes = false;
-    std::array<uint64_t, basalt::kernels::cpu::MAXT + 1> cpu_group_sizes{};
+    std::array<uint64_t, basalt::kernels::cpu::kWindowMaxT + 1> cpu_group_sizes{};
     /// Multi-GPU: the second GPU's tier.  Its experts are computed there instead of on the CPU (kind 2).
     PeerExperts* peer = nullptr;
     int64_t peer_entries = 0;      ///< routed entries the peer served in verify windows

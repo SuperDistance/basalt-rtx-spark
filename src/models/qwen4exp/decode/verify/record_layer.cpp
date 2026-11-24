@@ -96,7 +96,7 @@ bool Verifier::WindowRecorder::pre(int64_t l) {
         pending = false;
     }
     auto gr_read_group = [&](int half, bool apply, float* inj_prev, float* inj_out) {
-        FusedGrArgs fa[kFusedGrMaxT];
+        FusedGrArgs fa[kVerifyMaxT];
         for (int t = 0; t < T; ++t) {
             FusedGrArgs& a = fa[t];
             a.R = Rt(t); a.R_out = Rt(t); a.apply = apply;
@@ -106,8 +106,9 @@ bool Verifier::WindowRecorder::pre(int64_t l) {
             a.eps = EPS; a.lo = v_.lo_ + t * g.hc_lr; a.rs = v_.rs_ + t * HC;
             a.inject_out = inj_out + t * HC; a.mixed = v_.mixed_ + t * N;
         }
-        fused_gr_read_multi(fa, n, v_.xn_, cs, v_.prof_on_ ? v_.prof_ : nullptr,
-                            (int) (l * kProfPer + (half == 0 ? 27 : 30)));
+        for (int t0 = 0; t0 < n; t0 += kFusedGrMaxT)   // a token's outputs do not depend on the group
+            fused_gr_read_multi(fa + t0, std::min(kFusedGrMaxT, n - t0), v_.xn_ + (size_t) t0 * HC * N, cs,
+                                v_.prof_on_ ? v_.prof_ : nullptr, (int) (l * kProfPer + (half == 0 ? 27 : 30)));
     };
     auto hc_args = [&](int half, bool apply, float* inj_prev, float* inj_out) {
         HcFusedArgs h;

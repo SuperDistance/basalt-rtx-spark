@@ -58,15 +58,19 @@ BASALT_TARGET_AVX2_FMA_F16C void warm_logits(CpuWarm& c, int e0, int e1, const s
 #else
 // layer `c.layer`'s router rows [e0, e1) on the job's tokens
 void warm_logits(CpuWarm& c, int e0, int e1, const std::atomic<bool>& stop) {
-    static_assert(basalt::kernels::kVerifyMaxT <= basalt::kernels::cpu::MAXT, "a window fits the NEON router dot");
+    constexpr int MT = basalt::kernels::cpu::MAXT;   // tokens the NEON router dot takes at once; each token its own sum
     const int NB = c.n_embd / 32, pt = c.n_tok;
     const uint8_t* R = c.rq.data() + (size_t) c.layer * c.n_expert * (c.n_embd / 2);
     const float* S = c.rs.data() + (size_t) c.layer * c.n_expert * NB;
-    float out[basalt::kernels::kVerifyMaxT];
+    float out[MT];
     for (int e = e0; e < e1; ++e) {
         if (stop.load(std::memory_order_relaxed)) return;
-        basalt::kernels::cpu::router_q4_dot_neon(R + (size_t) e * (c.n_embd / 2), S + (size_t) e * NB, NB, c.xq, pt, out);
-        for (int t = 0; t < pt; ++t) c.logits[(size_t) t * c.n_expert + e] = out[t];
+        for (int t0 = 0; t0 < pt; t0 += MT) {
+            const int nt = std::min(MT, pt - t0);
+            basalt::kernels::cpu::router_q4_dot_neon(R + (size_t) e * (c.n_embd / 2), S + (size_t) e * NB, NB,
+                                                     c.xq + (size_t) t0 * NB * 36, nt, out);
+            for (int t = 0; t < nt; ++t) c.logits[(size_t) (t0 + t) * c.n_expert + e] = out[t];
+        }
     }
 }
 #endif

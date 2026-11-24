@@ -3,6 +3,9 @@
 
 #include "basalt/models/qwen4exp/shared_names.hpp"
 #include "basalt/program/options.hpp"
+#include "basalt/models/qwen4exp/kernels/verify_kernels.hpp"
+
+#include <algorithm>
 
 namespace basalt::models::qwen4exp {
 
@@ -138,5 +141,10 @@ struct Options : CommonOptions {
     /// --serve: also keep a checkpoint every N freshly read prompt tokens (0 = only at the last turn boundary)
     int64_t prompt_cache_every = 16384;
 };
+
+/// The verifier's width: a solo window's (`spec`) or, with batch slots, a batch window's rows (kVerifyMaxT).
+inline int verify_width(const Options& o) {
+    return std::max({o.spec, o.batch > 1 ? basalt::kernels::kVerifyMaxT : o.batch, 2});
+}
 
 }  // namespace basalt::models::qwen4exp

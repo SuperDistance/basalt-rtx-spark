@@ -5,7 +5,7 @@
 // The QSA query projection's shape (2560 inputs, 24 heads of 256 query + 256 gate rows) for each format dense_tc takes
 // there, random blocks (fp16 scales rewritten as normal values), normal activations quantized to q8_1 once.  Checks:
 //   - the query half then the gate half (on the launcher's grids, 64, 33 and 1 blocks) give dense_tc's output bit for
-//     bit, T = 1..8, and each half writes only its own rows;
+//     bit, T = 1..16 (two n-tiles past 8), and each half writes only its own rows;
 //   - the error of both against a double reference over the dequantized weights and the q8_1 columns.
 // --bench: dense_tc, the query half and the gate half on the launcher's grids, per T, timed as CUDA graphs over enough
 // weight copies that the L2 holds none.
@@ -39,7 +39,7 @@ const Case CASES[] = {
     {"Q6_K", 14, 210, {208, -1}}, {"Q8_0", 8, 34, {0, -1}},   {"Q4_K", 12, 144, {0, 2}}, {"Q5_K", 13, 176, {0, 2}},
     {"IQ4_XS", 23, 136, {0, -1}}, {"Q3_K", 11, 110, {108, -1}}, {"Q2_0", 42, 18, {0, -1}},
 };
-constexpr int NIN = 2560, NOUT = 24 * 512, TM = 8;
+constexpr int NIN = 2560, NOUT = 24 * 512, TM = 16;
 
 uint16_t sane_half(std::mt19937& rng) {
     const uint32_t r = rng();
@@ -80,7 +80,8 @@ int run_case(const Case& c, cudaStream_t s, bool bench) {
     ck(cudaMalloc(&yh, ybytes), "malloc");
     ck(cudaMemcpy(dw, w.data(), wbytes, cudaMemcpyHostToDevice), "up");
     ck(cudaMemcpy(dx, x.data(), x.size() * 4, cudaMemcpyHostToDevice), "up");
-    k::native_quantize_q8_1(dx, xq, NIN, TM, s);
+    for (int t0 = 0; t0 < TM; t0 += 8)   // native_quantize_q8_1 takes at most 8 columns
+        k::native_quantize_q8_1(dx + (std::size_t) t0 * NIN, (uint8_t*) xq + t0 * qcol, NIN, std::min(8, TM - t0), s);
     ck(cudaStreamSynchronize(s), "quantize");
     if (!k::qsa_qproj_half_supported(c.type, dw, NIN, NOUT)) {
         std::printf("%-7s not taken by the halves (dense_tc does not tile this shape)\n", c.name);
@@ -151,7 +152,7 @@ int run_case(const Case& c, cudaStream_t s, bool bench) {
                     }
         }
     }
-    std::printf("%-7s halves vs dense_tc: %s (T 1..8, grids own/64/33/1); vs the double reference: dense_tc %.3g, halves %.3g (max |d| / max(1, |ref|))\n",
+    std::printf("%-7s halves vs dense_tc: %s (T 1..16, grids own/64/33/1); vs the double reference: dense_tc %.3g, halves %.3g (max |d| / max(1, |ref|))\n",
                 c.name, fails ? "FAIL" : "bitwise", worst_ref, worst_half);
     if (bench) {
         // copies of the weights past the L2, one per launch in turn

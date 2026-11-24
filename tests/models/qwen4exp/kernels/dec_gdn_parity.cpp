@@ -526,7 +526,7 @@ bool parity_seg(cudaStream_t s) {
                 a.gate = d_gL + (size_t) row0[k] * HV; a.beta = d_bL + (size_t) row0[k] * HV;
                 a.state_stride = SF; a.h_stride = (size_t) R * C; a.gb_stride = (size_t) R * HV;
                 a.C = C; a.h_k = HK; a.h_v = HV; a.n_layers = CNL; a.n_keep = nk;
-                gdn_commit_layers(a, s, 32);
+                gdn_commit_layers(a, s, 32, kVerifyMaxT);
             }
             {
                 GdnCommitSeg a;

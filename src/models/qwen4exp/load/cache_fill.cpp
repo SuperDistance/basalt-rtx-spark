@@ -42,7 +42,7 @@ int cache_fill(Context& context) {
         if (gs == 0) return 0;
         const int64_t hs = native_head.loaded()
             ? basalt::core::Verifier::hs_peer_bytes(native_head.row_bytes(), native_head.type(), n_vocab, g.n_embd,
-                                                    std::max({o.spec, o.batch, 2}), dev0, o.peer_device) : 0;
+                                                    verify_width(o), dev0, o.peer_device) : 0;
         return hs + gs;
     };
     // what one peer card can hold of experts: its free memory less its buffers (one set per tier it holds) and reserve

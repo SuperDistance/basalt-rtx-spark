@@ -220,7 +220,7 @@ bool Verifier::commit(int n_keep, std::string& err, int parts) {
         if (gs_split_ && gs_live_) {   // the peer's heads, on its stream behind its window
             const OnDevice on(gs_dev_);
             gs_ca_.n_keep = h_commit_;
-            basalt::kernels::gdn_commit_layers(gs_ca_, dm_->ps, kCommitBlocks);
+            basalt::kernels::gdn_commit_layers(gs_ca_, dm_->ps, kCommitBlocks, basalt::kernels::kVerifyMaxT);
         }
         if (le != cudaSuccess) { err = std::string("verify: commit launch: ") + cudaGetErrorString(le); return false; }
         // set_commit_async: no wait here - the next window's first node waits for the epoch (the host names it in

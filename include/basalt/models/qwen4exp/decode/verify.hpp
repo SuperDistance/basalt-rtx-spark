@@ -302,6 +302,9 @@ public:
     /// Captures every window width's graph now (the solo windows, and the batch windows when slots exist), so no
     /// request pays a capture while others decode.  After the verifier is configured.
     bool warm_graphs(std::string& err);
+    /// The widest solo window (the serve options' spec): warm_graphs and warm_session capture solo windows up to it
+    /// (a wider one is captured on first use), batch windows up to max_t.  0: max_t.
+    void set_solo_width(int t) { solo_t_ = t; }
     /// One batch window over slots [0, S): tokens[s] at positions pos[s]; out[s] = the greedy pick after it.
     bool run_slots(int S, const int32_t* tokens, const int64_t* pos, PoolMultiFn pool, void* user, int32_t* out,
                    std::string& err);
@@ -344,6 +347,11 @@ public:
     /// -1 = an error (err).  Serves every layer that has rung so far.
     int batch_poll(PoolMultiFn pool, void* user, std::string& err);
     bool batch_busy() const { return b_running_; }
+    /// Whether all routed experts can use the zero-doorbell graph in the next window.
+    bool all_routed_resident() {
+        refresh_ar();
+        return ar_on() && !ar_forced_;
+    }
     /// A slot's sampling (temperature / top_p / top_k / min_p / seed / penalties, the histories by set_batch_history):
     /// its row is drawn again on the last stage with Philox(seed, position), as a solo window draws it.  Greedy by
     /// default.  Set on the first stage, it reaches the last.
@@ -502,10 +510,10 @@ private:
     /// slots the rows are is data (the staged segment tables), so a membership change re-records nothing.
     std::map<uint64_t, cudaGraphExec_t> exec_bm_;
     std::map<int, cudaGraphExec_t> commit_bm_;
-    int last_rows_[8] = {};                ///< the slot of each row of the last batch window
+    int last_rows_[basalt::kernels::kVerifyMaxT] = {};                ///< the slot of each row of the last batch window
     const int32_t* bh_d_ = nullptr;        ///< set_batch_history
     int bh_len_ = 0;
-    int last_nseg_ = 0, last_seg_slot_[8] = {}, last_seg_len_[8] = {};   ///< its segments
+    int last_nseg_ = 0, last_seg_slot_[basalt::kernels::kVerifyMaxT] = {}, last_seg_len_[basalt::kernels::kVerifyMaxT] = {};   ///< its segments
     std::chrono::steady_clock::time_point commit_t0_;   ///< commit_slots_begin
     std::vector<int> commit_next_keep_;                 ///< its counts, for the next stage
     uint64_t bkey(int S, int hbase) const {
@@ -518,7 +526,7 @@ private:
     bool b_running_ = false;
     int64_t b_k_ = 0, b_steps_ = 0;
     std::chrono::steady_clock::time_point b_last_;
-    int32_t b_out_[8] = {};
+    int32_t b_out_[basalt::kernels::kVerifyMaxT] = {};
     std::vector<basalt::kernels::SamplerParams> slot_sp_;
     bool sample_rows(int S, std::string& err);   ///< the sampled slots' rows of the last batch window
     const int32_t* seg_dq_ids_[16] = {};   ///< set_seg_drawn, per segment of the next batch window
@@ -555,7 +563,7 @@ private:
     bool batch_dm_ = false;                ///< a batch window runs the device-planned tail
     bool batch_stream_ = false;            ///< a slot's QSA K/V is streamed: batch windows resolve before attending
     void* arena_b_ = nullptr;
-    int64_t last_pos_b_[8] = {};
+    int64_t last_pos_b_[basalt::kernels::kVerifyMaxT] = {};
     bool capture_batch(int R, int hbase, std::string& err);
     void collect_profile();   // --profile: add the last window's stamps to prof_sum_
     bool capture_commit_batch(int R, std::string& err);
@@ -620,9 +628,10 @@ private:
     VerifyHits hits_;
     const NativeHead* head_ = nullptr;
     int max_t_ = 0;
+    int solo_t_ = 0;   ///< set_solo_width
     int last_t_ = 0;
     int64_t last_pos0_ = 0;
-    int32_t last_tokens_[8] = {};
+    int32_t last_tokens_[basalt::kernels::kVerifyMaxT] = {};
     int64_t n_vocab_ = 0;
     cudaStream_t cs_ = nullptr;
     cudaStream_t sh_cs_ = nullptr;
@@ -637,11 +646,11 @@ private:
     cudaStream_t ple_s_ = nullptr;   // layer 1's PLE projections, from the window's start
     cudaEvent_t ev_ple_fork_ = nullptr, ev_ple_join_ = nullptr;
     bool ple_side_ = false;          // the window's graph computes them there (the host raises h_flag_[8] with the rows)
-    cudaGraphExec_t exec_[9] = {};
-    cudaGraphExec_t exec_nr_[9] = {};   // the doorbell variant of a stage that is all-resident otherwise
+    cudaGraphExec_t exec_[basalt::kernels::kVerifyMaxT + 1] = {};
+    cudaGraphExec_t exec_nr_[basalt::kernels::kVerifyMaxT + 1] = {};   // the doorbell variant of a stage that is all-resident otherwise
     cudaGraphExec_t commit_exec_ = nullptr;
     struct SoloGraphs {
-        cudaGraphExec_t exec[9] = {}, exec_nr[9] = {}, commit = nullptr;
+        cudaGraphExec_t exec[basalt::kernels::kVerifyMaxT + 1] = {}, exec_nr[basalt::kernels::kVerifyMaxT + 1] = {}, commit = nullptr;
     };
     std::map<SessionState*, SoloGraphs> solo_sets_;   // the solo graphs of the sessions not bound now
 

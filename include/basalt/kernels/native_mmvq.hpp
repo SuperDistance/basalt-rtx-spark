@@ -13,7 +13,7 @@ namespace basalt::kernels {
 // The translation unit must use --use_fast_math, as the pinned CUDA oracle does.
 //
 // Shapes use GGUF order: n_in is the contiguous reduction dimension, n_out is
-// the weight row count, and ncols is the activation column/token count, 1..8
+// the weight row count, and ncols is the activation column/token count, 1..16
 //. Columns are contiguous: activation column j is x + j * n_in
 // (its Q8_1 blocks at j * n_in / 32) and output column j is y + j * n_out. See
 // native_mmvq_set_multi_exact for how ncols > 1 relates to ncols == 1.

@@ -18,6 +18,7 @@
 #include "basalt/kernels/quantize_act.hpp"
 #include "basalt/models/qwen4exp/kernels/s_gemv.hpp"
 #include "basalt/models/qwen4exp/kernels/shared_expert.hpp"
+#include "basalt/kernels/native_mmvq.hpp"
 
 #include <cuda_runtime.h>
 
@@ -458,6 +459,64 @@ int main(int argc, char** argv) {
                     "a null `shared` is observable", differs ? "yes" : "*** NO ***", rel_no_shared * 100);
         if (!differs) ++bad;
         cudaFree(d_p); cudaFree(d_w); cudaFree(d_s); cudaFree(d_y);
+    }
+
+    // ---- shared_expert_multi: a window of 16 tokens is, token by token, bitwise the 8-token calls on its halves and
+    // the one-token calls (Q8_0 projections at the model's 2560 x 512 shape, a random bf16 gate)
+    {
+        const int NE = 2560, NF = 512, T = 16;
+        std::vector<uint8_t> wg(basalt::kernels::native_mmvq_weight_bytes(8, NE, NF)),
+            wu(wg.size()), wd(basalt::kernels::native_mmvq_weight_bytes(8, NF, NE));
+        for (auto* w : {&wg, &wu, &wd}) {
+            for (auto& b : *w) b = (uint8_t) (rng() & 0xff);
+            for (size_t k = 0; k + 34 <= w->size(); k += 34) {   // each block's fp16 d a small normal value
+                const uint16_t h = f32_to_f16(std::ldexp(1.0f + (float) (rng() % 1024) / 1024.0f, -9 - (int) (rng() % 4)));
+                std::memcpy(&(*w)[k], &h, 2);
+            }
+        }
+        std::vector<uint16_t> gi((size_t) NE);
+        for (auto& v : gi) v = basalt::kernels::bf16_from_f32(0.02f * gauss(rng));
+        std::vector<float> xs((size_t) T * NE);
+        for (auto& v : xs) v = gauss(rng);
+        void *dg, *du, *dd, *dq, *dgi;
+        float *dx, *dgate, *dup, *dgv, *dout;
+        const size_t ob = (size_t) T * NE * 4;
+        check(cudaMalloc(&dg, wg.size()), "m"); check(cudaMalloc(&du, wu.size()), "m"); check(cudaMalloc(&dd, wd.size()), "m");
+        check(cudaMalloc(&dq, basalt::kernels::native_q8_1_bytes(NE, T)), "m"); check(cudaMalloc(&dgi, gi.size() * 2), "m");
+        check(cudaMalloc((void**) &dx, ob), "m"); check(cudaMalloc((void**) &dgate, (size_t) T * NF * 4), "m");
+        check(cudaMalloc((void**) &dup, (size_t) T * NF * 4), "m"); check(cudaMalloc((void**) &dgv, T * 4), "m");
+        check(cudaMalloc((void**) &dout, 3 * ob), "m");
+        check(cudaMemcpy(dg, wg.data(), wg.size(), cudaMemcpyHostToDevice), "c");
+        check(cudaMemcpy(du, wu.data(), wu.size(), cudaMemcpyHostToDevice), "c");
+        check(cudaMemcpy(dd, wd.data(), wd.size(), cudaMemcpyHostToDevice), "c");
+        check(cudaMemcpy(dgi, gi.data(), gi.size() * 2, cudaMemcpyHostToDevice), "c");
+        check(cudaMemcpy(dx, xs.data(), ob, cudaMemcpyHostToDevice), "c");
+        cudaStream_t st;
+        check(cudaStreamCreate(&st), "stream");
+        basalt::kernels::NativeSharedWeights nw;
+        nw.gate_type = nw.up_type = nw.down_type = 8;
+        nw.gate_data = dg; nw.up_data = du; nw.down_data = dd; nw.q8_1 = dq;
+        auto run = [&](int t0, int n, float* out) {
+            basalt::kernels::shared_expert_multi(n, dx + (size_t) t0 * NE, nw, (const uint16_t*) dgi, dgate, dup, dgv,
+                                                 out + (size_t) t0 * NE, NE, NF, st);
+        };
+        run(0, T, dout);                                              // the window of 16
+        run(0, 8, dout + (size_t) T * NE); run(8, 8, dout + (size_t) T * NE);   // its halves of 8
+        for (int t = 0; t < T; ++t) run(t, 1, dout + (size_t) 2 * T * NE);       // one token at a time
+        check(cudaStreamSynchronize(st), "multi");
+        std::vector<float> o((size_t) 3 * T * NE);
+        check(cudaMemcpy(o.data(), dout, o.size() * 4, cudaMemcpyDeviceToHost), "c");
+        long d8 = 0, d1 = 0, nf = 0;
+        for (size_t i = 0; i < (size_t) T * NE; ++i) {
+            d8 += std::memcmp(&o[i], &o[(size_t) T * NE + i], 4) != 0;
+            d1 += std::memcmp(&o[i], &o[(size_t) 2 * T * NE + i], 4) != 0;
+            nf += !std::isfinite(o[i]);
+        }
+        std::printf("\n  %-42s %ld vs the 8-token halves, %ld vs one token at a time, %ld nonfinite\n",
+                    "shared_expert_multi, 16 tokens: diffs", d8, d1, nf);
+        if (d8 || d1 || nf) ++bad;
+        cudaFree(dg); cudaFree(du); cudaFree(dd); cudaFree(dq); cudaFree(dgi); cudaFree(dx); cudaFree(dgate);
+        cudaFree(dup); cudaFree(dgv); cudaFree(dout); cudaStreamDestroy(st);
     }
 
     std::printf("\nshared_expert: %d failures\n", bad);

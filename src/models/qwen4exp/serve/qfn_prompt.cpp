@@ -147,6 +147,10 @@ Flow QfnRequest::read_to(int64_t to) {
         sp_ok = read_part(at, to, runtime_.err);
     }
     runtime_.pp_part_ckpt = -1;
+    if (!runtime_.release_segmented_prompt(runtime_.err)) {
+        std::printf("ERR releasing prompt buffers failed: %s\n", runtime_.err.c_str());
+        return Flow::error;
+    }
     if (sp_ok && win && !ov_window()) { std::printf("ERR %s\n", runtime_.err.c_str()); return Flow::error; }
     if (!sp_ok) {
         if (yielded_at < 0 && (batch_fatal || !(runtime_.stop_req.load() || runtime_.stdin_lost.load() || runtime_.ram_stop.load()))) {

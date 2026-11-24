@@ -142,6 +142,7 @@ cudaError_t device_mem_reading(DeviceMemoryReading& r) {
         const uint64_t used = std::min<uint64_t>(D, std::max<uint64_t>(touched, held));
         r.device_free = D - used;
         r.total = D;
+        r.carveout = true;
     }
     // The OS charges device memory to the commit limit: past it nothing more is allocated, carve-out or not.  What the
     // RAM tiers leave of the RAM, the device leaves of the commit: the reserve the RAM guard holds, plus what the engine

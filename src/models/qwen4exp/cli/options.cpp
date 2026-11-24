@@ -168,7 +168,7 @@ bool normalize_speculation_options(Options& o) {
     // --suffix-draft 0 turns it off.
     if (o.suffix_draft > 0 && o.spec >= 2 && o.mtp_max_t == 0) {
         o.mtp_max_t = o.spec;
-        o.spec = std::min(o.spec + 2, 8);   // kVerifyMaxT
+        o.spec = std::min(o.spec + 2, 8);   // a solo window stays within 8 rows; batch windows are wider (verify_width)
     }
     return no_spec;
 }

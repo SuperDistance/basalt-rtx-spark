@@ -137,7 +137,8 @@ uint64_t available_memory();
 /// (a page-locked or resident copy, and on an integrated GPU device memory too: core/device_memory.hpp) needs it
 /// beside the RAM; the OS file cache does not. False where the OS keeps no such limit (Linux overcommits; there RAM
 /// is the limit).
-bool commit_headroom(uint64_t& available, uint64_t& limit);
+/// Pass `allow_growth = false` to budget an optional allocation against the current page file size.
+bool commit_headroom(uint64_t& available, uint64_t& limit, bool allow_growth = true);
 
 /// The RAM left free for the rest of the system (--ram-reserve-mib): the expert tiers leave it, and while serving the
 /// RAM guard holds that line.  0: nothing is kept and the guard is off.

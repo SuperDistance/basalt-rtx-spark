@@ -28,7 +28,7 @@ bool Verifier::WindowRecorder::head() {
                         *hu = wt.find("output_hc_up.weight");
         if (!hn || !hd || !hu) { err = "verify: an output_hc_* weight is missing"; return false; }
         if (fuse_head_gr) {
-            FusedGrArgs fa[kFusedGrMaxT];
+            FusedGrArgs fa[kVerifyMaxT];
             for (int t = 0; t < T; ++t) {
                 FusedGrArgs& a = fa[t];
                 a.R = Rt(t); a.R_out = Rt(t); a.apply = true;
@@ -50,7 +50,8 @@ bool Verifier::WindowRecorder::head() {
                 h.eps = EPS; h.lo = v_.lo_; h.rs = v_.rs_; h.mixed = v_.head_mixed_; h.xn = v_.xn_;
                 hc_fused_read(h, cs);
             } else {
-                fused_gr_read_multi(fa, T, v_.xn_, cs);
+                for (int t0 = 0; t0 < T; t0 += kFusedGrMaxT)   // a token's outputs do not depend on the group
+                    fused_gr_read_multi(fa + t0, std::min(kFusedGrMaxT, T - t0), v_.xn_ + (size_t) t0 * HC * N, cs);
             }
         } else {
             for (int t = 0; t < T; ++t) {

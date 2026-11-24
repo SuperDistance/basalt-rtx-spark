@@ -32,7 +32,7 @@ bool Verifier::stage_batch(const int* slots, const int* lens, int S, int hbase, 
                            const int64_t* pos0, std::string& err) {
     using namespace basalt::kernels;
     int R = 0;
-    for (int s = 0; s < S && s < 9; ++s) R += lens != nullptr ? lens[s] : 1;
+    for (int s = 0; s < S && s <= kVerifyMaxT; ++s) R += lens != nullptr ? lens[s] : 1;
     if (S < 1 || S > max_t_ || R < S || R > max_t_ || hbase < 0 || (hbase > 0 && hbase + R > (int) slots_.size())) {
         err = "verify: batch rows out of range (init_slots)";
         return false;
@@ -64,7 +64,7 @@ bool Verifier::stage_batch(const int* slots, const int* lens, int S, int hbase, 
     uint32_t ple_rows[kVerifyMaxT * PLE_N_HEADS];   // (not `rows`: that is the slots of the window's rows)
     int32_t* const pk = h_pos_ + (size_t) max_t_ * g.n_head;
     int32_t* const pi = pk + (size_t) max_t_ * g.n_head_kv;
-    for (int t = 0; t < kQsaSegMaxRows + 8; ++t) h_qseg_[t] = QsaSeg{-1, 0, 0, 0};   // unused until set
+    for (int t = 0; t < kQsaSegMaxRows + kVerifyMaxT; ++t) h_qseg_[t] = QsaSeg{-1, 0, 0, 0};   // unused until set
     for (int sg = 0, r0 = 0; sg < S; ++sg) {
         const int n = lens != nullptr ? lens[sg] : 1;
         const SessionState& sx = *slots_[(size_t) slots[sg]];
@@ -123,8 +123,8 @@ bool Verifier::stage_batch(const int* slots, const int* lens, int S, int hbase, 
 
 bool Verifier::run_slots(int S, const int32_t* tokens, const int64_t* pos, PoolMultiFn pool, void* user, int32_t* out,
                          std::string& err) {
-    int rows[8] = {};
-    for (int t = 0; t < S && t < 8; ++t) rows[t] = t;
+    int rows[basalt::kernels::kVerifyMaxT] = {};
+    for (int t = 0; t < S && t < basalt::kernels::kVerifyMaxT; ++t) rows[t] = t;
     return run_slot_rows(rows, S, tokens, pos, pool, user, out, err);
 }
 
@@ -383,8 +383,8 @@ bool Verifier::sample_rows(int S, std::string& err) {
 bool Verifier::batch_launch(int base, int S, const int32_t* tokens, const int64_t* pos, std::string& err) {
     const OnDevice on_device(device_);
     if (b_running_) { err = "verify: batch_launch while this stage is busy"; return false; }
-    int rows[8] = {};
-    for (int t = 0; t < S && t < 8; ++t) rows[t] = base + t;
+    int rows[basalt::kernels::kVerifyMaxT] = {};
+    for (int t = 0; t < S && t < basalt::kernels::kVerifyMaxT; ++t) rows[t] = base + t;
     if (gs_live_ && !gs_move(false, err)) return false;
     gs_split_ = false;
     if (!stage_batch(rows, nullptr, S, base, tokens, pos, err)) return false;

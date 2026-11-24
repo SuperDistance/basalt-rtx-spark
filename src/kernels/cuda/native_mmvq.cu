@@ -934,8 +934,9 @@ __global__ void native_small_q80_kernel(const Q80Block* __restrict__ w,
 // small-K rule). Column j reads activation blocks x + j * (n_in / 32) and writes y + j * n_out. Each (column,
 // row) value is accumulated over kbx in the same order, summed across warps in the same order and reduced with
 // the same warp tree as the ncols = 1 kernel, so every column is BITWISE equal to a single-column call on that
-// column (checked by mmvq_multi_parity). The ncols = 1 kernels are untouched.
-constexpr int MAX_NCOLS = 8;
+// column (checked by mmvq_multi_parity). The ncols = 1 kernels are untouched. 9..16 columns run one kernel of 16
+// accumulators per format, each column's arithmetic the same.
+constexpr int MAX_NCOLS = 16;
 
 // Each format splits its dot product into `load` (everything that depends only on the weight block: codes,
 // unpacked scales, block scale) and `apply` (the activation loads and the original *_impl expression). `load` runs
@@ -1149,11 +1150,13 @@ struct SmallTraits {
 // equal to ncols = 1 only to float rounding (the cross-warp reduction groups partial sums differently).
 bool g_multi_exact = true;   // the upstream layout is not the default
 
+// NCOLS 16 takes nc (9..16) columns: the columns past nc repeat column nc - 1 and are not stored (the loads stay
+// unconditional, so they issue ahead as for 8).
 template<typename F, int NCOLS, int NW, int ROWS>
 __launch_bounds__(NW * WARP, (ROWS <= 2 ? 4 : 1))
 __global__ void native_mmvq_multi_kernel(const typename F::Block* __restrict__ w,
                                          const Q81Block* __restrict__ x,
-                                         float* __restrict__ y, int n_in, int n_out) {
+                                         float* __restrict__ y, int n_in, int n_out, int nc) {
     constexpr int BPI = F::BPI * NW / WARPS;           // blocks per iteration scale with the warp count
     const int tid = WARP * int(threadIdx.y) + int(threadIdx.x);
     const int row0 = ROWS * int(blockIdx.x);
@@ -1171,7 +1174,7 @@ __global__ void native_mmvq_multi_kernel(const typename F::Block* __restrict__ w
                 const typename F::W wv = F::load(w + block, kqs);      // once per (row, block)
 #pragma unroll
                 for (int j = 0; j < NCOLS; ++j)                         // then per column
-                    tmp[j][i] += F::apply(wv, x + std::size_t(j) * x_stride + kby, kqs);
+                    tmp[j][i] += F::apply(wv, x + std::size_t(NCOLS <= 8 || j < nc ? j : nc - 1) * x_stride + kby, kqs);
             }
         }
     }
@@ -1191,7 +1194,7 @@ __global__ void native_mmvq_multi_kernel(const typename F::Block* __restrict__ w
 #pragma unroll
             for (int l = 0; l < NW - 1; ++l) tmp[j][i] += partial[l][j][i][threadIdx.x];
             tmp[j][i] = warp_sum(tmp[j][i]);
-            if (threadIdx.x == i && row0 + i < n_out) y[std::size_t(j) * n_out + row0 + i] = tmp[j][i];
+            if (threadIdx.x == i && row0 + i < n_out && (NCOLS <= 8 || j < nc)) y[std::size_t(j) * n_out + row0 + i] = tmp[j][i];
         }
     }
 }
@@ -1321,27 +1324,31 @@ bool launch_q6_k_staged(const void* weights, const void* x_q8_1, float* y, int n
     }
 }
 
+// nc: the columns (NCOLS, or 9..16 with NCOLS 16)
 template<typename F, int NCOLS>
-void launch_multi_n(const void* weights, const void* x_q8_1, float* y, int n_in, int n_out, cudaStream_t s) {
+void launch_multi_n(const void* weights, const void* x_q8_1, float* y, int n_in, int n_out, cudaStream_t s,
+                    int nc = NCOLS) {
     const auto* w = static_cast<const typename F::Block*>(weights);
     const auto* x = static_cast<const Q81Block*>(x_q8_1);
     if (!g_multi_exact) {
         constexpr int NW = NCOLS <= 4 ? 4 : 2;
         const unsigned blocks = unsigned((std::size_t(n_out) + 1) / 2);
-        launch_pdl(native_mmvq_multi_kernel<F, NCOLS, NW, 2>, dim3(blocks), dim3(WARP, NW), 0, s, w, x, y, n_in, n_out);
+        launch_pdl(native_mmvq_multi_kernel<F, NCOLS, NW, 2>, dim3(blocks), dim3(WARP, NW), 0, s, w, x, y, n_in, n_out,
+                   nc);
         return;
     }
-    if constexpr (std::is_same_v<F, Q6KTraits>) {
+    if constexpr (std::is_same_v<F, Q6KTraits> && NCOLS <= 8) {   // its staged columns fit for 8 (the same bits)
         if (launch_q6_k_staged<NCOLS>(weights, x_q8_1, y, n_in, n_out, s)) return;
     }
     const dim3 threads(WARP, WARPS);
     if (n_in / F::DIV < F::BPI) {
         constexpr int ROWS = 2;
         const unsigned blocks = unsigned((std::size_t(n_out) + ROWS - 1) / ROWS);
-        launch_pdl(native_mmvq_multi_kernel<F, NCOLS, WARPS, ROWS>, dim3(blocks), threads, 0, s, w, x, y, n_in, n_out);
+        launch_pdl(native_mmvq_multi_kernel<F, NCOLS, WARPS, ROWS>, dim3(blocks), threads, 0, s, w, x, y, n_in, n_out,
+                   nc);
     } else {
         launch_pdl(native_mmvq_multi_kernel<F, NCOLS, WARPS, 1>, dim3(unsigned(n_out)), threads, 0, s, w, x, y, n_in,
-                   n_out);
+                   n_out, nc);
     }
 }
 
@@ -1357,7 +1364,10 @@ void launch_multi(const void* weights, const void* x_q8_1, float* y, int n_in, i
         case 6: launch_multi_n<F, 6>(weights, x_q8_1, y, n_in, n_out, s); break;
         case 7: launch_multi_n<F, 7>(weights, x_q8_1, y, n_in, n_out, s); break;
         case 8: launch_multi_n<F, 8>(weights, x_q8_1, y, n_in, n_out, s); break;
-        default: throw std::invalid_argument("native MMVQ multi-column launch requires 2 <= ncols <= 8");
+        case 9: case 10: case 11: case 12: case 13: case 14: case 15: case 16:
+            launch_multi_n<F, 16>(weights, x_q8_1, y, n_in, n_out, s, ncols);
+            break;
+        default: throw std::invalid_argument("native MMVQ multi-column launch requires 2 <= ncols <= 16");
     }
 }
 
@@ -1378,16 +1388,17 @@ void launch_multi(const void* weights, const void* x_q8_1, float* y, int n_in, i
 // at kbx are one ring slot, cp.async'd STAGES - 1 slots ahead in the same chain order.
 constexpr int kMvRowBytes = 144;   // a staged row: the 136-byte block, padded so the A loads hit 32 banks
 constexpr int kMvColWords = 76;    // a staged column: eight 9-word q8_1 blocks, padded so the B loads do too
+constexpr int kMvCols = 8;         // columns it takes (one mma n-tile; wider calls take the multi kernel)
 template<int MT> struct MvCfg {
     static constexpr int R = 16 * MT;                                    // rows per block
     static constexpr int STAGES = MT == 1 ? 8 : 6;
     static constexpr int WBYTES = R * kMvRowBytes;                       // weight bytes of a slot
-    static constexpr int SLOT = WBYTES + MAX_NCOLS * kMvColWords * 4;
+    static constexpr int SLOT = WBYTES + kMvCols * kMvColWords * 4;
     static constexpr int SMEM = STAGES * SLOT;
 };
 static_assert(sizeof(IQ4XSBlock) == 136 && sizeof(Q81Block) == 36, "the blocks this stages");
 static_assert(MvCfg<1>::SMEM <= 48 * 1024 && MvCfg<2>::SMEM <= 48 * 1024, "static shared memory");
-static_assert(MAX_NCOLS * MvCfg<2>::R * 9 * 4 <= MvCfg<2>::SMEM && MAX_NCOLS * MvCfg<1>::R * 9 * 4 <= MvCfg<1>::SMEM,
+static_assert(kMvCols * MvCfg<2>::R * 9 * 4 <= MvCfg<2>::SMEM && kMvCols * MvCfg<1>::R * 9 * 4 <= MvCfg<1>::SMEM,
               "the partial sums reuse the ring");
 
 #if defined(__CUDA_ARCH__) && __CUDA_ARCH__ >= 800
@@ -1640,7 +1651,7 @@ void validate_shape(int n_in, int ncols, int block_elems = Q8K) {
     if (n_in <= 0 || n_in % block_elems != 0) {
         throw std::invalid_argument("native MMVQ requires n_in > 0 and divisible by its block element count");
     }
-    if (ncols < 1 || ncols > MAX_NCOLS) throw std::invalid_argument("native MMVQ requires 1 <= ncols <= 8 (ncols " + std::to_string(ncols) + ", n_in " + std::to_string(n_in) + ")");
+    if (ncols < 1 || ncols > MAX_NCOLS) throw std::invalid_argument("native MMVQ requires 1 <= ncols <= 16 (ncols " + std::to_string(ncols) + ", n_in " + std::to_string(n_in) + ")");
 }
 void validate_pointer(const void* p) {
     if (!p || reinterpret_cast<std::uintptr_t>(p) % 4 != 0) {
@@ -1862,7 +1873,7 @@ void native_iq4_xs_mmvq(const void* weights, const void* x_q8_1, float* y,
     validate_pointer(y);
     validate_stream(stream);
     if (ncols > 1) {
-        if (g_multi_exact && g_mmvq_mma && ncols >= g_mmvq_mma_min_t + (n_in > n_out ? 1 : 0)) {
+        if (g_multi_exact && g_mmvq_mma && ncols >= g_mmvq_mma_min_t + (n_in > n_out ? 1 : 0) && ncols <= kMvCols) {
             if (const int sms = mmvq_mma_sms()) {
                 launch_iq4_xs_mma(weights, x_q8_1, y, n_in, n_out, ncols, sms, static_cast<cudaStream_t>(stream));
                 launch_check();

@@ -57,6 +57,7 @@ cudaError_t device_mem_info(size_t* free_b, size_t* total_b);
 struct DeviceMemoryReading {
     uint64_t device_free = 0, total = 0;
     uint64_t commit_room = UINT64_MAX;
+    bool carveout = false;   ///< device_free and total were bounded to the device's dedicated carve-out
 };
 cudaError_t device_mem_reading(DeviceMemoryReading& r);
 

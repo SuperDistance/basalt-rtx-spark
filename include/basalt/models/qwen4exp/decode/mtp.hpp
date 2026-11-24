@@ -24,6 +24,7 @@
 #include "basalt/models/qwen4exp/kernels/qsa_seg.hpp"
 #include "basalt/kernels/sampler.hpp"
 #include "basalt/models/qwen4exp/kernels/draft_draw.hpp"
+#include "basalt/models/qwen4exp/kernels/verify_kernels.hpp"
 
 #include <cuda_runtime.h>
 
@@ -195,6 +196,8 @@ public:
     /// verification is exact, so only which tokens are offered changes.  S <= kDraftRowsMax, sum of Ts <= the window.
     static constexpr int kDraftRowsMax = 4;
     bool seg_on() const { return seg_on_; }
+    /// The window rows one draft_batch takes in all (its catch-up forward's width).
+    int batch_rows_max() const { return std::min(rows_cap_, basalt::kernels::kVerifyMaxT); }
     bool draft_batch(int S, const int* ids, const float* R_rows, const int* r0s, const int* Ts, const int32_t* const* toks,
                      const int64_t* p0s, const int* as, const float* cum_ths, int32_t* const* drafts, float* const* probs,
                      int* n_drafts, std::string& err, int32_t* const* q_ids = nullptr, float* const* q_p = nullptr);
@@ -245,8 +248,8 @@ private:
     /// The round and `steps - 1` chain steps in one graph, step j an IF node on draft j-1's
     /// probability passing the cumulative rule; false (with the per-step path from then on) where it cannot be built
     bool capture_cond(int T, int steps);
-    cudaGraphExec_t cond_exec_[2][9] = {};   ///< [tier_]
-    int cond_steps_[2][9] = {};
+    cudaGraphExec_t cond_exec_[2][basalt::kernels::kVerifyMaxT + 1] = {};   ///< [tier_]
+    int cond_steps_[2][basalt::kernels::kVerifyMaxT + 1] = {};
     bool cond_off_ = false;
     int chain_j_ = 0;   ///< record_forward: the chain step being recorded (the diagnostic logits' slot)
     const float* f32(const char* name) const;
@@ -262,6 +265,7 @@ private:
     std::function<void()> launch_hook_;
     void run_launch_hook() { if (launch_hook_) { auto f = std::move(launch_hook_); launch_hook_ = nullptr; f(); } }
     int max_t_ = 0;
+    int rows_cap_ = 0;   ///< the rows the buffers hold: max_t_, or the verify window for a batched catch-up
     int device_ = -1;   ///< the device `load` ran on: the public calls switch to it (layer split)
     int max_drafts_ = 1 << 30;
     int step_cap_ = 0;
@@ -291,11 +295,11 @@ private:
     /// q8_1 row in xqr_); joined before the draft row's attention
     bool kv_defer_ = false, kv_open_ = false;
     uint8_t* xqr_ = nullptr;
-    cudaGraphExec_t prefill_exec_[9] = {};
-    cudaGraphExec_t prefill_dev_exec_[9] = {};
+    cudaGraphExec_t prefill_exec_[basalt::kernels::kVerifyMaxT + 1] = {};
+    cudaGraphExec_t prefill_dev_exec_[basalt::kernels::kVerifyMaxT + 1] = {};
     int32_t* pf_dev_ = nullptr;   ///< a prompt's rows' token / step / position records, uploaded at once
     int64_t pf_cap_ = 0;          ///< its capacity in ints
-    cudaGraphExec_t round_exec_[2][9] = {};   ///< [tier_]
+    cudaGraphExec_t round_exec_[2][basalt::kernels::kVerifyMaxT + 1] = {};   ///< [tier_]
 
     struct Tensor {
         std::string name, kind;
@@ -398,7 +402,7 @@ private:
     bool rows_mode_ = false;                      ///< record_forward: the full layer over one row per sequence
     cudaGraphExec_t rows_exec_[2][kDraftRowsMax + 1] = {};   ///< [tier_][rows]: the full layer over the rows, their drafts out
     bool capture_rows(int S, std::string& err);
-    cudaGraphExec_t catch_exec_[9] = {};          ///< [rows]: a batched draft's catch-up, as a round records its own
+    cudaGraphExec_t catch_exec_[basalt::kernels::kVerifyMaxT + 1] = {};   ///< [rows]: a batched draft's catch-up, as a round records its own
     bool capture_catch(int T, std::string& err);
     std::vector<int32_t> brec_;                   ///< batched draft records staged for upload
     int32_t* brec_dev_ = nullptr;
