@@ -55,7 +55,7 @@ python benchmarks/plot.py --out benchmarks/img --prefix engines `
 ## Running it
 
 1. Install BetterBench 0.6.1 (`pip install -e .` in a clone of its repository; Python 3.10+).
-2. Start the server with the config you are measuring (the one these runs used is in the [top README](../README.md#building-and-running)).
+2. Start the server with the config you are measuring (the one these runs used is in the [setup guide](../docs/rtx-spark-setup.md#install)).
 3. Run, from the BetterBench checkout:
 
    ```

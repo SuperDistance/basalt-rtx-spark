@@ -3,7 +3,7 @@
 A container runs the same engine and server on a Linux host: a DGX Spark (GB10), an RTX Spark laptop under Linux, or an
 RTX Spark laptop through Docker Desktop on Windows. The image's architecture picks the GPU: Arm64 builds for compute
 capability 12.1 (GB10, N1X), x86-64 for 12.0 (RTX 50-series). On Windows on Arm the native build
-([README](../README.md#install)) is the faster path; the container is for Linux hosts and for keeping the engine
+([Windows setup guide](rtx-spark-setup.md#install)) is the faster path; the container is for Linux hosts and for keeping the engine
 apart from the rest of the machine.
 
 ## Host

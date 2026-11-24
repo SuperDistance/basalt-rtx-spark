@@ -1,141 +1,51 @@
-# basalt-rtx-spark
+# Basalt RTX Spark
 
-### A 120B-class model at 90.79 tokens/s on your RTX Spark laptop.
+## 90.8 tokens/s at 45.3 W CPU + GPU
 
-Native on Windows on Arm. Lossless speedups. Ready for your chat app and your coding agent.
+Basalt runs Qwen3.8-Flash-Next, a 120B-class model, locally on an HP OmniBook X with RTX Spark N1X. On Windows 11 on Arm it reached **90.79 tokens/s** on a single stream. During that decode test, the CPU averaged **9.45 W** and the GPU **35.83 W** across 409 busy samples. [Power measurements](benchmarks/results/2026-11-24-n1x-verified-default/power-method.md)
 
-[Install](#install) · [Use it](#use-it-from-your-tools) · [Hardware](#hardware) · [Results](#results) · [Benchmarks](benchmarks) · [Docs](#documentation)
-
-[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
-![Windows on Arm64](https://img.shields.io/badge/Windows-Arm64-0078D4)
-![RTX Spark N1X](https://img.shields.io/badge/NVIDIA-RTX%20Spark%20N1X-76B900)
-
-**Run Qwen3.8-Flash-Next, a ~120B-parameter mixture-of-experts model, locally on an NVIDIA RTX Spark laptop** with
-**90.79 tok/s** single-stream decode, a **289 ms** first token and **110.50 tok/s** across four parallel requests
-in the November 24 [BetterBench run](#results). The goal: a capable large model fast enough at a laptop's power draw that
-local LLM workflows (chat, documents, coding agents) feel seamless, with nothing leaving the machine.
-
-It is a fork of the [Basalt](https://github.com/jesdga95/basalt) inference engine, built on its Arm64 port and tuned
-for the RTX Spark:
-
-- **Native on Windows on Arm64.** No Linux, no WSL: a Windows process, with the Windows-specific work done (memory
-  placement that respects Windows commit, fast reads of the model's tables on NTFS, millisecond command handling).
-- **Made for unified memory.** It spreads the model across the GPU's share of memory and pinned system RAM by itself,
-  at whatever split your laptop has, and the GPU reads RAM-resident experts in place instead of copying them.
-- **Lossless speedups.** Every speedup keeps the output: the same greedy text as before it (checked by hashes), the KLD
-  gate against the BF16 model where rounding changes, and speculative decoding that keeps the sampling distribution.
-  The quantization is a separate choice: the UD-IQ3_XXS pack measured here has a mean KLD of 0.118 against the BF16
-  model (88.7% top-1 agreement); NVIDIA's NVFP4 packs 0.06-0.09.
-- **Long context, many requests.** Four 262,144-token conversations at once, with an int8 KV cache that grows on demand.
-- **Drop-in API.** OpenAI- and Anthropic-compatible endpoints, so existing clients and agents work unchanged.
-
-## Install
-
-With a source checkout, serving Flash-Next on one RTX Spark N1X automatically configures four full-context slots, 262,144 tokens per slot and INT8 KV. A long cold prompt can join an active decode. Use `--parallel 1` for single-request serving or pass your own slot settings.
-
-**Prebuilt (easiest).** Download `basalt-...-windows-arm64.zip` from [Releases](https://github.com/SuperDistance/basalt-rtx-spark/releases),
-unzip it, run `setup.cmd` (it makes the Python environment and offers to download the model), then `start.cmd`. The
-CUDA libraries the engine needs are in the zip; a current NVIDIA driver is enough.
-
-The release ZIP may predate the engine used for the performance results below. To reproduce them, build from this
-source using the instructions below. The [benchmark record](benchmarks/results/2026-11-24-n1x-verified-default) identifies the tested binary.
-
-**Docker (Linux hosts: DGX Spark, RTX Spark under Linux).** `docker compose up -d` builds the image for the host's
-architecture (Arm64: sm_121) and serves with the Spark recipes' flags; the mounts and the unified-memory notes are in
-[docs/docker.md](docs/docker.md).
-
-**From source.** You need the hardware and software in [Hardware](#hardware). Then, from a Developer PowerShell for
-Visual Studio:
-
-**1. Get the CUDA toolkit and the source**
-
-```powershell
-git clone https://github.com/SuperDistance/basalt-rtx-spark
-cd basalt-rtx-spark
-python tools\port\fetch_cuda.py windows-arm64 C:\cuda-13.5
-```
-
-`fetch_cuda.py` assembles CUDA 13.5 from NVIDIA's redistributable archives (checked against NVIDIA's SHA-256), with no
-installer and no driver change.
-
-**2. Build**
-
-```powershell
-tools\port\build-win-arm64.cmd build C:\cuda-13.5
-pip install -r requirements.txt
-```
-
-**3. Download the model** (about 82 GiB)
-
-```powershell
-pip install -U huggingface_hub
-hf download jesdga/Qwen3.8-Flash-Next-Basalt Qwen3.8-FN-UD-IQ3_XXS.basalt --local-dir models
-```
-
-**Run it.** Save this as `config.json`:
-
-```json
-{
-  "version": 2,
-  "models": [{ "model": "models/Qwen3.8-FN-UD-IQ3_XXS.basalt", "alias": "flash-next", "kv": "int8", "parallel": 4,
-               "max-context": 262144, "slot-full-context": true, "gpu": "0" }],
-  "engine": { "spec": 8 },
-  "server": { "port": 8080 }
-}
-```
-
-```powershell
-$env:PATH = "C:\cuda-13.5\bin\arm64;C:\cuda-13.5\bin;$env:PATH"
-bin\basalt.exe serve --config config.json
-```
-
-The first start writes a copy of the model's n-gram table next to it (about 29 GB, once). The server is ready when it
-prints `weights loaded`; open `http://127.0.0.1:8080/` for its web UI and live stats. Build details and tests:
-[Arm64 build guide](docs/arm64.md#building).
-
-## Use it from your tools
-
-| Client speaks | Point it at |
-| --- | --- |
-| OpenAI API (`/v1/chat/completions`, `/v1/responses`) | base URL `http://127.0.0.1:8080/v1`, model `flash-next`, any API key |
-| Anthropic API (`/v1/messages`) | base URL `http://127.0.0.1:8080`, model `flash-next` |
-
-That covers most chat front ends, IDE assistants and coding agents that let you set a base URL. Thinking, tool calls
-and structured output (JSON schema) work as in Basalt; images and documents with its `--vision` option
-([running](docs/running.md)).
-
-## Hardware
-
-| | Tested | Notes |
-| --- | --- | --- |
-| Machine | HP OmniBook X with RTX Spark N1X, 128 GB | other N1X laptops should work; results welcome in [benchmarks](benchmarks) |
-| GPU memory split | 96 GB | automatic expert placement adapts to the available GPU memory |
-| OS | Windows 11 on Arm64 (build 28000) | Linux Arm64 builds too (from the port), untested here |
-| Driver | NVIDIA 621.24 | |
-| Disk | ~120 GB free | the pack (88 GB) plus its n-gram table copy (29 GB) |
-| Build tools | Visual Studio 2026 (or Build Tools) with ARM64 C++, Python 3.10+ | CMake and Ninja come with Visual Studio |
-
-GPU clocks and power vary during sustained workloads. The comparison below gives the observed draw for each run. [GPU power measurements](docs/n1x-gpu-power.md)
+[Install and run](docs/rtx-spark-setup.md) · [Benchmark results](#results) · [Model packs and speeds](#quantization) · [Connect a client](docs/rtx-spark-setup.md#use-it-from-your-tools)
 
 ## Results
 
-All three engines ran Qwen3.8-Flash-Next on the same RTX Spark N1X laptop with 128 GB of unified memory and a 96 GB GPU allocation. BetterBench 0.6.1 used the same 392-request workload in each run.
+All three engines ran the same 392 BetterBench requests on one N1X with 128 GB of unified memory and 96 GB allocated to the GPU. Basalt RTX Spark delivered **1.68× vLLM’s single-stream decode rate** and **110.50 tok/s across four streams**. vLLM had the fastest short-prompt first token at **271 ms**.
 
 | Engine | Weight pack tested | Weighted single-stream decode (tok/s) | Short-prompt time to first token (ms) | Four-stream mixed throughput (tok/s) |
 | --- | --- | ---: | ---: | ---: |
-| Basalt RTX Spark | `UD-IQ3_XXS` | **90.79** | 289 | **110.50** |
+| **Basalt RTX Spark** | `UD-IQ3_XXS` | **90.79** | 289 | **110.50** |
 | Basalt + Arm64 port | `UD-IQ3_XXS` | 87.52 | 622 | 85.32 |
 | vLLM for RTX Spark 0.2.0 | `FP4-Local` (NVFP4 / MXFP8) | 54.19 | **271** | 100.75 |
 
-Both Basalt engines used INT8 KV and MTP 8. vLLM used FP8 target KV, BF16 draft KV and MTP 7. On November 24, busy GPU draw averaged 39.3 W for Basalt RTX Spark and 34.5 W for vLLM during the four-stream test. The Arm64 port ran separately on November 23 and averaged 40.8 W across busy samples over its full run. The driver did not report a GPU power limit. [November 24 measurements](benchmarks/results/2026-11-24-n1x-verified-default) · [Arm64 port measurements](benchmarks/results/2026-11-23-hp-omnibook-x-n1x-128gb/basalt-arm-sm121-2ec7a84.json)
+### How does 90 tok/s compare with a desktop GPU?
+
+On Qwen3.8-Flash-Next, the Spark laptop’s **90.79 tok/s** falls alongside two community-reported desktop results. Each used a different prompt suite and weight pack.
+
+| Discrete GPU | Engine and weights | Reported single-stream decode |
+| --- | --- | ---: |
+| Desktop GeForce RTX 4080 SUPER · 16 GB | Strata · IQ3_S | **90.2 tok/s** |
+| Same RTX 4080 SUPER | Strata · IQ3_XXS | **115.8 tok/s** |
+| Desktop Radeon AI PRO R9700 · one GPU | StillDeadcode’s Radiance · Q4 | **90–100 tok/s** |
+| GeForce RTX 4090 Laptop GPU | Strata · IQ3_S | **51.2 tok/s** |
+
+The 4080 SUPER ran with a Ryzen 9 5950X. Its figures are medians across prompt lengths from 1K to 123K tokens. The R9700 figure is an owner’s single-stream report. The 4090 Laptop result follows a 4,096-token prompt. [Strata desktop results](https://github.com/Niko1221/Strata/issues/2314#issuecomment-6226756317) · [Radiance owner’s report](https://www.reddit.com/r/ROCm/comments/1x6j8an/comment/phvaz73/) · [Strata laptop benchmark and logs](https://github.com/Niko1221/Strata/blob/2af30ccaa0729177c4725ee2073f72bf550e2f86/docs/bench-results/2026-10-04-community-rtx-4090-laptop/README.md)
 
 ![Single-stream decode by scenario · Basalt RTX Spark, Basalt + Arm64 port, vLLM for RTX Spark](benchmarks/img/engines-decode.svg)
+
+<details>
+<summary>Cold prefill, four-stream throughput and test settings</summary>
 
 ![Aggregate throughput at one to four streams · Basalt RTX Spark, Basalt + Arm64 port, vLLM for RTX Spark](benchmarks/img/engines-concurrency.svg)
 
 ![Cold prefill throughput by prompt depth · Basalt RTX Spark, Basalt + Arm64 port, vLLM for RTX Spark](benchmarks/img/engines-prefill.svg)
 
-### Supported quantizations and single-stream decode rates
+Both Basalt engines used INT8 KV and MTP 8. vLLM used FP8 target KV, BF16 draft KV and MTP 7. In BetterBench 0.6.1 on November 24, busy GPU draw averaged 39.3 W for Basalt RTX Spark and 34.5 W for vLLM during the four-stream test. The Arm64 port ran separately on November 23 and averaged 40.8 W across busy samples over its full run. The driver did not report a GPU power limit. [November 24 measurements](benchmarks/results/2026-11-24-n1x-verified-default) · [Arm64 port measurements](benchmarks/results/2026-11-23-hp-omnibook-x-n1x-128gb/basalt-arm-sm121-2ec7a84.json)
+
+</details>
+
+## Quantization
+
+<details>
+<summary>Supported weight packs and measured speeds by prompt type</summary>
 
 The documented Flash-Next weight packs for both Basalt engines include `NVFP4-DQ6_K`, `NVFP4-DQ8`, `UD-IQ1_S`, `UD-IQ1_M`, `UD-IQ2_XS`, `UD-IQ3_XXS`, `UD-IQ4_XS`, `UD-Q4_K_XL`, `UD-Q5_K_XL`, `UD-Q6_K_XL`, `Q8_0`. Basalt RTX Spark also ran NVIDIA `FP4-Local` converted to `.basalt`. The vLLM for RTX Spark 0.2.0 recipe for Flash-Next uses `FP4-Local`. The table above gives BetterBench throughput for the packs tested. [Basalt pack catalog](docs/models/qwen38-flash-next.md#pack) · [vLLM release recipes](https://github.com/devjeonghwan/vllm-for-rtx-spark/blob/e9412963ff4619da5f97f8b5e3c2dd274967df87/README.md)
 
@@ -150,31 +60,11 @@ Earlier N1X single-request tests measured output tokens per second for three pro
 
 The alternating Flash-Next IQ3 and FP4-Local runs used INT8 KV, MTP 8 and fully GPU-resident experts. Busy GPU draw was 36.8–42.4 W for IQ3 and 38.4–41.4 W for FP4-Local. The Arm64 port used FP16 KV for its NVFP4-DQ6_K test. The 27B run used INT8 KV and a 16-token block drafter. The other listed packs have no comparable N1X throughput measurement in these runs. [Per-run measurements](https://github.com/SuperDistance/basalt-rtx-spark/blob/234f26ef/docs/n1x-handoff.md#reproduced-on-november-23) · [Arm64 port fixtures](docs/arm64.md#speed-on-the-rtx-spark-n1x)
 
-**Have an RTX Spark (or a DGX Spark)?** Run the [benchmark](benchmarks) and send your numbers.
+</details>
 
-## What changed from Basalt
+## Running locally
 
-- **Memory:** expert placement budgets the GPU, pinned RAM and Windows commit together (counting the page file's room
-  to grow), so every routed expert of the IQ3 pack gets a GPU home at the 96 GB split; RAM-pinned experts are read in
-  place in prompts and in decode.
-- **Decode:** batch slots draft in one pass and draw their MTP drafts from the draft head at every concurrency; a
-  slot's GDN state rows are committed by its next window; the CPU pool sleeps when idle.
-- **Prompts:** the n-gram table read from its own unbuffered copy; FP16 copies of the dense projections in VRAM;
-  faster long-context indexer scores, int8 sparse attention and GDN recurrence kernels; cold prompts read beside
-  decoding requests; the prompt's memory loan sized to what it uses.
-- **Requests:** commands answered within a millisecond; conversation checkpoints copied in 4 ms instead of 30, so a
-  resumed thinking turn restores in 8-13 ms; batch admission moves checkpoints instead of copying them.
-
-The measurements behind each: [performance notes](docs/n1x-performance.md), [GPU-first placement](docs/n1x-gpu-first.md),
-[prompt path](docs/n1x-prompt-path.md).
-
-## Documentation
-
-- **This fork:** [Arm64 build guide](docs/arm64.md), [benchmarks](benchmarks), [GPU power](docs/n1x-gpu-power.md),
-  [against vLLM](docs/n1x-vs-vllm.md), [performance notes](docs/n1x-performance.md).
-- **Basalt's:** [README](README.basalt.md), [running](docs/running.md), [configuration](docs/configuration/index.md),
-  [Flash-Next](docs/models/qwen38-flash-next.md), [precision](docs/precision/index.md), [the `.basalt` file](docs/model-file.md),
-  [contributing](CONTRIBUTING.md).
+Basalt places model weights across GPU memory and system RAM automatically. Flash-Next defaults to four slots with up to 262,144 tokens each and an INT8 KV cache that grows on demand. A new cold prompt can join while another conversation is decoding. Chat clients and coding agents can connect through the OpenAI- and Anthropic-compatible APIs. [Setup and client guide](docs/rtx-spark-setup.md) · [Engine changes](docs/rtx-spark-setup.md#what-changed-from-basalt) · [Quality measurements](docs/precision/)
 
 ## Credits
 

@@ -8,7 +8,7 @@
 | Power | AC; HP Performance thermal profile (fan Performance), CPU EPP 0, GPU uncapped |
 | Power budget | held up: a helper re-applies the HP thermal profile whenever the GPU's power budget starts declining (every 2-6 minutes under load), pausing at 92 C SoC and resuming below 85 C |
 | Engines | basalt-rtx-spark `25551ed` and Basalt with the Arm64 port (yanmindi/basalt-arm-sm121 `2ec7a84`), both built with MSVC ARM64, CUDA 13.5, `sm_121`, Release |
-| Server config | the same for both: four 262,144-token slots (`slot-full-context`), int8 KV, MTP window 8, prompt checkpoints on, the conversation cache's RAM and disk tiers off (see the [top README](../../../README.md#building-and-running)) |
+| Server config | the same for both: four 262,144-token slots (`slot-full-context`), int8 KV, MTP window 8, prompt checkpoints on, the conversation cache's RAM and disk tiers off (see the [setup guide](../../../docs/rtx-spark-setup.md#install)) |
 | Model pack | Qwen3.8-FN-UD-IQ3_XXS.basalt (Unsloth's UD-IQ3_XXS mix, converted to Basalt's format); every routed expert on the GPU at load in both runs |
 | Benchmark | BetterBench 0.6.1, [betterbench-config.json](../../betterbench-config.json) |
 | During the run | nothing else on the GPU, except a 20-second fp16 GEMM about 20 minutes into the 2ec7a84 run |
