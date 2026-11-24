@@ -25,7 +25,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))   # also runnable a
 from serve import ROOT, service  # noqa: E402
 from serve.config import (build_parser, check_engine_flags,  # noqa: E402
                           engine_flags_of, grammar_words, model_line, model_settings, sampling_defaults_from_config,
-                          sampling_items, shared_line, slot_share, start_items, with_spec)
+                          sampling_items, shared_line, slot_share, spark_slot_defaults, start_items, with_spec)
 from serve.engine import process as engine_process  # noqa: E402
 from serve.engine.errors import EngineStartError  # noqa: E402
 from serve.engine.image_source import image_sources_of  # noqa: E402
@@ -158,6 +158,13 @@ def check_model(a, file_engine: list[str], cli_engine: list[str], used_argv: lis
             # main first
             try:
                 plan = model_plan(a.engine_bin, a.model, spec.gpu, list(spec.engine_words))
+                defaults = spark_slot_defaults(plan, a.parallel, spec.engine_words)
+                if defaults:
+                    plan = model_plan(a.engine_bin, a.model, spec.gpu, [*defaults, *spec.engine_words])
+                    cfg["args"].extend(defaults)
+                    file_engine = defaults + file_engine
+                    a.parallel = 4
+                    a.slot_full_context = True
             except ValueError as e:
                 fail(f"{a.model}: {e}")
             card = vision_card(mode)

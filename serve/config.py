@@ -287,6 +287,20 @@ def parse_settings(ap: argparse.ArgumentParser, cli: list[str], server_argv=(), 
     return a, file_argv + cli, file_words, cli_words
 
 
+def spark_slot_defaults(plan: dict, parallel: int | None, words: tuple[str, ...]) -> list[str]:
+    """Native arguments for implicit Flash-Next slots on a single RTX Spark N1X."""
+    cards = plan.get("cards") or []
+    if (parallel is not None or "--batch" in words or "--slots" in words or plan.get("arch") != "qwen4exp"
+            or len(cards) != 1 or "rtx spark n1x" not in (cards[0].get("name") or "").lower()):
+        return []
+    defaults = ["--batch", "4"]
+    if "--max-context" not in words:
+        defaults += ["--max-context", "262144"]
+    if "--kv" not in words:
+        defaults += ["--kv", "int8"]
+    return defaults
+
+
 def check_engine_flags(words: list[str], known: set[str] | None, where: str) -> None:
     """ValueError naming the first flag (a word starting with `--`) the engine rejects; value words are not names
     (unchecked when the binary is unreadable)."""
@@ -525,7 +539,8 @@ def build_parser() -> argparse.ArgumentParser:
     ap.add_argument("--engine-bin", help=argparse.SUPPRESS)      # set by `basalt serve`
     ap.add_argument("--alias", help="the model name the API reports (default: the name stored in the model file)")
     ap.add_argument("--parallel", type=parallel_count, metavar="N",
-                    help=f"requests served at once, 1..{PARALLEL_MAX} (default 1: one at a time); more requests wait "
+                    help=f"requests served at once, 1..{PARALLEL_MAX} (default 4 full-context slots for Flash-Next "
+                         "on one RTX Spark N1X, otherwise 1); more requests wait "
                          "their turn. --max-context is shared: each slot holds that divided by N (so 4 slots of 262144 "
                          "need --max-context 1048576, or --slot-full-context). The slots' KV cache comes out of the "
                          "expert cache")

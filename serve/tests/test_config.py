@@ -30,6 +30,7 @@ from serve.config import (  # noqa: E402
     parse_settings,
     sampling_defaults_from_config,
     sampling_items,
+    spark_slot_defaults,
     start_items,
     model_line,
     server_options,
@@ -424,6 +425,16 @@ class ThinkingBudget(unittest.TestCase):
 
 
 class SlotContext(unittest.TestCase):
+    def test_spark_implicit_slots_and_overrides(self):
+        plan = {"arch": "qwen4exp", "cards": [{"name": "RTX Spark N1X (6144-core Blackwell RTX GPU)"}]}
+        self.assertEqual(spark_slot_defaults(plan, None, ()), ["--batch", "4", "--max-context", "262144", "--kv", "int8"])
+        self.assertEqual(spark_slot_defaults(plan, None, ("--max-context", "16384", "--kv", "f16")), ["--batch", "4"])
+        for parallel, words in [(1, ()), (2, ()), (None, ("--batch", "2")), (None, ("--slots", "1"))]:
+            self.assertEqual(spark_slot_defaults(plan, parallel, words), [])
+        for other in [dict(plan, arch="qwen35"), dict(plan, cards=[]), dict(plan, cards=[{"name": "Other"}]),
+                      dict(plan, cards=plan["cards"] * 2)]:
+            self.assertEqual(spark_slot_defaults(other, None, ()), [])
+
     """--max-context is shared by the --parallel slots unless --slot-full-context."""
 
     def context(self, cli, cfg=None):
