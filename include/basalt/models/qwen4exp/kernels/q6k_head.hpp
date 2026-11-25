@@ -37,7 +37,7 @@ void draft_q_onehot(const int* id, const DraftDrawArgs& dd, void* stream);
 bool q6k_proxy_top1(const void* proxy, const void* q6k_rows, const void* x_q8_1, int n_rows, int64_t n_cap,
                     const int32_t* map, int* out_id, float* out_prob, void* scratch, void* stream,
                     bool rows_by_map = false,
-                    const DraftDrawArgs* dd = nullptr);
+                    const DraftDrawArgs* dd = nullptr, int n_x = 1);
 
 /// The verify head's 2-bit copy of all n rows of a Q6_K head (n_in 2560, n a multiple of 16), fitted as the draft
 /// copy (head_proxy.cuh) and laid out for int8 tensor-core scoring; q6k_vproxy_bytes(n) bytes.

@@ -335,32 +335,41 @@ bool MtpDrafter::record_forward(int T, int step_row0, cudaStream_t cs, std::stri
         // the argmax drafts over the base rows only on tier 0
         const int64_t nv = sub ? (tier_ == 0 ? n_tier1_ : n_dvocab_) : n_vocab_;
         // The head, its argmax and the argmax's probability in one launch (the probability's sum in
-        // another order: last bits).  A batched draft's rows each take the one-row head kernels.
+        // another order: last bits).  A batched draft's rows take the two-stage head in one pass (the 2-bit copy read
+        // once for every row, each row's bits its own pass's), or else the one-row head kernels row by row.
         if (rows_mode_ && T > 1) {
+            static_assert(kDraftRowsMax <= basalt::kernels::kProxyMaxRows, "the two-stage head takes every draft row");
+            // row t's draw (speculative sampling, set_draw_rows): draw t, step record t (its cell) and proposal t
+            basalt::kernels::DraftDrawArgs rdd;
+            if (m_draw_rows_ != nullptr) rdd = {m_draw_rows_, step_, m_qids_rows_, m_qp_rows_};
+            const basalt::kernels::DraftDrawArgs* rdp = rdd.draw != nullptr ? &rdd : nullptr;
+            if (sub && proxy_ != nullptr && nv == n_tier1_) {
+                const bool ok =
+                    head_->type() == 13
+                        ? basalt::kernels::q5k_proxy_top1(proxy_, dhead_, xq_, (int) nv, n_tier1_, dvocab_, out_ids_, probs_,
+                                                          proxy_scratch_, cs, rdp, T)
+                    : head_->type() == GGML_Q8_0
+                        ? basalt::kernels::q80_proxy_top1(proxy_, head_->weights(), xq_, (int) nv, n_tier1_, dvocab_, out_ids_,
+                                                          probs_, proxy_scratch_, cs, true, rdp, T)
+                        : basalt::kernels::q6k_proxy_top1(proxy_, rows_mapped_ ? head_->weights() : (const void*) dhead_, xq_,
+                                                          (int) nv, n_tier1_, dvocab_, out_ids_, probs_, proxy_scratch_, cs,
+                                                          rows_mapped_, rdp, T);
+                if (ok) return true;
+                err = "mtp: a batched draft's head refused its rows";
+                return false;
+            }
             const size_t xb = native_q8_1_bytes((int) N, 1);
             bool all = true;
             for (int t = 0; t < T && all; ++t) {
                 const uint8_t* xr = xq_ + (size_t) t * xb;
-                // row t's draw (speculative sampling, set_draw_rows): its own draw, step record (cell) and proposal
-                basalt::kernels::DraftDrawArgs rdd;
-                if (m_draw_rows_ != nullptr && t < kDraftRowsMax)
-                    rdd = {m_draw_rows_ + t, step_ + (size_t) t * 4, m_qids_rows_ + (size_t) t * basalt::kernels::kDraftDrawQ,
-                           m_qp_rows_ + (size_t) t * basalt::kernels::kDraftDrawQ};
-                const basalt::kernels::DraftDrawArgs* rdp = rdd.draw != nullptr ? &rdd : nullptr;
-                if (sub && proxy_ != nullptr && nv == n_tier1_)
-                    all = head_->type() == 13
-                              ? basalt::kernels::q5k_proxy_top1(proxy_, dhead_, xr, (int) nv, n_tier1_, dvocab_, out_ids_ + t,
-                                                                probs_ + t, proxy_scratch_, cs, rdp)
-                          : head_->type() == GGML_Q8_0
-                              ? basalt::kernels::q80_proxy_top1(proxy_, head_->weights(), xr, (int) nv, n_tier1_, dvocab_,
-                                                                out_ids_ + t, probs_ + t, proxy_scratch_, cs, true, rdp)
-                              : basalt::kernels::q6k_proxy_top1(proxy_, rows_mapped_ ? head_->weights() : (const void*) dhead_,
-                                                                xr, (int) nv, n_tier1_, dvocab_, out_ids_ + t, probs_ + t,
-                                                                proxy_scratch_, cs, rows_mapped_, rdp);
-                else if (head_->type() == 13 && top_scratch_ != nullptr) {
+                basalt::kernels::DraftDrawArgs rdd_t;
+                if (rdp != nullptr)
+                    rdd_t = {m_draw_rows_ + t, step_ + (size_t) t * 4, m_qids_rows_ + (size_t) t * basalt::kernels::kDraftDrawQ,
+                             m_qp_rows_ + (size_t) t * basalt::kernels::kDraftDrawQ};
+                if (head_->type() == 13 && top_scratch_ != nullptr) {
                     all = q5k_head_top1(sub ? dhead_ : head_->weights(), xr, head_logits_ + (size_t) t * (size_t) nv, (int) N,
                                         (int) nv, sub ? dvocab_ : nullptr, out_ids_ + t, probs_ + t, top_scratch_, cs);
-                    if (all && rdp != nullptr) basalt::kernels::draft_q_onehot(out_ids_ + t, rdd, cs);   // the argmax pick
+                    if (all && rdp != nullptr) basalt::kernels::draft_q_onehot(out_ids_ + t, rdd_t, cs);   // the argmax pick
                 }
                 else
                     all = false;

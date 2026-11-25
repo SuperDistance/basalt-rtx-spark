@@ -25,7 +25,7 @@ constexpr int kDraftQn = kDraftDrawQ;   // proposal entries a drawn draft writes
 __host__ __device__ inline int64_t tiles(int64_t n_cap) { return (n_cap + 31) / 32; }
 
 inline size_t bytes(int64_t n_cap) { return (size_t) tiles(n_cap) * kNw4 * 32 * (16 + 4); }
-inline size_t scratch_bytes(int64_t n_cap) { return (size_t) tiles(n_cap) * (kPer + 1) * sizeof(float2); }
+__host__ __device__ inline size_t scratch_bytes(int64_t n_cap) { return (size_t) tiles(n_cap) * (kPer + 1) * sizeof(float2); }
 inline uint16_t* scales(void* proxy, int64_t n_cap) {
     return (uint16_t*) ((char*) proxy + (size_t) tiles(n_cap) * kNw4 * 32 * 16);
 }
@@ -89,12 +89,36 @@ __device__ __forceinline__ void pack_group(const float* w, int64_t row, int g, u
     sc[(((size_t) tile * kNw4 + w4) * 32 + lane) * 2 + h] = __half_as_ushort(hs);
 }
 
-// One tile per block, four warps splitting the row length; lane = row.  Writes the tile's best kPer approximate
-// scores and the tile's softmax partial (max, sum of exp(score - max)).
+// An activation row of the head: 80 q8_1 blocks of 32 values.
+constexpr int kXBlocks = 2560 / 32;
+// The most activation rows one scoring pass takes (a batched draft's rows).
+constexpr int kMaxX = kProxyMaxRows;
+
+// One row's scratch: the tiles' candidates (kPer each), then their softmax partials.
+__host__ __device__ inline float2* row_cand(void* scratch, int64_t n_cap, int r) {
+    return (float2*) ((char*) scratch + (size_t) r * scratch_bytes(n_cap));
+}
+__host__ __device__ inline float2* row_part(void* scratch, int64_t n_cap, int r) {
+    return row_cand(scratch, n_cap, r) + (size_t) tiles(n_cap) * kPer;
+}
+
+// Draft row r's draw arguments: the draw and proposal of row r, its cell in step record r (four words a record).
+__device__ __forceinline__ DraftDrawArgs row_draw(const DraftDrawArgs& d, int r) {
+    DraftDrawArgs o;
+    if (d.draw != nullptr) o.draw = d.draw + r;
+    if (d.cell != nullptr) o.cell = d.cell + (size_t) r * 4;
+    if (d.q_ids != nullptr) o.q_ids = d.q_ids + (size_t) r * kDraftQn;
+    if (d.q_p != nullptr) o.q_p = d.q_p + (size_t) r * kDraftQn;
+    return o;
+}
+
+// One tile per block, four warps splitting the row length; lane = row.  For each of the n_x activation rows (row r at
+// x + r * kXBlocks): the tile's best kPer approximate scores and its softmax partial (max, sum of exp(score - max)) to
+// that row's scratch.  The tile's weights are read once for every activation row; each row's arithmetic is the same.
 __global__ void __launch_bounds__(128) score_kernel(const uint4* __restrict__ wq, const uint32_t* __restrict__ sc,
                                                    const X81* __restrict__ x, int n_rows,
-                                                   const int32_t* __restrict__ map, float2* __restrict__ cand,
-                                                   float2* __restrict__ part) {
+                                                   const int32_t* __restrict__ map, void* __restrict__ scratch,
+                                                   int64_t n_cap, int n_x) {
     __shared__ __align__(16) int xi[640];
     __shared__ float xs[80], xdd[80];
     __shared__ float red[4][32];
@@ -110,62 +134,68 @@ __global__ void __launch_bounds__(128) score_kernel(const uint4* __restrict__ wq
     const int row = tile * 32 + lane;
     const int32_t id = (warp == 0 && row < n_rows) ? __ldg(map + row) : 0;
     pdl_wait();
-    for (int i = tid; i < 640; i += 128) xi[i] = reinterpret_cast<const int*>(x[i / 8].qs)[i % 8];
-    if (tid < 80) {
-        const int* q = reinterpret_cast<const int*>(x[tid].qs);
-        int sum = 0;
+    for (int r = 0; r < n_x; ++r) {
+        const X81* xr = x + (size_t) r * kXBlocks;
+        if (r > 0) __syncthreads();   // the previous row's reads of xi/xs/xdd and red are done
+        for (int i = tid; i < 640; i += 128) xi[i] = reinterpret_cast<const int*>(xr[i / 8].qs)[i % 8];
+        if (tid < 80) {
+            const int* q = reinterpret_cast<const int*>(xr[tid].qs);
+            int sum = 0;
 #pragma unroll
-        for (int i = 0; i < 8; ++i) sum = DP4A(0x01010101, q[i], sum);
-        const float d8 = __low2float(x[tid].ds);
-        xdd[tid] = d8;
-        xs[tid] = d8 * (float) sum;
-    }
-    __syncthreads();
-    float acc = 0.0f;
+            for (int i = 0; i < 8; ++i) sum = DP4A(0x01010101, q[i], sum);
+            const float d8 = __low2float(xr[tid].ds);
+            xdd[tid] = d8;
+            xs[tid] = d8 * (float) sum;
+        }
+        __syncthreads();
+        float acc = 0.0f;
 #pragma unroll
-    for (int j = 0; j < 10; ++j) {
-        const int w4 = warp * 10 + j;
-        const uint32_t ww[4] = {w[j].x, w[j].y, w[j].z, w[j].w};
+        for (int j = 0; j < 10; ++j) {
+            const int w4 = warp * 10 + j;
+            const uint32_t ww[4] = {w[j].x, w[j].y, w[j].z, w[j].w};
 #pragma unroll
-        for (int h = 0; h < 2; ++h) {
-            const int g = 2 * w4 + h;
-            int P = 0;
+            for (int h = 0; h < 2; ++h) {
+                const int g = 2 * w4 + h;
+                int P = 0;
 #pragma unroll
-            for (int c = 0; c < 2; ++c) {
-                const uint32_t v = ww[2 * h + c];
-                const int4 x0 = *reinterpret_cast<const int4*>(&xi[g * 8 + c * 4]);
-                P = DP4A((int) (v & 0x03030303u), x0.x, P);
-                P = DP4A((int) ((v >> 2) & 0x03030303u), x0.y, P);
-                P = DP4A((int) ((v >> 4) & 0x03030303u), x0.z, P);
-                P = DP4A((int) ((v >> 6) & 0x03030303u), x0.w, P);
+                for (int c = 0; c < 2; ++c) {
+                    const uint32_t v = ww[2 * h + c];
+                    const int4 x0 = *reinterpret_cast<const int4*>(&xi[g * 8 + c * 4]);
+                    P = DP4A((int) (v & 0x03030303u), x0.x, P);
+                    P = DP4A((int) ((v >> 2) & 0x03030303u), x0.y, P);
+                    P = DP4A((int) ((v >> 4) & 0x03030303u), x0.z, P);
+                    P = DP4A((int) ((v >> 6) & 0x03030303u), x0.w, P);
+                }
+                const float sg = __half2float(__ushort_as_half((unsigned short) (h ? (s[j] >> 16) : (s[j] & 0xffff))));
+                acc += sg * (xdd[g] * (float) P - 1.5f * xs[g]);
             }
-            const float sg = __half2float(__ushort_as_half((unsigned short) (h ? (s[j] >> 16) : (s[j] & 0xffff))));
-            acc += sg * (xdd[g] * (float) P - 1.5f * xs[g]);
         }
-    }
-    red[warp][lane] = acc;
-    __syncthreads();
-    if (warp != 0) return;
-    float v = red[0][lane] + red[1][lane] + red[2][lane] + red[3][lane];
-    if (row >= n_rows || id < 0) v = __int_as_float(0xff800000);
-    float m = v;
+        red[warp][lane] = acc;
+        __syncthreads();
+        if (warp != 0) continue;
+        float2* const cand = row_cand(scratch, n_cap, r);
+        float2* const part = row_part(scratch, n_cap, r);
+        float v = red[0][lane] + red[1][lane] + red[2][lane] + red[3][lane];
+        if (row >= n_rows || id < 0) v = __int_as_float(0xff800000);
+        float m = v;
 #pragma unroll
-    for (int o = 16; o; o >>= 1) m = fmaxf(m, __shfl_xor_sync(0xffffffffu, m, o));
-    float e = v > __int_as_float(0xff800000) ? __expf(v - m) : 0.0f;
+        for (int o = 16; o; o >>= 1) m = fmaxf(m, __shfl_xor_sync(0xffffffffu, m, o));
+        float e = v > __int_as_float(0xff800000) ? __expf(v - m) : 0.0f;
 #pragma unroll
-    for (int o = 16; o; o >>= 1) e += __shfl_xor_sync(0xffffffffu, e, o);
-    if (lane == 0) part[tile] = make_float2(m, e);
-    for (int k = 0; k < kPer; ++k) {
-        float bv = v;
-        int bi = lane;
+        for (int o = 16; o; o >>= 1) e += __shfl_xor_sync(0xffffffffu, e, o);
+        if (lane == 0) part[tile] = make_float2(m, e);
+        for (int k = 0; k < kPer; ++k) {
+            float bv = v;
+            int bi = lane;
 #pragma unroll
-        for (int o = 16; o; o >>= 1) {
-            const float ov = __shfl_xor_sync(0xffffffffu, bv, o);
-            const int oi = __shfl_xor_sync(0xffffffffu, bi, o);
-            if (ov > bv || (ov == bv && oi < bi)) { bv = ov; bi = oi; }
+            for (int o = 16; o; o >>= 1) {
+                const float ov = __shfl_xor_sync(0xffffffffu, bv, o);
+                const int oi = __shfl_xor_sync(0xffffffffu, bi, o);
+                if (ov > bv || (ov == bv && oi < bi)) { bv = ov; bi = oi; }
+            }
+            if (lane == 0) cand[tile * kPer + k] = make_float2(bv, __int_as_float(tile * 32 + bi));
+            if (lane == bi) v = __int_as_float(0xff800000);
         }
-        if (lane == 0) cand[tile * kPer + k] = make_float2(bv, __int_as_float(tile * 32 + bi));
-        if (lane == bi) v = __int_as_float(0xff800000);
     }
 }
 

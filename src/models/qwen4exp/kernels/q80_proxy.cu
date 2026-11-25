@@ -98,17 +98,24 @@ __device__ __forceinline__ void load_xe(const Q81Block* __restrict__ x, int4* __
     }
 }
 
-// One block: the rows near the best approximate score are scored exactly (a warp per row, two rows in flight), the
-// exact best is the pick.  `by_map`: w is the whole head and row r is w's row map[r].
+// One block per activation row (row r: x + r * px::kXBlocks, its scratch, out_id[r] / out_prob[r], draw row r): the rows
+// near the best approximate score are scored exactly (a warp per row, two rows in flight), the exact best is the pick.
+// `by_map`: w is the whole head and row r is w's row map[r].
 __global__ void __launch_bounds__(512) q80_proxy_final_kernel(const uint8_t* __restrict__ w,
-                                                              const Q81Block* __restrict__ x, int n_tiles,
-                                                              const int32_t* __restrict__ map,
-                                                              const float2* __restrict__ cand,
-                                                              const float2* __restrict__ part, int* __restrict__ out_id,
-                                                              float* __restrict__ out_prob, int by_map, DraftDrawArgs dda) {
+                                                              const Q81Block* __restrict__ x_rows, int n_tiles,
+                                                              const int32_t* __restrict__ map, void* __restrict__ scratch,
+                                                              int64_t n_cap, int* __restrict__ out_ids,
+                                                              float* __restrict__ out_probs, int by_map,
+                                                              DraftDrawArgs dd_rows) {
     __shared__ __align__(16) int4 xe[BPR * 4];
     __shared__ px::Final f;
-    const int tid = threadIdx.x, lane = tid & 31, warp = tid >> 5;
+    const int tid = threadIdx.x, lane = tid & 31, warp = tid >> 5, xr = blockIdx.x;
+    const Q81Block* const x = x_rows + (size_t) xr * px::kXBlocks;
+    const float2* const cand = px::row_cand(scratch, n_cap, xr);
+    const float2* const part = px::row_part(scratch, n_cap, xr);
+    int* const out_id = out_ids + xr;
+    float* const out_prob = out_probs + xr;
+    const DraftDrawArgs dda = px::row_draw(dd_rows, xr);
     pdl_wait();
     if (tid == 0) f.cnt = 0;
     load_xe(x, xe);
@@ -170,19 +177,19 @@ void q80_proxy_pack(const void* q80_rows, int64_t row0, int64_t n, void* proxy, 
 }
 
 bool q80_proxy_top1(const void* proxy, const void* q80_rows, const void* x_q8_1, int n_rows, int64_t n_cap,
-                    const int32_t* map, int* out_id, float* out_prob, void* scratch, void* stream, bool rows_by_map, const DraftDrawArgs* dd) {
-    if (n_rows <= 0 || n_rows > n_cap || !proxy || !q80_rows || !x_q8_1 || !map || !out_id || !out_prob || !scratch)
+                    const int32_t* map, int* out_id, float* out_prob, void* scratch, void* stream, bool rows_by_map,
+                    const DraftDrawArgs* dd, int n_x) {
+    if (n_rows <= 0 || n_rows > n_cap || n_x < 1 || n_x > px::kMaxX || !proxy || !q80_rows || !x_q8_1 || !map || !out_id ||
+        !out_prob || !scratch)
         return false;
     const int tiles = (int) px::tiles(n_rows);
     const uint4* wq = (const uint4*) proxy;
     const uint32_t* sc = (const uint32_t*) px::scales(const_cast<void*>(proxy), n_cap);
-    float2* cand = (float2*) scratch;
-    float2* part = cand + (size_t) px::tiles(n_cap) * px::kPer;
     launch_pdl(px::score_kernel, dim3((unsigned) tiles), dim3(128), 0, (cudaStream_t) stream, wq, sc,
-               (const px::X81*) x_q8_1, n_rows, map, cand, part);
-    launch_pdl(q80_proxy_final_kernel, dim3(1), dim3(512), 0, (cudaStream_t) stream, (const uint8_t*) q80_rows,
-               (const Q81Block*) x_q8_1, tiles, map, (const float2*) cand, (const float2*) part, out_id, out_prob,
-               rows_by_map ? 1 : 0, dd ? *dd : DraftDrawArgs{});
+               (const px::X81*) x_q8_1, n_rows, map, scratch, n_cap, n_x);
+    launch_pdl(q80_proxy_final_kernel, dim3((unsigned) n_x), dim3(512), 0, (cudaStream_t) stream, (const uint8_t*) q80_rows,
+               (const Q81Block*) x_q8_1, tiles, map, scratch, n_cap, out_id, out_prob, rows_by_map ? 1 : 0,
+               dd ? *dd : DraftDrawArgs{});
     check("q80_proxy_top1");
     return true;
 }

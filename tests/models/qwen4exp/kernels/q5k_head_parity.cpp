@@ -388,6 +388,71 @@ int main(int argc, char** argv) {
                     known_bad ? "WRONG pick or probability" : "lowest row, 1 / rows", 10.0f * t_warm[0],
                     10.0f * t_warm[1], 10.0f * t_warm[2]);
         if (rep_bad || known_bad) fail = 1;
+        // several activation rows in one pass (a batched draft's rows) against one pass per row, bitwise: pick,
+        // probability and proposal of each row (odd rows drawn), noise and zero inputs, 2..kProxyMaxRows rows
+        {
+            constexpr int NX = k::kProxyMaxRows, Q = k::kDraftDrawQ;
+            const size_t xb = k::native_q8_1_bytes(n_in, 1), sb = k::q5k_proxy_scratch_bytes(cap);
+            std::vector<float> xh((size_t) NX * n_in);
+            for (int r = 0; r < NX; ++r)
+                for (int i = 0; i < n_in; ++i) xh[(size_t) r * n_in + i] = r % 3 == 2 ? 0.0f : 0.8f * nd(rng);
+            float* xm = nullptr;
+            void *xqm = nullptr, *mscratch = nullptr;
+            k::DraftDraw* d_draws = nullptr;
+            int32_t *d_cells = nullptr, *d_qi = nullptr, *d_ids = nullptr;
+            float *d_qp = nullptr, *d_ps = nullptr;
+            ck(cudaMalloc(&xm, xh.size() * 4), "xm");
+            ck(cudaMemcpy(xm, xh.data(), xh.size() * 4, cudaMemcpyHostToDevice), "xm up");
+            ck(cudaMalloc(&xqm, k::native_q8_1_bytes(n_in, NX)), "xqm");
+            k::native_quantize_q8_1(xm, xqm, n_in, NX, s);
+            ck(cudaMalloc(&mscratch, sb * NX), "mscratch");
+            ck(cudaMalloc(&d_draws, NX * sizeof(k::DraftDraw)), "draws");
+            ck(cudaMalloc(&d_cells, NX * 16), "cells");
+            ck(cudaMalloc(&d_qi, 2 * NX * Q * 4), "qi");
+            ck(cudaMalloc(&d_qp, 2 * NX * Q * 4), "qp");
+            ck(cudaMalloc(&d_ids, 2 * NX * 4), "ids");
+            ck(cudaMalloc(&d_ps, 2 * NX * 4), "ps");
+            std::vector<k::DraftDraw> hdr(NX);
+            std::vector<int32_t> cells(NX * 4, 0);
+            for (int r = 0; r < NX; ++r) {
+                if (r % 2 == 1) { hdr[r].on = 1; hdr[r].temperature = 0.8f; hdr[r].top_k = 20; hdr[r].top_p = 0.95f; }
+                hdr[r].seed = 0x5EEDull + (unsigned long long) r;
+                cells[(size_t) r * 4] = 300 + 7 * r;
+            }
+            ck(cudaMemcpy(d_draws, hdr.data(), NX * sizeof(k::DraftDraw), cudaMemcpyHostToDevice), "draws up");
+            ck(cudaMemcpy(d_cells, cells.data(), cells.size() * 4, cudaMemcpyHostToDevice), "cells up");
+            int multi_bad = 0, checked = 0;
+            for (int n = 2; n <= NX && !fail; ++n) {
+                ck(cudaMemsetAsync(d_qi, 0xff, 2 * NX * Q * 4, s), "qi0");
+                ck(cudaMemsetAsync(d_qp, 0, 2 * NX * Q * 4, s), "qp0");
+                bool ok = true;
+                for (int r = 0; r < n; ++r) {
+                    const k::DraftDrawArgs a{d_draws + r, d_cells + 4 * r, d_qi + (size_t) r * Q, d_qp + (size_t) r * Q};
+                    ok = ok && k::q5k_proxy_top1(proxy, w2, (const uint8_t*) xqm + (size_t) r * xb, rr, cap, d_map_i, d_ids + r,
+                                                 d_ps + r, scratch, s, &a);
+                }
+                const k::DraftDrawArgs a{d_draws, d_cells, d_qi + (size_t) NX * Q, d_qp + (size_t) NX * Q};
+                ok = ok && k::q5k_proxy_top1(proxy, w2, xqm, rr, cap, d_map_i, d_ids + NX, d_ps + NX, mscratch, s, &a, n);
+                if (!ok) { std::printf("multi-row proxy refused\n"); fail = 1; break; }
+                ck(cudaStreamSynchronize(s), "sync");
+                std::vector<int32_t> ids(2 * NX), qi(2 * NX * Q);
+                std::vector<float> ps(2 * NX), qp(2 * NX * Q);
+                ck(cudaMemcpy(ids.data(), d_ids, ids.size() * 4, cudaMemcpyDeviceToHost), "ids");
+                ck(cudaMemcpy(ps.data(), d_ps, ps.size() * 4, cudaMemcpyDeviceToHost), "ps");
+                ck(cudaMemcpy(qi.data(), d_qi, qi.size() * 4, cudaMemcpyDeviceToHost), "qi");
+                ck(cudaMemcpy(qp.data(), d_qp, qp.size() * 4, cudaMemcpyDeviceToHost), "qp");
+                for (int r = 0; r < n; ++r, ++checked)
+                    multi_bad += ids[(size_t) r] != ids[(size_t) (NX + r)] ||
+                                 std::memcmp(&ps[(size_t) r], &ps[(size_t) (NX + r)], 4) != 0 ||
+                                 std::memcmp(&qi[(size_t) r * Q], &qi[(size_t) (NX + r) * Q], Q * 4) != 0 ||
+                                 std::memcmp(&qp[(size_t) r * Q], &qp[(size_t) (NX + r) * Q], Q * 4) != 0;
+            }
+            std::printf("proxy top1, 2..%d rows in one pass: %d of %d rows differ from one pass per row (pick, probability, "
+                        "proposal)\n", NX, multi_bad, checked);
+            if (multi_bad) fail = 1;
+            cudaFree(xm); cudaFree(xqm); cudaFree(mscratch); cudaFree(d_draws); cudaFree(d_cells);
+            cudaFree(d_qi); cudaFree(d_qp); cudaFree(d_ids); cudaFree(d_ps);
+        }
     }
     std::printf("%s\n", fail ? "q5k_head_parity: FAIL" : "q5k_head_parity: OK (bitwise)");
     return fail;

@@ -2,7 +2,8 @@
 // Q6_K rows and quantized random columns, 1..16 columns; then a microbench of both at the head's shape.  Last, the draft
 // head read through a row map (rows of the whole head) against the same rows gathered into a copy, bitwise: the 2-bit
 // copy, the two-stage argmax, the one-column head, and the copy's 2..8-column head against the row map one column at a
-// time.
+// time.  The two-stage argmax over several activation rows in one pass against one pass per row, bitwise, and the time of
+// both.
 //   q6k_head_parity [rows] [iters]
 #include "basalt/kernels/native_mmvq.hpp"
 #include "basalt/models/qwen4exp/kernels/q5k_head.hpp"
@@ -484,6 +485,104 @@ int main(int argc, char** argv) {
                     known_bad ? "WRONG pick or probability" : "lowest row, 1 / rows", 10.0f * t_warm[0],
                     10.0f * t_warm[1], 10.0f * t_warm[2]);
         if (rep_bad || known_bad) fail = 1;
+        // several activation rows in one pass (a batched draft's rows) against one pass per row, bitwise: the pick, its
+        // probability and the proposal of each row, drawn and argmax rows mixed, for 2..kProxyMaxRows rows; inputs
+        // planted, noise and zero (more than 64 rows near the best).  Then the time of both at kProxyMaxRows rows.
+        {
+            constexpr int NX = k::kProxyMaxRows, Q = k::kDraftDrawQ;
+            const size_t xb = k::native_q8_1_bytes(n_in, 1), sb = k::q5k_proxy_scratch_bytes(cap);
+            std::vector<float> xh((size_t) NX * n_in);
+            for (int r = 0; r < NX; ++r) {
+                float* xr = &xh[(size_t) r * n_in];
+                const int kind = r % 3;
+                for (int i = 0; i < n_in; ++i) xr[i] = kind == 2 ? 0.0f : (kind == 0 ? 0.8f : 0.35f) * nd(rng);
+                if (kind == 0) {
+                    int pr;
+                    do { pr = (int) (rng() % (unsigned) rr); } while (map[(size_t) pr] < 0);
+                    dequant(pr, dq);
+                    double nn = 0;
+                    for (float v : dq) nn += (double) v * v;
+                    for (int i = 0; i < n_in; ++i) xr[i] += (float) (20.0 / nn * dq[(size_t) i]);
+                }
+            }
+            float* xm = nullptr;
+            void *xqm = nullptr, *mscratch = nullptr;
+            k::DraftDraw* d_draws = nullptr;
+            int32_t *d_cells = nullptr, *d_qi = nullptr, *d_ids = nullptr;
+            float *d_qp = nullptr, *d_ps = nullptr;
+            ck(cudaMalloc(&xm, xh.size() * 4), "xm");
+            ck(cudaMemcpy(xm, xh.data(), xh.size() * 4, cudaMemcpyHostToDevice), "xm up");
+            ck(cudaMalloc(&xqm, k::native_q8_1_bytes(n_in, NX)), "xqm");
+            k::native_quantize_q8_1(xm, xqm, n_in, NX, s);
+            ck(cudaMalloc(&mscratch, sb * NX), "mscratch");
+            ck(cudaMalloc(&d_draws, NX * sizeof(k::DraftDraw)), "draws");
+            ck(cudaMalloc(&d_cells, NX * 16), "cells");
+            ck(cudaMalloc(&d_qi, 2 * NX * Q * 4), "qi");
+            ck(cudaMalloc(&d_qp, 2 * NX * Q * 4), "qp");
+            ck(cudaMalloc(&d_ids, 2 * NX * 4), "ids");
+            ck(cudaMalloc(&d_ps, 2 * NX * 4), "ps");
+            std::vector<k::DraftDraw> hdr(NX);
+            std::vector<int32_t> cells(NX * 4, 0);
+            for (int r = 0; r < NX; ++r) {
+                if (r % 2 == 1) { hdr[r].on = 1; hdr[r].temperature = 0.8f; hdr[r].top_k = 20; hdr[r].top_p = 0.95f; }
+                hdr[r].seed = 0x5EEDull + (unsigned long long) r;
+                cells[(size_t) r * 4] = 300 + 7 * r;
+            }
+            ck(cudaMemcpy(d_draws, hdr.data(), NX * sizeof(k::DraftDraw), cudaMemcpyHostToDevice), "draws up");
+            ck(cudaMemcpy(d_cells, cells.data(), cells.size() * 4, cudaMemcpyHostToDevice), "cells up");
+            auto one = [&](int r, int set) {   // row r alone, into result set `set`
+                const k::DraftDrawArgs a{d_draws + r, d_cells + 4 * r, d_qi + (size_t) (set * NX + r) * Q,
+                                         d_qp + (size_t) (set * NX + r) * Q};
+                return k::q6k_proxy_top1(proxy, w2, (const uint8_t*) xqm + (size_t) r * xb, rr, cap, d_map_i,
+                                         d_ids + set * NX + r, d_ps + set * NX + r, scratch, s, false, &a);
+            };
+            auto all = [&](int n, int set) {   // rows [0, n) in one pass
+                const k::DraftDrawArgs a{d_draws, d_cells, d_qi + (size_t) set * NX * Q, d_qp + (size_t) set * NX * Q};
+                return k::q6k_proxy_top1(proxy, w2, xqm, rr, cap, d_map_i, d_ids + set * NX, d_ps + set * NX, mscratch, s,
+                                         false, &a, n);
+            };
+            int multi_bad = 0, checked = 0;
+            for (int n = 2; n <= NX && !fail; ++n) {
+                ck(cudaMemsetAsync(d_qi, 0xff, 2 * NX * Q * 4, s), "qi0");
+                ck(cudaMemsetAsync(d_qp, 0, 2 * NX * Q * 4, s), "qp0");
+                bool ok = true;
+                for (int r = 0; r < n; ++r) ok = ok && one(r, 0);
+                ok = ok && all(n, 1);
+                if (!ok) { std::printf("multi-row proxy refused\n"); fail = 1; break; }
+                ck(cudaStreamSynchronize(s), "sync");
+                std::vector<int32_t> ids(2 * NX), qi(2 * NX * Q);
+                std::vector<float> ps(2 * NX), qp(2 * NX * Q);
+                ck(cudaMemcpy(ids.data(), d_ids, ids.size() * 4, cudaMemcpyDeviceToHost), "ids");
+                ck(cudaMemcpy(ps.data(), d_ps, ps.size() * 4, cudaMemcpyDeviceToHost), "ps");
+                ck(cudaMemcpy(qi.data(), d_qi, qi.size() * 4, cudaMemcpyDeviceToHost), "qi");
+                ck(cudaMemcpy(qp.data(), d_qp, qp.size() * 4, cudaMemcpyDeviceToHost), "qp");
+                for (int r = 0; r < n; ++r, ++checked)
+                    multi_bad += ids[(size_t) r] != ids[(size_t) (NX + r)] ||
+                                 std::memcmp(&ps[(size_t) r], &ps[(size_t) (NX + r)], 4) != 0 ||
+                                 std::memcmp(&qi[(size_t) r * Q], &qi[(size_t) (NX + r) * Q], Q * 4) != 0 ||
+                                 std::memcmp(&qp[(size_t) r * Q], &qp[(size_t) (NX + r) * Q], Q * 4) != 0;
+            }
+            // warm time of NX rows: one pass per row, then one pass for all
+            float t_one = 0, t_all = 0;
+            for (int i = 0; i < 5; ++i) { for (int r = 0; r < NX; ++r) one(r, 0); all(NX, 1); }
+            cudaEventRecord(e0, s);
+            for (int i = 0; i < 100; ++i) for (int r = 0; r < NX; ++r) one(r, 0);
+            cudaEventRecord(e1, s);
+            cudaEventSynchronize(e1);
+            cudaEventElapsedTime(&t_one, e0, e1);
+            cudaEventRecord(e0, s);
+            for (int i = 0; i < 100; ++i) all(NX, 1);
+            cudaEventRecord(e1, s);
+            cudaEventSynchronize(e1);
+            cudaEventElapsedTime(&t_all, e0, e1);
+            const double copy_mb = (double) k::q5k_proxy_bytes(cap) / 1e6;
+            std::printf("proxy top1, 2..%d rows in one pass: %d of %d rows differ from one pass per row (pick, probability, "
+                        "proposal) | warm, %d rows: one pass per row %.1f us, one pass %.1f us (%.0f GB/s of the %.1f MB copy)\n",
+                        NX, multi_bad, checked, NX, 10.0f * t_one, 10.0f * t_all, copy_mb / (t_all / 100.0), copy_mb);
+            if (multi_bad) fail = 1;
+            cudaFree(xm); cudaFree(xqm); cudaFree(mscratch); cudaFree(d_draws); cudaFree(d_cells);
+            cudaFree(d_qi); cudaFree(d_qp); cudaFree(d_ids); cudaFree(d_ps);
+        }
     }
     // the draft head through a row map: a subset of distinct rows in shuffled order (as a draft vocabulary's base rows
     // then its added rows), read from the whole head, against the same rows gathered into a copy
