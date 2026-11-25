@@ -1,0 +1,31 @@
+{
+  "release": "v0.4.1-rtx-spark.2",
+  "native_source": "bd05fdf80da36d52f7e7b1978d635243c7aff6cc",
+  "executable_sha256": "705cb1b0e0632358a728d8d855abb8a77d066cf596775efb6107f48900909f98",
+  "pack": "Qwen3.8-FN-FP4-Local.basalt",
+  "api_model": "flash-next",
+  "request_time": "2026-11-24T16:23:16-08:00",
+  "wall_seconds": 123.33,
+  "finish_reason": "stop",
+  "usage": {
+    "prompt_tokens": 293,
+    "completion_tokens": 11092,
+    "total_tokens": 11385,
+    "prompt_tokens_details": {
+      "cached_tokens": 0
+    }
+  },
+  "slot_context": [
+    262144,
+    262144,
+    262144,
+    262144
+  ],
+  "assistant_content_sha256": "560fac5c0100fde8fe36ec6717fc1fc36da2098c2f6716c1d08f55107c1c03be",
+  "svg_sha256": "560fac5c0100fde8fe36ec6717fc1fc36da2098c2f6716c1d08f55107c1c03be",
+  "request_sha256": "44106faafed407b61adb08c3a27df56ce05e75da1dcc759fdac65d8d4ae39d2a",
+  "svg_extraction": "The visible assistant content is byte-identical to artwork.svg.",
+  "attempt": 3,
+  "server_decode_tok_s": 90.3,
+  "server_first_token_s": 0.6
+}

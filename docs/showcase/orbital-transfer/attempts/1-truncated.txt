@@ -1,0 +1,172 @@
+```svg
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink"
+     viewBox="0 0 1200 720" width="1200" height="720" role="img" aria-labelledby="ttl desc">
+  <title id="ttl">The Long Way Up — Hohmann transfer from a 7,000 km orbit to a 21,000 km orbit</title>
+  <desc id="desc">A probe leaves a circular 7,000 km orbit, burns prograde at the right side of Earth, coasts along a Hohmann transfer ellipse across the top, then burns prograde again at the left side of Earth to circularize at 21,000 km. Delta-v values are 1.70 km/s and 1.28 km/s; coast time is 137 minutes.</desc>
+
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#040812"/>
+      <stop offset="0.55" stop-color="#081424"/>
+      <stop offset="1" stop-color="#030711"/>
+    </linearGradient>
+
+    <radialGradient id="vignette" cx="0.42" cy="0.55" r="0.78">
+      <stop offset="0" stop-color="#ffffff" stop-opacity="0.04"/>
+      <stop offset="0.65" stop-color="#000000" stop-opacity="0"/>
+      <stop offset="1" stop-color="#000000" stop-opacity="0.38"/>
+    </radialGradient>
+
+    <radialGradient id="earthGlow" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0.50" stop-color="#77d7ff" stop-opacity="0"/>
+      <stop offset="0.72" stop-color="#77d7ff" stop-opacity="0.18"/>
+      <stop offset="0.88" stop-color="#3f9fff" stop-opacity="0.12"/>
+      <stop offset="1" stop-color="#3f9fff" stop-opacity="0"/>
+    </radialGradient>
+
+    <radialGradient id="ocean" cx="0.34" cy="0.28" r="0.86">
+      <stop offset="0" stop-color="#3f96d7"/>
+      <stop offset="0.45" stop-color="#17639f"/>
+      <stop offset="1" stop-color="#06213f"/>
+    </radialGradient>
+
+    <linearGradient id="land1" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#65a75a"/>
+      <stop offset="1" stop-color="#285f36"/>
+    </linearGradient>
+
+    <linearGradient id="land2" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#8db56a"/>
+      <stop offset="1" stop-color="#3b6b3b"/>
+    </linearGradient>
+
+    <linearGradient id="transferGrad" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#fff2a8"/>
+      <stop offset="0.5" stop-color="#ffbf47"/>
+      <stop offset="1" stop-color="#ff9a3c"/>
+    </linearGradient>
+
+    <linearGradient id="panelGrad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#0b1a2c" stop-opacity="0.94"/>
+      <stop offset="1" stop-color="#07111f" stop-opacity="0.92"/>
+    </linearGradient>
+
+    <filter id="softGlow" x="-80%" y="-80%" width="260%" height="260%">
+      <feGaussianBlur stdDeviation="10" result="b"/>
+      <feMerge>
+        <feMergeNode in="b"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+
+    <filter id="arcGlow" x="-25%" y="-80%" width="150%" height="260%">
+      <feGaussianBlur stdDeviation="7" result="b"/>
+      <feMerge>
+        <feMergeNode in="b"/>
+        <feMergeNode in="b"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+
+    <clipPath id="earthClip">
+      <circle cx="430" cy="400" r="70"/>
+    </clipPath>
+
+    <marker id="burnArrow" viewBox="0 0 12 12" refX="10" refY="6" markerWidth="7.5" markerHeight="7.5" orient="auto-start-reverse">
+      <path d="M1 1 L11 6 L1 11 Z" fill="#fff0a6"/>
+    </marker>
+
+    <marker id="dimArrow" viewBox="0 0 12 12" refX="10" refY="6" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M1 1 L11 6 L1 11 Z" fill="#8fd7ff"/>
+    </marker>
+
+    <path id="transferPath" d="M 513.333 400 A 166.667 144.338 0 0 0 180 400" fill="none"/>
+  </defs>
+
+  <!-- Background -->
+  <rect width="1200" height="720" fill="url(#bg)"/>
+  <rect width="1200" height="720" fill="url(#vignette)"/>
+
+  <!-- Restrained star field -->
+  <g fill="#ffffff">
+    <circle cx="92" cy="64" r="1.3" opacity="0.65"/>
+    <circle cx="148" cy="210" r="1.0" opacity="0.42"/>
+    <circle cx="218" cy="88" r="1.5" opacity="0.72"/>
+    <circle cx="254" cy="640" r="1.0" opacity="0.35"/>
+    <circle cx="316" cy="132" r="0.8" opacity="0.38"/>
+    <circle cx="362" cy="656" r="1.2" opacity="0.52"/>
+    <circle cx="426" cy="66" r="1.0" opacity="0.46"/>
+    <circle cx="502" cy="112" r="0.9" opacity="0.33"/>
+    <circle cx="594" cy="76" r="1.4" opacity="0.68"/>
+    <circle cx="638" cy="246" r="0.8" opacity="0.31"/>
+    <circle cx="688" cy="54" r="1.0" opacity="0.47"/>
+    <circle cx="716" cy="662" r="1.1" opacity="0.42"/>
+    <circle cx="760" cy="82" r="0.9" opacity="0.36"/>
+    <circle cx="842" cy="64" r="1.2" opacity="0.55"/>
+    <circle cx="926" cy="58" r="0.8" opacity="0.30"/>
+    <circle cx="1012" cy="72" r="1.3" opacity="0.62"/>
+    <circle cx="1108" cy="94" r="1.0" opacity="0.44"/>
+    <circle cx="1158" cy="184" r="0.9" opacity="0.34"/>
+    <circle cx="1166" cy="318" r="1.2" opacity="0.56"/>
+    <circle cx="1142" cy="446" r="0.8" opacity="0.30"/>
+    <circle cx="1170" cy="580" r="1.1" opacity="0.49"/>
+    <circle cx="1092" cy="656" r="0.9" opacity="0.35"/>
+    <circle cx="988" cy="672" r="1.0" opacity="0.42"/>
+    <circle cx="884" cy="682" r="0.8" opacity="0.28"/>
+    <circle cx="792" cy="670" r="1.2" opacity="0.54"/>
+    <circle cx="656" cy="680" r="0.9" opacity="0.36"/>
+    <circle cx="538" cy="674" r="1.0" opacity="0.44"/>
+    <circle cx="428" cy="688" r="0.8" opacity="0.30"/>
+    <circle cx="318" cy="676" r="1.1" opacity="0.50"/>
+    <circle cx="204" cy="664" r="0.9" opacity="0.36"/>
+    <circle cx="96" cy="652" r="1.2" opacity="0.58"/>
+    <circle cx="46" cy="514" r="0.8" opacity="0.30"/>
+    <circle cx="38" cy="386" r="1.0" opacity="0.44"/>
+    <circle cx="64" cy="254" r="0.9" opacity="0.36"/>
+    <circle cx="116" cy="126" r="1.1" opacity="0.52"/>
+    <circle cx="286" cy="232" r="0.8" opacity="0.26"/>
+    <circle cx="610" cy="176" r="0.8" opacity="0.24"/>
+    <circle cx="686" cy="318" r="0.8" opacity="0.24"/>
+    <circle cx="730" cy="452" r="0.8" opacity="0.22"/>
+    <circle cx="688" cy="582" r="0.8" opacity="0.22"/>
+    <circle cx="100" cy="590" r="0.8" opacity="0.22"/>
+    <circle cx="176" cy="540" r="0.8" opacity="0.24"/>
+    <circle cx="252" cy="590" r="0.8" opacity="0.22"/>
+    <circle cx="330" cy="628" r="0.8" opacity="0.22"/>
+    <circle cx="700" cy="120" r="0.8" opacity="0.22"/>
+    <circle cx="1080" cy="160" r="0.8" opacity="0.22"/>
+    <circle cx="1124" cy="250" r="0.8" opacity="0.22"/>
+    <circle cx="1132" cy="370" r="0.8" opacity="0.22"/>
+    <circle cx="1118" cy="520" r="0.8" opacity="0.22"/>
+    <circle cx="1064" cy="600" r="0.8" opacity="0.22"/>
+    <circle cx="950" cy="630" r="0.8" opacity="0.22"/>
+    <circle cx="830" cy="610" r="0.8" opacity="0.22"/>
+  </g>
+
+  <!-- Earth -->
+  <g>
+    <circle cx="430" cy="400" r="104" fill="url(#earthGlow)"/>
+    <circle cx="430" cy="400" r="70" fill="url(#ocean)"/>
+
+    <g clip-path="url(#earthClip)">
+      <!-- Stylized continents -->
+      <path d="M372 354 C390 340 416 342 426 357 C437 372 424 388 406 394 C386 401 366 388 362 372 C359 362 363 358 372 354 Z" fill="url(#land1)" opacity="0.92"/>
+      <path d="M438 346 C464 338 490 348 496 368 C502 390 488 412 464 418 C442 424 424 411 420 390 C416 369 424 351 438 346 Z" fill="url(#land2)" opacity="0.90"/>
+      <path d="M388 418 C404 410 424 418 428 434 C432 452 418 466 400 464 C382 462 372 448 374 434 C375 425 381 421 388 418 Z" fill="url(#land1)" opacity="0.88"/>
+      <path d="M464 430 C478 424 492 432 494 444 C496 458 486 468 472 468 C458 468 450 458 452 446 C453 438 458 433 464 430 Z" fill="url(#land2)" opacity="0.86"/>
+
+      <!-- Polar caps -->
+      <ellipse cx="430" cy="332" rx="46" ry="12" fill="#e8f8ff" opacity="0.58"/>
+      <ellipse cx="430" cy="468" rx="42" ry="11" fill="#e8f8ff" opacity="0.52"/>
+
+      <!-- Clouds -->
+      <path d="M358 378 C374 368 392 376 404 386 C418 398 436 401 452 395 C470 388 486 396 496 408" fill="none" stroke="#ffffff" stroke-opacity="0.28" stroke-width="8" stroke-linecap="round"/>
+      <path d="M370 424 C388 414 408 423 424 432 C442 442 462 442 478 434" fill="none" stroke="#ffffff" stroke-opacity="0.22" stroke-width="7" stroke-linecap="round"/>
+      <path d="M394 350 C410 342 430 350 446 358 C464 367 482 365 498 358" fill="none" stroke="#ffffff" stroke-opacity="0.20" stroke-width="6" stroke-linecap="round"/>
+
+      <!-- Terminator / lighting -->
+      <circle cx="486" cy="416" r="92" fill="#000814" opacity="0.26"/>
+      <circle cx="398" cy="368" r="70" fill="#ffffff" opacity="0.06"/>
+    </g>
+
+    <circle cx="430" cy="40

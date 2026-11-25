@@ -1,22 +1,42 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="720" height="213" viewBox="0 0 720 213" role="img" aria-labelledby="title desc" font-family="Segoe UI, Arial, sans-serif">
-<title id="title">BetterBench weighted single-stream decode</title>
-<desc id="desc">Basalt RTX Spark (UD-IQ3_XXS): 92.76 tok/s, Basalt + Arm64 port (UD-IQ3_XXS): 84.05 tok/s, Native vLLM for RTX Spark (FP4-Local): 54.19 tok/s</desc>
-<rect width="720" height="213" rx="12" fill="#101e26"/>
-<text x="22" y="33" font-size="23" font-weight="700" fill="#f0f6f5">BetterBench single-stream decode</text>
-<text x="698" y="32" text-anchor="end" font-size="16" fill="#b7c9d0">output tokens/s</text>
-<text x="22" y="68" font-size="17" font-weight="600" fill="#f0f6f5">Basalt RTX Spark</text>
-<text x="22" y="85" font-size="13" fill="#b7c9d0">UD-IQ3_XXS</text>
-<rect x="278" y="60" width="334" height="14" rx="4" fill="#243742"/>
-<rect x="278" y="60" width="334.00" height="14" rx="4" fill="#a6ed60"/>
-<text x="698" y="77" text-anchor="end" font-size="23" font-weight="700" fill="#a6ed60">92.76</text>
-<text x="22" y="117" font-size="17" font-weight="600" fill="#f0f6f5">Basalt + Arm64 port</text>
-<text x="22" y="134" font-size="13" fill="#b7c9d0">UD-IQ3_XXS</text>
-<rect x="278" y="109" width="334" height="14" rx="4" fill="#243742"/>
-<rect x="278" y="109" width="302.62" height="14" rx="4" fill="#9eb7c7"/>
-<text x="698" y="126" text-anchor="end" font-size="23" font-weight="700" fill="#9eb7c7">84.05</text>
-<text x="22" y="166" font-size="17" font-weight="600" fill="#f0f6f5">Native vLLM for RTX Spark</text>
-<text x="22" y="183" font-size="13" fill="#b7c9d0">FP4-Local</text>
-<rect x="278" y="158" width="334" height="14" rx="4" fill="#243742"/>
-<rect x="278" y="158" width="195.11" height="14" rx="4" fill="#9eb7c7"/>
-<text x="698" y="175" text-anchor="end" font-size="23" font-weight="700" fill="#9eb7c7">54.19</text>
+<svg xmlns="http://www.w3.org/2000/svg" width="710" height="284" viewBox="0 0 710 284" role="img" aria-labelledby="title desc" font-family="Segoe UI, Helvetica, Arial, sans-serif">
+<title id="title">BetterBench · decode and cold prefill</title>
+<desc id="desc">Single-stream decode: Basalt RTX Spark (UD-IQ3_XXS) 92.76 tok/s, Basalt RTX Spark (FP4-Local) 84.41 tok/s, Basalt + Arm64 port (UD-IQ3_XXS) 84.05 tok/s, Native vLLM for RTX Spark (FP4-Local) 54.19 tok/s. Cold prefill: Basalt RTX Spark (UD-IQ3_XXS) 1,767 tok/s, Basalt RTX Spark (FP4-Local) 1,606 tok/s, Basalt + Arm64 port (UD-IQ3_XXS) 967 tok/s, Native vLLM for RTX Spark (FP4-Local) 1,511 tok/s</desc>
+<rect width="710" height="284" rx="12" fill="#101e26"/>
+<text x="22" y="32" font-size="23" font-weight="700" fill="#f0f6f5">BetterBench · decode and cold prefill</text>
+<text x="280" y="59" font-size="16" font-weight="600" fill="#f0f6f5">Single-stream decode</text>
+<text x="280" y="76" font-size="12" fill="#b7c9d0">weighted output tok/s</text>
+<text x="280" y="108" font-size="19" font-weight="700" fill="#a6ed60">92.76</text>
+<rect x="280" y="114" width="179" height="6" rx="3" fill="#293b46"/>
+<rect x="280" y="114" width="179.00" height="6" rx="3" fill="#a6ed60"/>
+<text x="280" y="156" font-size="19" font-weight="700" fill="#7fdbca">84.41</text>
+<rect x="280" y="162" width="179" height="6" rx="3" fill="#293b46"/>
+<rect x="280" y="162" width="162.88" height="6" rx="3" fill="#7fdbca"/>
+<text x="280" y="204" font-size="19" font-weight="700" fill="#a8c1d0">84.05</text>
+<rect x="280" y="210" width="179" height="6" rx="3" fill="#293b46"/>
+<rect x="280" y="210" width="162.18" height="6" rx="3" fill="#a8c1d0"/>
+<text x="280" y="252" font-size="19" font-weight="700" fill="#a8c1d0">54.19</text>
+<rect x="280" y="258" width="179" height="6" rx="3" fill="#293b46"/>
+<rect x="280" y="258" width="104.57" height="6" rx="3" fill="#a8c1d0"/>
+<text x="483" y="59" font-size="16" font-weight="600" fill="#f0f6f5">Cold prefill</text>
+<text x="483" y="76" font-size="12" fill="#b7c9d0">input tok/s · 2K target</text>
+<text x="483" y="108" font-size="19" font-weight="700" fill="#a6ed60">1,767</text>
+<rect x="483" y="114" width="179" height="6" rx="3" fill="#293b46"/>
+<rect x="483" y="114" width="179.00" height="6" rx="3" fill="#a6ed60"/>
+<text x="483" y="156" font-size="19" font-weight="700" fill="#7fdbca">1,606</text>
+<rect x="483" y="162" width="179" height="6" rx="3" fill="#293b46"/>
+<rect x="483" y="162" width="162.63" height="6" rx="3" fill="#7fdbca"/>
+<text x="483" y="204" font-size="19" font-weight="700" fill="#a8c1d0">967</text>
+<rect x="483" y="210" width="179" height="6" rx="3" fill="#293b46"/>
+<rect x="483" y="210" width="97.97" height="6" rx="3" fill="#a8c1d0"/>
+<text x="483" y="252" font-size="19" font-weight="700" fill="#a8c1d0">1,511</text>
+<rect x="483" y="258" width="179" height="6" rx="3" fill="#293b46"/>
+<rect x="483" y="258" width="153.07" height="6" rx="3" fill="#a8c1d0"/>
+<text x="22" y="106" font-size="16" font-weight="600" fill="#f0f6f5">Basalt RTX Spark</text>
+<text x="22" y="123" font-size="13" fill="#b7c9d0">UD-IQ3_XXS</text>
+<text x="22" y="154" font-size="16" font-weight="600" fill="#f0f6f5">Basalt RTX Spark</text>
+<text x="22" y="171" font-size="13" fill="#b7c9d0">FP4-Local</text>
+<text x="22" y="202" font-size="16" font-weight="600" fill="#f0f6f5">Basalt + Arm64 port</text>
+<text x="22" y="219" font-size="13" fill="#b7c9d0">UD-IQ3_XXS</text>
+<text x="22" y="250" font-size="16" font-weight="600" fill="#f0f6f5">Native vLLM for RTX Spark</text>
+<text x="22" y="267" font-size="13" fill="#b7c9d0">FP4-Local</text>
 </svg>

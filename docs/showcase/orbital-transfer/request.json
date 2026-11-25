@@ -1,0 +1,15 @@
+{
+  "model": "flash-next",
+  "messages": [
+    {
+      "role": "user",
+      "content": "Create a self-contained animated SVG for a science museum exhibit titled “The Long Way Up”. A small probe must travel from a circular Earth orbit of radius 7,000 km to one of radius 21,000 km. Use an ideal coplanar Hohmann transfer and μ = 398,600 km³/s². Work out the two changes in speed (km/s, two decimal places) and the coast time (nearest minute). Show where the probe burns and which direction each burn points.\n\nMake the geometry part of the explanation. Draw the two circular orbits to the same scale around Earth and show the transfer from the right-hand point of the inner orbit to the left-hand point of the outer orbit across the top. Use native SVG animation to fly a small space probe along your transfer path on an eight-second loop. Make it clear that the distances are measured from Earth's center.\n\nDesign this as a landscape 1200 × 720 editorial illustration. Give Earth a distinctive illustrated surface and atmosphere. Use a restrained dark star field, a bright transfer arc, and large, clean type. Keep labels clear of flight paths and keep the complete story readable in a still frame. Return only valid SVG markup in your final answer. Use local SVG elements, text and animation, with no scripts, external assets, or fonts to download."
+    }
+  ],
+  "temperature": 0.6,
+  "top_p": 0.95,
+  "seed": 17,
+  "reasoning_effort": "medium",
+  "max_tokens": 32768,
+  "stream": false
+}

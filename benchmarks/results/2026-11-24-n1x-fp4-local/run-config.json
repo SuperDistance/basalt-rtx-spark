@@ -1,0 +1,54 @@
+{
+  "executable_sha256": "705cb1b0e0632358a728d8d855abb8a77d066cf596775efb6107f48900909f98",
+  "checkout_sha": "f77202987de144326bf19d531cafce5f6c43e766",
+  "native_source": "bd05fdf80da36d52f7e7b1978d635243c7aff6cc",
+  "pack": "Qwen3.8-Flash-Next FP4-Local (.basalt conversion)",
+  "defaults": {
+    "context": [
+      262144,
+      262144,
+      262144,
+      262144
+    ],
+    "reply_tokens": 3,
+    "line": "[server] flash-next  batch=4 ctx=262144 kv=int8 spec=8 temp=1.0 top_p=0.95 top_k=20"
+  },
+  "placement": "[server] auto     ram-experts=3.1GB pool-affinity=auto pool=14",
+  "expert_cache": "basalt generate: expert cache auto: 79.95 GiB free, 700 MiB reserved (+39 MiB for the draft head, +208 MiB for what loads after) -> 24576 slots",
+  "expert_cache_allocation": "basalt generate: expert cache 24576 slots, 63.29 GiB of VRAM; policy is",
+  "gpu_memory_gib": 96,
+  "device": "HP OmniBook X, RTX Spark N1X, 128 GiB unified memory, Windows 11 on Arm64, NVIDIA 621.24",
+  "gpu_power_limit_w": null,
+  "windows_base_scheme": "Balanced",
+  "spark_profile": "Performance",
+  "cooling_mode": "Configured HP Performance firmware table",
+  "clock_cap_mhz": null,
+  "fan_rpm": null,
+  "cold_prefill_staging": {
+    "log_entries": 692,
+    "entries_with_staged_blobs": 10,
+    "first_chunk_rows_with_staged_blobs": 23546,
+    "max_staged_blobs_in_entry": 1584,
+    "max_cpu_experts_in_entry": 0,
+    "observed_example": "basalt prefill: direct RAM expert groups for 23546 prompt rows: 362; staged 1563 blobs (0 by DMA) in 868.7 ms of host time, 17466 resident groups, 0 CPU experts, 1 chunks in 11232 ms",
+    "large_prompt_buffer_example": "basalt serve: prompt buffers: 4.10 GiB outside the full expert cache for a 15360-token chunk (767 lent slots would require file reads)",
+    "large_prompt_chunk_example": "basalt prefill: direct RAM expert groups for 15360 prompt rows: 0; staged 0 blobs (0 by DMA) in 0.0 ms of host time, 17853 resident groups, 0 CPU experts, 1 chunks in 5892 ms"
+  },
+  "model_file": "Qwen3.8-FN-FP4-Local.basalt",
+  "model_file_bytes": 131681981152,
+  "ngram_table_read": "[server] warning: table read through the file cache: no room for a 50.7 GiB copy beside the model (8.0 GiB free)",
+  "timed_phase_power_source": [
+    {
+      "ac": "0",
+      "samples": 10,
+      "first": "2026-11-24T15:37:09.2537177-08:00",
+      "last": "2026-11-24T15:37:27.3925846-08:00"
+    },
+    {
+      "ac": "1",
+      "samples": 1046,
+      "first": "2026-11-24T15:37:29.3783122-08:00",
+      "last": "2026-11-24T16:12:27.5766940-08:00"
+    }
+  ]
+}

@@ -3,7 +3,7 @@
 
     python benchmarks/plot.py --out benchmarks/img --prefix paired A.json "Label A" B.json "Label B" [...]
 
-Writes <prefix>-overview.svg (weighted single-stream decode), <prefix>-decode.svg (single-stream decode by scenario), <prefix>-concurrency.svg (aggregate output at each
+Writes <prefix>-overview.svg (weighted decode and median cold prefill at the 2K target), <prefix>-decode.svg (single-stream decode by scenario), <prefix>-concurrency.svg (aggregate output at each
 concurrency) and <prefix>-prefill.svg (prefill by prompt depth) into --out, and prints a markdown table of the
 per-scenario decode medians and the weighted median. Standard library only. The first file is drawn as the subject;
 compare only runs made in the same power state (benchmarks/README.md).
@@ -18,7 +18,7 @@ import sys
 from pathlib import Path
 from xml.sax.saxutils import escape
 
-COLORS = ("#76B900", "#7A8794", "#3B82C4", "#E0A030", "#9B59B6")
+COLORS = ("#76B900", "#008675", "#7A8794", "#3B82C4", "#9B59B6")
 SCENARIOS = ("chat", "code", "file_edit", "json", "math", "prose", "reasoning", "summarization")
 
 
@@ -38,6 +38,17 @@ def load(path: Path) -> dict:
 def bars(title: str, unit: str, groups: list[str], series: list[tuple[str, list[float | None]]], path: Path) -> None:
     """A grouped bar chart as SVG: one group per x label, one bar per series, the value above each bar."""
     W, H, L, R, T, B = 920, 420, 64, 20, 64, 70
+    legend = []
+    lx, row = L, 0
+    for name, _ in series:
+        label_width = 30 + 7 * len(name)
+        if lx > L and lx + label_width > W - R:
+            lx, row = L, row + 1
+        legend.append((lx, row))
+        lx += label_width
+    legend_top = H - 26
+    H += 22 * row
+    B += 22 * row
     pw, ph = W - L - R, H - T - B
     top = max((v for _, vals in series for v in vals if v is not None), default=1.0)
     step = 10.0 ** math.floor(math.log10(max(top, 1.0)))   # a round step: 1, 2 or 5 times a power of ten
@@ -70,52 +81,60 @@ def bars(title: str, unit: str, groups: list[str], series: list[tuple[str, list[
                        f'{v:,.0f}</text>')
         out.append(f'<text x="{L + gi * gw + gw / 2:.1f}" y="{T + ph + 18}" font-size="12" text-anchor="middle" fill="#1f2328">'
                    f'{escape(g)}</text>')
-    lx = L
-    for si, (name, _) in enumerate(series):   # legend
-        out.append(f'<rect x="{lx}" y="{H - 26}" width="12" height="12" rx="2" fill="{COLORS[si % len(COLORS)]}"/>')
-        out.append(f'<text x="{lx + 18}" y="{H - 16}" font-size="12" fill="#1f2328">{escape(name)}</text>')
-        lx += 30 + 7 * len(name)
+    for si, (name, _) in enumerate(series):
+        lx, row = legend[si]
+        ly = legend_top + 22 * row
+        out.append(f'<rect x="{lx}" y="{ly}" width="12" height="12" rx="2" fill="{COLORS[si % len(COLORS)]}"/>')
+        out.append(f'<text x="{lx + 18}" y="{ly + 10}" font-size="12" fill="#1f2328">{escape(name)}</text>')
     out.append("</svg>")
     path.write_text("\n".join(out) + "\n", encoding="utf-8")
 
 
 def overview(runs: list[tuple[str, dict]], path: Path) -> None:
-    """Label the weighted decode scores directly so the opening chart fits a narrow screen."""
-    scores = [(name, run["weighted"]) for name, run in runs if run["weighted"] is not None]
-    if not scores:
+    """Compare output generation and cold prompt reading with a separate scale for each rate."""
+    rows = [(label, run) for label, run in runs if run["weighted"] is not None]
+    if not rows:
         return
-    row_height = 49
-    height = 66 + row_height * len(scores)
-    width = 720
-    # Reserve room for longer engine labels as well as their scores.
-    names = [label.rsplit(" (", 1)[0] for label, _ in scores]
-    bar_x = max(210, 28 + 10 * max(map(len, names)))
-    width = max(width, bar_x + 350)
-    span = width - bar_x - 108
-    maximum = max(max(score for _, score in scores), 1)
-    desc = ", ".join(f"{name}: {score:.2f} tok/s" for name, score in scores)
+    metrics = [("Single-stream decode", "weighted output tok/s", [run["weighted"] for _, run in rows], ".2f")]
+    prefill = [run["prefill"].get(2000) for _, run in rows]
+    if any(rate is not None for rate in prefill):
+        metrics.append(("Cold prefill", "input tok/s · 2K target", prefill, ",.0f"))
+
+    title = "BetterBench · decode and cold prefill" if len(metrics) == 2 else "BetterBench · single-stream decode"
+    names = [label.rsplit(" (", 1)[0] if label.endswith(")") else label for label, _ in rows]
+    label_width = max(225, 30 + 10 * max(map(len, names)))
+    col_width, row_height = 203, 48
+    width = label_width + col_width * len(metrics) + 24
+    height = 92 + row_height * len(rows)
+    desc = ". ".join(f"{heading}: " + ", ".join(
+        f"{label} {rate:{fmt}} tok/s" for (label, _), rate in zip(rows, rates) if rate is not None
+    ) for heading, _, rates, fmt in metrics)
     out = [f'<svg xmlns="http://www.w3.org/2000/svg" width="{width}" height="{height}" viewBox="0 0 {width} {height}" '
-           'role="img" aria-labelledby="title desc" font-family="Segoe UI, Arial, sans-serif">',
-           '<title id="title">BetterBench weighted single-stream decode</title>',
-           f'<desc id="desc">{escape(desc)}</desc>',
+           'role="img" aria-labelledby="title desc" font-family="Segoe UI, Helvetica, Arial, sans-serif">',
+           f'<title id="title">{title}</title>', f'<desc id="desc">{escape(desc)}</desc>',
            f'<rect width="{width}" height="{height}" rx="12" fill="#101e26"/>',
-           '<text x="22" y="33" font-size="23" font-weight="700" fill="#f0f6f5">BetterBench single-stream decode</text>',
-           f'<text x="{width - 22}" y="32" text-anchor="end" font-size="16" fill="#b7c9d0">output tokens/s</text>']
-    for i, (label, score) in enumerate(scores):
-        y = 57 + row_height * i
-        name, bracket, pack = label.rpartition(" (")
-        if not bracket or not pack.endswith(")"):
-            name, pack = label, ""
-        else:
-            pack = pack[:-1]
-        color = "#a6ed60" if i == 0 else "#9eb7c7"
-        out.append(f'<text x="22" y="{y + 11}" font-size="17" font-weight="600" fill="#f0f6f5">{escape(name)}</text>')
+           f'<text x="22" y="32" font-size="23" font-weight="700" fill="#f0f6f5">{title}</text>']
+    for col, (heading, unit, rates, fmt) in enumerate(metrics):
+        x = label_width + col * col_width
+        out.append(f'<text x="{x}" y="59" font-size="16" font-weight="600" fill="#f0f6f5">{escape(heading)}</text>')
+        out.append(f'<text x="{x}" y="76" font-size="12" fill="#b7c9d0">{escape(unit)}</text>')
+        maximum = max((rate for rate in rates if rate is not None), default=1) or 1
+        for i, rate in enumerate(rates):
+            if rate is None:
+                continue
+            y = 100 + row_height * i
+            color = "#a6ed60" if i == 0 else "#7fdbca" if names[i] == names[0] else "#a8c1d0"
+            span = col_width - 24
+            out.append(f'<text x="{x}" y="{y + 8}" font-size="19" font-weight="700" fill="{color}">{rate:{fmt}}</text>')
+            out.append(f'<rect x="{x}" y="{y + 14}" width="{span}" height="6" rx="3" fill="#293b46"/>')
+            out.append(f'<rect x="{x}" y="{y + 14}" width="{span * rate / maximum:.2f}" height="6" rx="3" fill="{color}"/>')
+    for i, (label, _) in enumerate(rows):
+        y = 100 + row_height * i
+        name = names[i]
+        pack = label[len(name):].strip(" ()")
+        out.append(f'<text x="22" y="{y + 6}" font-size="16" font-weight="600" fill="#f0f6f5">{escape(name)}</text>')
         if pack:
-            out.append(f'<text x="22" y="{y + 28}" font-size="13" fill="#b7c9d0">{escape(pack)}</text>')
-        out.append(f'<rect x="{bar_x}" y="{y + 3}" width="{span}" height="14" rx="4" fill="#243742"/>')
-        out.append(f'<rect x="{bar_x}" y="{y + 3}" width="{span * score / maximum:.2f}" height="14" rx="4" fill="{color}"/>')
-        out.append(f'<text x="{width - 22}" y="{y + 20}" text-anchor="end" font-size="23" font-weight="700" '
-                   f'fill="{color}">{score:.2f}</text>')
+            out.append(f'<text x="22" y="{y + 23}" font-size="13" fill="#b7c9d0">{escape(pack)}</text>')
     out.append("</svg>")
     path.write_text("\n".join(out) + "\n", encoding="utf-8")
 
@@ -138,7 +157,7 @@ def main() -> int:
     bars("Aggregate output by concurrency", "tok/s", [f"{lv} stream{'s' if lv > 1 else ''}" for lv in levels],
          [(n, [r["conc"].get(lv) for lv in levels]) for n, r in runs], a.out / f"{a.prefix}-concurrency.svg")
     depths = sorted({dp for _, r in runs for dp in r["prefill"]})
-    bars("Prefill by prompt depth (median)", "tok/s", [f"{dp // 1000}K" for dp in depths],
+    bars("Cold prefill by target prompt depth (median)", "input tok/s", [f"{dp // 1000}K" for dp in depths],
          [(n, [r["prefill"].get(dp) for dp in depths]) for n, r in runs], a.out / f"{a.prefix}-prefill.svg")
     print("| Scenario | " + " | ".join(n for n, _ in runs) + " |")
     print("| --- |" + " ---: |" * len(runs))

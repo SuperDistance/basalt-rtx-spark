@@ -1,0 +1,45 @@
+{
+  "source": "Native request completion lines, matched against every measured HTTP completion-token count. Warmups excluded. The server prints tokens/window to one decimal and acceptance to whole percentage points.",
+  "categories": {
+    "chat": {
+      "requests": 20,
+      "tokens_per_window_median": 2.75,
+      "draft_acceptance_pct_median": 75.0
+    },
+    "code": {
+      "requests": 20,
+      "tokens_per_window_median": 3.25,
+      "draft_acceptance_pct_median": 82.0
+    },
+    "file_edit": {
+      "requests": 20,
+      "tokens_per_window_median": 4.1,
+      "draft_acceptance_pct_median": 90.0
+    },
+    "json": {
+      "requests": 20,
+      "tokens_per_window_median": 4.7,
+      "draft_acceptance_pct_median": 82.0
+    },
+    "math": {
+      "requests": 20,
+      "tokens_per_window_median": 4.5,
+      "draft_acceptance_pct_median": 81.0
+    },
+    "prose": {
+      "requests": 20,
+      "tokens_per_window_median": 2.3,
+      "draft_acceptance_pct_median": 68.0
+    },
+    "reasoning": {
+      "requests": 20,
+      "tokens_per_window_median": 2.75,
+      "draft_acceptance_pct_median": 75.0
+    },
+    "summarization": {
+      "requests": 20,
+      "tokens_per_window_median": 3.6500000000000004,
+      "draft_acceptance_pct_median": 75.0
+    }
+  }
+}

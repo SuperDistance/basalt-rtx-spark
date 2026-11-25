@@ -1,32 +1,37 @@
-# Benchmarks
+# N1X performance results
 
 Run the [production feature coverage workloads](feature-coverage.md) alongside each BetterBench comparison. The cold-join check submits an uncached fourth prompt after three streams are producing output and verifies their progress during prefill.
 
-Measure native Windows Arm64 serving on the RTX Spark N1X with the shared BetterBench 0.6.1 configuration. On another laptop, record its GPU memory split and cooling profile alongside the results. [BetterBench](https://github.com/GGZ14/BetterBench) · [Contribute a result](#contributing-a-result)
+Measure native Windows Arm64 serving on the RTX Spark N1X with the [shared BetterBench preset](betterbench-config.json). [Run it on your laptop](#running-it) · [Contribute a result](#contributing-a-result)
 
-## Results
+## Engine comparison
 
 All three engines ran Qwen3.8-Flash-Next on the same RTX Spark N1X laptop with 128 GB of unified memory and a 96 GB GPU allocation. BetterBench 0.6.1 used the same 392-request workload in each run.
 
 | Engine | Weight pack tested | Weighted single-stream decode (tok/s) | Short-prompt time to first token (ms) | Four-stream mixed throughput (tok/s) |
 | --- | --- | ---: | ---: | ---: |
 | Basalt RTX Spark | `UD-IQ3_XXS` | **92.76** | 280 | **112.10** |
+| Basalt RTX Spark | `FP4-Local` | 84.41 | 369 | 94.13 |
 | Basalt + Arm64 port | `UD-IQ3_XXS` | 84.05 | 619 | 85.23 |
 | Native vLLM for RTX Spark 0.2.0 | `FP4-Local` (NVFP4 / MXFP8) | 54.19 | **271** | 100.75 |
 
-Both Basalt engines ran the same 392-request BetterBench preset with UD-IQ3_XXS, INT8 KV, four slots and MTP 8. The release ran first and the Arm64 port second with the same physical cooling. Busy GPU power during single-stream decode averaged 47.5 W and 49.2 W respectively. The vLLM result is from an earlier run on the same laptop, using FP4-Local, FP8 target KV and MTP 7. The driver did not expose a power limit. [Cooled run records](results/2026-11-24-n1x-cooled-release) · [vLLM run](results/2026-11-24-n1x-verified-default/vllm)
+Basalt used four slots, INT8 KV and MTP 8 in all three runs. The two cooled IQ3 runs averaged 47.5 W GPU during busy decode on the release and 49.2 W on the port. The separate release run with FP4-Local averaged 44.55 W and read the n-gram table through the Windows file cache. The first 21 s of its opening chat phase ran on battery. Native vLLM ran earlier at 35.0 W with FP4-Local, FP8 target KV and MTP 7. Power varied across runs. [IQ3 runs](results/2026-11-24-n1x-cooled-release) · [FP4-Local run](results/2026-11-24-n1x-fp4-local) · [vLLM](results/2026-11-24-n1x-verified-default/vllm)
 
 **Published SPEED-Bench coding results on Windows Arm64.** For 80 Flash-Next coding conversations, NVIDIA reports **36.58 tok/s** for llama.cpp b11901 with the three-shard UD-IQ4_XS GGUF and MTP. The native vLLM for RTX Spark project reports **70.44 tok/s** using FP4-Local and its own client. The **54.19 tok/s** in the table above is our weighted BetterBench measurement of the Windows Arm64 vLLM port. [NVIDIA measurement](https://github.com/NVIDIA/local-ai-inference-recipes/blob/bb515086841e7a81e7d51925561338e7dee35023/models/qwen/qwen3.8-flash-next/rtx-spark/windows/llama-cpp/78gb/iq4-xs/vision-mtp/performance.yaml) · [Native vLLM benchmark](https://github.com/devjeonghwan/vllm-for-rtx-spark/blob/e9412963ff4619da5f97f8b5e3c2dd274967df87/README.md#nvidia-reference)
+
+**Cold prompt reading on IQ3.** At the 2K target the release reached 1,767 input tok/s versus 967 on the Arm64 port (+82.7%). Median time to first token fell from 1.59 to 0.88 seconds (−44.8%). Each engine processed eight prompts in this group, spanning 1,522–1,593 actual tokens across both runs. At the 64K target, around 47,100 actual tokens, throughput rose from 1,999 to 2,288 tok/s (+14.5%). Across the five tested depths the throughput gain ranged from 7.2% to 82.7%. [Per-depth samples](results/2026-11-24-n1x-cooled-release)
+
+On FP4-Local, Basalt read faster at four of five depths. Native vLLM led at the 32K target (**2,123 vs 1,961 input tok/s**) and in four-stream mixed throughput. Busy decode averaged 44.55 W GPU for Basalt and 35.02 W for vLLM. The engines used different KV formats. [FP4-Local measurements](results/2026-11-24-n1x-fp4-local)
+
+![Cold prefill throughput by prompt depth · Basalt RTX Spark, Basalt + Arm64 port, vLLM for RTX Spark](img/engines-prefill.svg)
 
 ![Single-stream decode by scenario · Basalt RTX Spark, Basalt + Arm64 port, vLLM for RTX Spark](img/engines-decode.svg)
 
 ![Aggregate throughput at one to four streams · Basalt RTX Spark, Basalt + Arm64 port, vLLM for RTX Spark](img/engines-concurrency.svg)
 
-![Cold prefill throughput by prompt depth · Basalt RTX Spark, Basalt + Arm64 port, vLLM for RTX Spark](img/engines-prefill.svg)
-
 ### Supported quantizations and single-stream decode rates
 
-The documented Flash-Next weight packs for both Basalt engines include `NVFP4-DQ6_K`, `NVFP4-DQ8`, `UD-IQ1_S`, `UD-IQ1_M`, `UD-IQ2_XS`, `UD-IQ3_XXS`, `UD-IQ4_XS`, `UD-Q4_K_XL`, `UD-Q5_K_XL`, `UD-Q6_K_XL`, `Q8_0`. Basalt RTX Spark also ran NVIDIA `FP4-Local` converted to `.basalt`. The vLLM for RTX Spark 0.2.0 recipe for Flash-Next uses `FP4-Local`. The table above gives BetterBench throughput for the packs tested. [Basalt pack catalog](../docs/models/qwen38-flash-next.md#pack) · [vLLM release recipes](https://github.com/devjeonghwan/vllm-for-rtx-spark/blob/e9412963ff4619da5f97f8b5e3c2dd274967df87/README.md)
+The documented Flash-Next weight packs for both Basalt engines include `NVFP4-DQ6_K`, `NVFP4-DQ8`, `UD-IQ1_S`, `UD-IQ1_M`, `UD-IQ2_XS`, `UD-IQ3_XXS`, `UD-IQ4_XS`, `UD-Q4_K_XL`, `UD-Q5_K_XL`, `UD-Q6_K_XL`, `Q8_0`. Basalt RTX Spark also completed BetterBench with NVIDIA `FP4-Local` converted to `.basalt`. The vLLM for RTX Spark 0.2.0 recipe for Flash-Next uses `FP4-Local`. The table above gives BetterBench throughput for the packs tested. [Basalt pack catalog](../docs/models/qwen38-flash-next.md#pack) · [vLLM release recipes](https://github.com/devjeonghwan/vllm-for-rtx-spark/blob/e9412963ff4619da5f97f8b5e3c2dd274967df87/README.md)
 
 Earlier N1X single-request tests measured output tokens per second for three prompt types. The ranges span two runs per pack.
 
@@ -45,9 +50,11 @@ From the repository root, regenerate the charts with PowerShell.
 
 ```powershell
 $run = 'benchmarks/results/2026-11-24-n1x-cooled-release'
+$fp4 = 'benchmarks/results/2026-11-24-n1x-fp4-local/results.json'
 $vllm = 'benchmarks/results/2026-11-24-n1x-verified-default/vllm/results.json'
 python benchmarks/plot.py --out benchmarks/img --prefix engines `
   "$run/release/results.json" 'Basalt RTX Spark (UD-IQ3_XXS)' `
+  $fp4 'Basalt RTX Spark (FP4-Local)' `
   "$run/arm-port/results.json" 'Basalt + Arm64 port (UD-IQ3_XXS)' `
   $vllm 'Native vLLM for RTX Spark (FP4-Local)'
 ```
@@ -55,7 +62,7 @@ python benchmarks/plot.py --out benchmarks/img --prefix engines `
 ## Running it
 
 1. Install BetterBench 0.6.1 (`pip install -e .` in a clone of its repository; Python 3.10+).
-2. Start the server with the config you are measuring (the one these runs used is in the [setup guide](../docs/rtx-spark-setup.md#install)).
+2. Start the server with the config you are measuring (the one these runs used is in the [setup guide](../docs/rtx-spark-setup.md)).
 3. From this repository’s root, run BetterBench in PowerShell. Set the pack and memory split to match the server you started. The build ID should identify its binary or source revision.
 
    ```powershell
@@ -79,7 +86,7 @@ On the N1X the GPU boosts to about 55-60 W, and on some laptops it then settles 
 eight minutes into a load, which takes 20-40% off the later phases of a run. Holding the budget up (for example by
 re-applying the laptop's performance thermal profile when it starts to decline) keeps it around 40-55 W. Say which
 state your run was in and include the GPU log; compare runs only when they ran in the same state, ideally back to back.
-See [GPU power on the N1X](../docs/n1x-gpu-power.md).
+See [the GPU power measurements](results/2026-11-24-n1x-verified-default/power-method.md).
 
 ## Contributing a result
 
