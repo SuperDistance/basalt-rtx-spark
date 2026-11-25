@@ -287,20 +287,6 @@ def parse_settings(ap: argparse.ArgumentParser, cli: list[str], server_argv=(), 
     return a, file_argv + cli, file_words, cli_words
 
 
-def spark_slot_defaults(plan: dict, parallel: int | None, words: tuple[str, ...]) -> list[str]:
-    """Native arguments for implicit Flash-Next slots on a single RTX Spark N1X."""
-    cards = plan.get("cards") or []
-    if (parallel is not None or "--batch" in words or "--slots" in words or plan.get("arch") != "qwen4exp"
-            or len(cards) != 1 or "rtx spark n1x" not in (cards[0].get("name") or "").lower()):
-        return []
-    defaults = ["--batch", "4"]
-    if "--max-context" not in words:
-        defaults += ["--max-context", "262144"]
-    if "--kv" not in words:
-        defaults += ["--kv", "int8"]
-    return defaults
-
-
 def check_engine_flags(words: list[str], known: set[str] | None, where: str) -> None:
     """ValueError naming the first flag (a word starting with `--`) the engine rejects; value words are not names
     (unchecked when the binary is unreadable)."""
