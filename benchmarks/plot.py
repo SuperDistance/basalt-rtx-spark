@@ -45,7 +45,7 @@ def engine_labels(labels: list[str]) -> tuple[list[str], list[str], int]:
 
 def grouped_rates(title, unit, groups, series, path, names, packs, project_count):
     """Label every value by row and column so both the engine and its pack are readable without color."""
-    left, col, row = 116, 127, 39
+    left, col, row = 116, (114 if len(series) > 4 else 127), 39
     width, height = left + col * len(series) + 12, 142 + row * len(groups)
     title = escape(title)
     desc = ". ".join(f"{group}: " + ", ".join(
@@ -82,7 +82,11 @@ def grouped_rates(title, unit, groups, series, path, names, packs, project_count
             strong = k == 0
             out.append(f'<text x="{x}" y="{84 + k * 16}" font-size="{14 if strong else 12}" '
                        f'font-weight="{600 if strong else 400}" fill="#22353b">{escape(label)}</text>')
-        color = COLORS[j % len(COLORS)]
+        if j < project_count:
+            palette, index = ("#76B900", "#008675", "#518255"), j
+        else:
+            palette, index = ("#7A8794", "#3B82C4", "#9B59B6"), j - project_count
+        color = palette[index % len(palette)]
         for i, v in enumerate(rates):
             if v is None:
                 continue
@@ -198,7 +202,8 @@ def overview(runs: list[tuple[str, dict]], path: Path) -> None:
             if rate is None:
                 continue
             y = row_y[i]
-            color = "#a6ed60" if i == 0 else "#7fdbca" if names[i] == names[0] else "#a8c1d0"
+            project_ink = ("#a6ed60", "#7fdbca", "#acd9aa")
+            color = project_ink[i % len(project_ink)] if i == 0 or i < peer_start else "#a8c1d0"
             span = col_width - 19
             out.append(f'<text x="{x}" y="{y + 8}" font-size="21" font-weight="700" fill="{color}">{rate:{fmt}}</text>')
             out.append(f'<rect x="{x}" y="{y + 14}" width="{span}" height="6" rx="3" fill="#293b46"/>')

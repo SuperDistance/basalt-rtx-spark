@@ -1,0 +1,12 @@
+{
+  "time": "2026-11-24T18:44:04.034527-08:00",
+  "met": true,
+  "target": "60s idle after load; median GPU <=50 C, median SoC <=65 C, zero busy samples",
+  "stats": {
+    "seconds_waited": 220.2,
+    "samples": 29,
+    "gpu_median": 50.0,
+    "soc_median": 54.8,
+    "gpu_busy_samples": 0
+  }
+}
