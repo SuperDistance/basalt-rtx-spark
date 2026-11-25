@@ -15,6 +15,7 @@ import unittest
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+from serve.models import spark_slot_defaults  # noqa: E402
 from serve.config import (  # noqa: E402
     CONFIG_VERSION,
     ENTRY_OPTIONS,
@@ -30,7 +31,6 @@ from serve.config import (  # noqa: E402
     parse_settings,
     sampling_defaults_from_config,
     sampling_items,
-    spark_slot_defaults,
     start_items,
     model_line,
     server_options,

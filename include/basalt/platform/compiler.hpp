@@ -156,6 +156,20 @@ inline float f16_round(float x) {
 #endif
 }
 
+/// An IEEE half, given as its bits, widened to float (exact). MSVC has no half type: on Arm64 its NEON widening is the
+/// same fcvt, on x86 the F16C one.
+inline float f16_bits_to_f32(uint16_t h) {
+#if defined(BASALT_ARCH_ARM64) && defined(_MSC_VER) && !defined(__clang__)
+    return vgetq_lane_f32(vcvt_f32_f16(vreinterpret_f16_u16(vdup_n_u16(h))), 0);
+#elif defined(_MSC_VER) && !defined(__clang__)
+    return _mm_cvtss_f32(_mm_cvtph_ps(_mm_cvtsi32_si128((int) h)));
+#else
+    _Float16 x;
+    __builtin_memcpy(&x, &h, sizeof(x));
+    return (float) x;
+#endif
+}
+
 /// Whether this CPU, and the OS saving its AVX-512 state, can run AVX512_BF16 with AVX512BW.
 inline bool cpu_has_avx512_bf16() {
 #if !defined(BASALT_ARCH_X86)

@@ -2,6 +2,7 @@
 #include "nvfp4_i8mm.hpp"
 
 #include <arm_neon.h>
+#include "basalt/platform/compiler.hpp"
 #include <cassert>
 #include <cstring>
 
@@ -11,17 +12,7 @@
 #include "basalt/ggml/ggml.h"
 
 #define UNUSED(...) (void)(__VA_ARGS__)
-#if defined(_MSC_VER) && !defined(__clang__)
-static inline float fp16_to_float(ggml_half value) {
-    return vgetq_lane_f32(vcvt_f32_f16(vreinterpret_f16_u16(vdup_n_u16(value))), 0);
-}
-#else
-static inline float fp16_to_float(ggml_half value) {
-    __fp16 half;
-    std::memcpy(&half, &value, sizeof(half));
-    return half;
-}
-#endif
+static inline float fp16_to_float(ggml_half value) { return basalt::platform::f16_bits_to_f32(value); }
 #define GGML_CPU_FP16_TO_FP32 fp16_to_float
 #include "ggml/ggml_nvfp4_neon.inc"
 #undef GGML_CPU_FP16_TO_FP32

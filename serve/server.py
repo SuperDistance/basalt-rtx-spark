@@ -25,7 +25,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))   # also runnable a
 from serve import ROOT, service  # noqa: E402
 from serve.config import (build_parser, check_engine_flags,  # noqa: E402
                           engine_flags_of, grammar_words, model_line, model_settings, sampling_defaults_from_config,
-                          sampling_items, shared_line, slot_share, spark_slot_defaults, start_items, with_spec)
+                          sampling_items, shared_line, slot_share, start_items, with_spec)
 from serve.engine import process as engine_process  # noqa: E402
 from serve.engine.errors import EngineStartError  # noqa: E402
 from serve.engine.image_source import image_sources_of  # noqa: E402
@@ -34,7 +34,7 @@ from serve.engine.mock import MockEngine  # noqa: E402
 from serve.engine.process import ProcessEngine  # noqa: E402
 from serve.engine.vision import (EngineVision, Vision, check_gpu, child_env, engine_args, flag_refused, gpu_card_name,  # noqa: E402
                                  gpu_text, gpus_in_play, model_plan, vision_card, vision_env, vision_item)
-from serve.models import dialect_for  # noqa: E402
+from serve.models import dialect_for, spark_slot_defaults  # noqa: E402
 from serve.handler import Server, serve  # noqa: E402
 from serve.security import (LOOPBACK_NAMES, allowed_hosts_of, api_key_of, exposed_without_key,  # noqa: E402
                             lan_addresses, origins_of)
