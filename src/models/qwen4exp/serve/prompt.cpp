@@ -2,6 +2,7 @@
 #include "basalt/models/qwen4exp/shared_names.hpp"
 #include "basalt/core/device_memory.hpp"
 #include "basalt/core/ram_load.hpp"
+#include "../prefill/layout.hpp"
 #include "qfn_request.hpp"
 
 namespace basalt::models::qwen4exp::serve {
@@ -67,12 +68,13 @@ bool QfnRuntime::release_segmented_prompt(std::string& e) {
     PfPart& p = pf_parts[0];
     // Outside lend, the default ring limit is in force. Rebind without writing to the cache: relayout waits
     // for both streams, including an interrupted read.
-    basalt::prefill::Prefill::set_ring_depth(p.sp->ring_depth());
+    basalt::prefill::Prefill::set_ring_depth(owned_prompt_rebind_ring);
     const bool rebound = p.sp->relayout(p.sp->chunk(), p.cache->device_slot(p.first_now), part_bytes(p, p.first_now), e);
     basalt::prefill::Prefill::set_ring_depth(1 << 20);
     if (!rebound) return false;
     owned_prompt.reset();
     owned_prompt_bytes = 0;
+    owned_prompt_rebind_ring = 0;
     return true;
 }
 
@@ -279,14 +281,28 @@ bool QfnRequest::lend(int64_t tokens, std::string& e, int64_t chunk, int64_t hea
             const int32_t first = std::max<int32_t>(p.first, (int32_t) (p.cache->slots() - runtime_.part_slots(p, want)));
             const int64_t file_slots = !loan_reads_in_place && prompt_scratch_device() ? runtime_.prompt_file_slots(first) : 0;
             if (file_slots > 0) {
-                const uint64_t need = basalt::prefill::Prefill::bytes_needed(runtime_.g, *p.ses, want);
+                const int loan_ring = (int) basalt::prefill::Prefill::ring_slots_for(want);
+                const uint64_t loan_bytes = runtime_.part_bytes(p, first);
+                uint64_t need = basalt::prefill::Prefill::bytes_needed(runtime_.g, *p.ses, want);
                 // Other slots may grow KV during the overlapped read. Leave room for their remaining decode.
                 const uint64_t kv = beside ? runtime_.prompt_decode_kv() : 0;
-                if (need <= runtime_.part_bytes(p, first) && runtime_.prompt_scratch_fits(need + kv)) {
+                bool fits = need <= loan_bytes && runtime_.prompt_scratch_fits(need + kv);
+                bool reduced_ring = false;
+                // Separate buffers leave every expert resident. A smaller staging ring keeps the same FP4 chunk.
+                if (!fits && need <= loan_bytes && !runtime_.batch_on() && fixed_chunk == 0 && resumed_chunk == 0 &&
+                    runtime_.o.prefill_auto_fit && loan_ring > runtime_.kRingDecoding &&
+                    basalt::prefill::detail::fp4_every_layer()) {
+                    basalt::prefill::Prefill::set_ring_depth(runtime_.kRingDecoding);
+                    need = basalt::prefill::Prefill::bytes_needed(runtime_.g, *p.ses, want);
+                    fits = need <= loan_bytes && runtime_.prompt_scratch_fits(need + kv);
+                    reduced_ring = true;
+                }
+                if (fits) {
                     void* arena = nullptr;
                     if (cudaMalloc(&arena, need) == cudaSuccess) {
                         runtime_.owned_prompt.reset(arena);
                         runtime_.owned_prompt_bytes = need;
+                        runtime_.owned_prompt_rebind_ring = loan_ring;
                         p.first_now = first;
                         // A partial relayout can point into the arena. Keep it alive when the request fails.
                         if (!p.sp->relayout(want, arena, need, e)) return false;
@@ -295,11 +311,16 @@ bool QfnRequest::lend(int64_t tokens, std::string& e, int64_t chunk, int64_t hea
                         basalt::log::info("basalt serve", "prompt buffers: %.2f GiB outside the full expert cache for "
                                           "a %lld-token chunk (%lld lent slots would require file reads)",
                                           (double) need / 1073741824.0, (long long) want, (long long) file_slots);
+                        if (reduced_ring)
+                            basalt::log::info("basalt serve", "prompt staging ring reduced from %d to %d slots for "
+                                              "the %lld-token resident chunk",
+                                              loan_ring, p.sp->ring_depth(), (long long) want);
                         return true;
                     }
                     (void) cudaGetLastError();
                     basalt::log::warn("basalt serve", "could not allocate prompt buffers outside the cache; using its loan");
                 }
+                if (reduced_ring) basalt::prefill::Prefill::set_ring_depth(1 << 20);
             }
         }
     }

@@ -180,6 +180,7 @@ private:
     friend class Request;
     std::unique_ptr<void, decltype(&cudaFree)> owned_prompt{nullptr, &cudaFree};
     uint64_t owned_prompt_bytes{};
+    int owned_prompt_rebind_ring{};
     basalt::prefill::Prefill sp{};
     void* borrow{};
     uint64_t borrow_bytes{};
