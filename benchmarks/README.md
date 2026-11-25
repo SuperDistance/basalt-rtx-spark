@@ -66,10 +66,10 @@ $dq6k = 'benchmarks/results/2026-11-24-n1x-nvfp4-dq6-k/results.json'
 $vllm = 'benchmarks/results/2026-11-24-n1x-verified-default/vllm/results.json'
 python benchmarks/plot.py --out benchmarks/img --prefix engines `
   "$run/release/results.json" 'Basalt RTX Spark (UD-IQ3_XXS)' `
-  $fp4 'Basalt RTX Spark (FP4-Local)' `
+  $fp4 'Basalt RTX Spark (NVIDIA FP4-Local)' `
   $dq6k 'Basalt RTX Spark (NVFP4-DQ6_K)' `
   "$run/arm-port/results.json" 'Basalt + Arm64 port (UD-IQ3_XXS)' `
-  $vllm 'Native vLLM for RTX Spark (FP4-Local)'
+  $vllm 'Native vLLM for RTX Spark (NVIDIA FP4-Local)'
 ```
 
 ## Running it

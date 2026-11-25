@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="580" height="372" viewBox="0 0 580 372" role="img" aria-labelledby="title desc" font-family="Segoe UI, Helvetica, Arial, sans-serif">
 <title id="title">BetterBench · decode and cold prefill</title>
-<desc id="desc">Decode · 1 stream: Basalt RTX Spark (UD-IQ3_XXS) 92.76 tok/s, Basalt RTX Spark (FP4-Local) 85.28 tok/s, Basalt RTX Spark (NVFP4-DQ6_K) 85.22 tok/s, Basalt + Arm64 port (UD-IQ3_XXS) 84.05 tok/s, Native vLLM for RTX Spark (FP4-Local) 54.19 tok/s. Cold prefill: Basalt RTX Spark (UD-IQ3_XXS) 1,767 tok/s, Basalt RTX Spark (FP4-Local) 1,583 tok/s, Basalt RTX Spark (NVFP4-DQ6_K) 1,599 tok/s, Basalt + Arm64 port (UD-IQ3_XXS) 967 tok/s, Native vLLM for RTX Spark (FP4-Local) 1,511 tok/s</desc>
+<desc id="desc">Decode · 1 stream: Basalt RTX Spark (UD-IQ3_XXS) 92.76 tok/s, Basalt RTX Spark (NVIDIA FP4-Local) 85.28 tok/s, Basalt RTX Spark (NVFP4-DQ6_K) 85.22 tok/s, Basalt + Arm64 port (UD-IQ3_XXS) 84.05 tok/s, Native vLLM for RTX Spark (NVIDIA FP4-Local) 54.19 tok/s. Cold prefill: Basalt RTX Spark (UD-IQ3_XXS) 1,767 tok/s, Basalt RTX Spark (NVIDIA FP4-Local) 1,583 tok/s, Basalt RTX Spark (NVFP4-DQ6_K) 1,599 tok/s, Basalt + Arm64 port (UD-IQ3_XXS) 967 tok/s, Native vLLM for RTX Spark (NVIDIA FP4-Local) 1,511 tok/s</desc>
 <rect width="580" height="372" rx="12" fill="#101e26"/>
 <text x="22" y="32" font-size="23" font-weight="700" fill="#f0f6f5">BetterBench · decode and cold prefill</text>
 <rect x="10" y="84" width="560" height="157" rx="7" fill="#1b382f"/>
@@ -42,10 +42,10 @@
 <rect x="402" y="350" width="147" height="6" rx="3" fill="#293b46"/>
 <rect x="402" y="350" width="125.70" height="6" rx="3" fill="#a8c1d0"/>
 <text x="28" y="131" font-size="18" font-weight="600" fill="#f0f6f5">UD-IQ3_XXS</text>
-<text x="28" y="178" font-size="18" font-weight="600" fill="#f0f6f5">FP4-Local</text>
+<text x="28" y="178" font-size="18" font-weight="600" fill="#f0f6f5">NVIDIA FP4-Local</text>
 <text x="28" y="225" font-size="18" font-weight="600" fill="#f0f6f5">NVFP4-DQ6_K</text>
 <text x="22" y="295" font-size="16" font-weight="600" fill="#f0f6f5">Basalt + Arm64 port</text>
 <text x="22" y="312" font-size="13" fill="#b7c9d0">UD-IQ3_XXS</text>
 <text x="22" y="342" font-size="16" font-weight="600" fill="#f0f6f5">Native vLLM for RTX Spark</text>
-<text x="22" y="359" font-size="13" fill="#b7c9d0">FP4-Local</text>
+<text x="22" y="359" font-size="13" fill="#b7c9d0">NVIDIA FP4-Local</text>
 </svg>

@@ -49,25 +49,24 @@ the server options are in the [setup guide](docs/rtx-spark-setup.md).
 One 128 GB RTX Spark N1X with a 96 GB GPU allocation, physical cooling, the same 392-request
 [BetterBench](benchmarks) preset for every row.
 
-| | Engine | Model pack | Single-stream decode (tok/s) | First token, short prompts | Four chats at once (tok/s) |
-| --- | --- | --- | ---: | ---: | ---: |
-| **This project** | **Basalt RTX Spark** · release ZIP | `UD-IQ3_XXS` (Unsloth) | **92.76** | 280 ms | **112.10** |
-| **This project** | **Basalt RTX Spark** · source build | `NVIDIA FP4-Local` (NVFP4) | 85.28 | 365 ms | 95.88 |
-| **This project** | **Basalt RTX Spark** · source build | `NVFP4-DQ6_K` (Basalt) | 85.22 | 365 ms | 95.84 |
-| Reference | Basalt + Arm64 port | `UD-IQ3_XXS` (Unsloth) | 84.05 | 619 ms | 85.23 |
-| Reference | Native vLLM for RTX Spark 0.2.0 | `NVIDIA FP4-Local` (NVFP4 / MXFP8) | 54.19 | **271 ms** | 100.75 |
+| | Engine | Model pack | Decode, 1 chat (tok/s) | Decode, 4 chats (tok/s) | First token, short prompt | Prompt read, 2K / 64K (tok/s) |
+| --- | --- | --- | ---: | ---: | ---: | ---: |
+| **This project** | **Basalt RTX Spark** · release ZIP | `UD-IQ3_XXS` | **92.76** | **112.10** | 280 ms | **1,767** / 2,288 |
+| **This project** | **Basalt RTX Spark** · source build | `NVIDIA FP4-Local` | 85.28 | 95.88 | 365 ms | 1,583 / 2,353 |
+| **This project** | **Basalt RTX Spark** · source build | `NVFP4-DQ6_K` | 85.22 | 95.84 | 365 ms | 1,599 / **2,439** |
+| Reference | Basalt + Arm64 port | `UD-IQ3_XXS` | 84.05 | 85.23 | 619 ms | 967 / 1,999 |
+| Reference | Native vLLM for RTX Spark 0.2.0 | `NVIDIA FP4-Local` | 54.19 | 100.75 | **271 ms** | 1,511 / 2,035 |
 
-**Reading prompts.** At the 2K-token target Basalt read **1,767 tokens/s**, 83% more than the Arm64 port (967), and
-the first token arrived in 0.88 s instead of 1.59 s. It led the port at every depth up to the 64K target (2,288 vs
-1,999 tok/s, about 47,100 actual tokens). On NVIDIA FP4-Local it read prompts faster than native vLLM at four of five
-depths; vLLM was faster at the 32K target (2,123 vs 1,951 tok/s), on short-prompt first tokens and with four chats.
+Decode is BetterBench's weighted median over eight scenarios; prompt reads are cold, at the 2K and 64K targets (about
+1,550 and 47,100 actual tokens). Where vLLM leads: short-prompt first token, four chats against Basalt on the same
+FP4-Local weights, and prompt reading at the 32K target (2,123 vs 1,951 tok/s).
 [IQ3 raw samples and power](benchmarks/results/2026-11-24-n1x-cooled-release) ·
 [FP4-Local measurements](benchmarks/results/2026-11-24-n1x-fp4-resident-ring)
 
-![Median cold input tokens per second at five target prompt depths. This project has three columns, IQ3, NVIDIA FP4-Local and NVFP4-DQ6_K. Reference columns are the Arm64 port with IQ3 and native vLLM with FP4-Local.](benchmarks/img/engines-prefill.svg)
-
 <details>
-<summary>Decode by scenario, throughput by number of chats, power and test settings</summary>
+<summary>Charts by scenario, number of chats and prompt depth; power and test settings</summary>
+
+![Median cold input tokens per second at five target prompt depths. This project has three columns, IQ3, NVIDIA FP4-Local and NVFP4-DQ6_K. Reference columns are the Arm64 port with IQ3 and native vLLM with FP4-Local.](benchmarks/img/engines-prefill.svg)
 
 ![Median output tokens per second in eight decode scenarios. This project has three columns, IQ3, NVIDIA FP4-Local and NVFP4-DQ6_K. Reference columns are the Arm64 port with IQ3 and native vLLM with FP4-Local.](benchmarks/img/engines-decode.svg)
 
@@ -104,11 +103,11 @@ moving between two Earth orbits, with burn values and flight time.
 
 ## Which model pack?
 
-| Pack | Made by | Pick it for | Single-stream decode | Top-token agreement with BF16 |
-| --- | --- | --- | ---: | ---: |
-| `UD-IQ3_XXS` | Unsloth | **speed** (the default) | 92.76 tok/s | 88.67% |
-| `NVFP4-DQ6_K` | Basalt | closest to BF16 | 85.22 tok/s | **91.65%** |
-| `NVIDIA FP4-Local` | NVIDIA (NVFP4, quantization-aware distilled) | NVIDIA's own weights, as native vLLM serves them | 85.28 tok/s | not measured on the same test |
+| Pack | Made by | Pick it for | Top-token agreement with BF16 |
+| --- | --- | --- | ---: |
+| `UD-IQ3_XXS` | Unsloth | **speed**: the default, fastest decode in the [results](#results) | 88.67% |
+| `NVFP4-DQ6_K` | Basalt | closest to BF16, ~8% slower decode | **91.65%** |
+| `NVIDIA FP4-Local` | NVIDIA (NVFP4, quantization-aware distilled) | NVIDIA's own weights, as native vLLM serves them | not measured on the same test |
 
 Agreement is the pack publisher's measurement on the same 100 WikiText-2 chunks.
 [Publisher’s quality test](https://huggingface.co/jesdga/Qwen3.8-Flash-Next-Basalt/blob/fc721830e519ab52012d372e89b90d9a7df30ff2/README.md#quality)
