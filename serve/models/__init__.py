@@ -70,3 +70,17 @@ def dialect_for(arch: str | None) -> Dialect:
         from serve.models.qwen import Qwen
         return Qwen()
     raise ValueError(f"no dialect for architecture {arch!r}")
+
+
+def spark_slot_defaults(plan: dict, parallel: int | None, words: tuple[str, ...]) -> list[str]:
+    """Native arguments for implicit Flash-Next slots on a single RTX Spark N1X."""
+    cards = plan.get("cards") or []
+    if (parallel is not None or "--batch" in words or "--slots" in words or plan.get("arch") != "qwen4exp"
+            or len(cards) != 1 or "rtx spark n1x" not in (cards[0].get("name") or "").lower()):
+        return []
+    defaults = ["--batch", "4"]
+    if "--max-context" not in words:
+        defaults += ["--max-context", "262144"]
+    if "--kv" not in words:
+        defaults += ["--kv", "int8"]
+    return defaults

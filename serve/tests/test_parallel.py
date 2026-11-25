@@ -25,6 +25,11 @@ from serve.util.text import ByteTokenizer
 # Every reply is the bytes of "ok, done." then <|im_end|> (ByteTokenizer: 257). A request with logprobs=K gets a
 # P line ahead of each T line (BP <slot> ahead of a BT line): the pick at -0.25, then K alternatives.
 FAKE_BATCH = r'''import os, queue, sys, threading, time
+_out = threading.Lock()   # the reader thread answers PROMPT while the main loop writes: one line per call, as the engine's printf
+_print = print
+def print(*a, **k):
+    with _out:
+        _print(*a, **k)
 args = sys.argv[1:]
 slots = int(args[args.index("--batch") + 1]) if "--batch" in args else 0
 fit = int(args[args.index("--fit") + 1]) if "--fit" in args else slots
