@@ -1,0 +1,174 @@
+{
+  "prompt_tokens": 16672,
+  "output_tokens": 32,
+  "output_sha256": "8a64ce966d7cdccbeddaa012bd16a8d26bb42ad3bb81bffa8de3e6dd1519a7c0",
+  "join_submit_unix_s": 1795576783.996788,
+  "join_first_token_unix_s": 1795576825.7866807,
+  "join_ttft_s": 41.78989270000602,
+  "ongoing": [
+    {
+      "output_tokens": 768,
+      "output_sha256": "29220327f4f1e411f37046443483545cfb167782ccbd293d94e89e3b81d3557e",
+      "tokens_before_join": 82,
+      "tokens_during_join_prefill": 495,
+      "active_past_join_ttft": true,
+      "max_gap_during_join_s": 0.25889580001239665
+    },
+    {
+      "output_tokens": 768,
+      "output_sha256": "29220327f4f1e411f37046443483545cfb167782ccbd293d94e89e3b81d3557e",
+      "tokens_before_join": 44,
+      "tokens_during_join_prefill": 488,
+      "active_past_join_ttft": true,
+      "max_gap_during_join_s": 0.2588590999948792
+    },
+    {
+      "output_tokens": 768,
+      "output_sha256": "29220327f4f1e411f37046443483545cfb167782ccbd293d94e89e3b81d3557e",
+      "tokens_before_join": 16,
+      "tokens_during_join_prefill": 437,
+      "active_past_join_ttft": true,
+      "max_gap_during_join_s": 0.25894630001857877
+    }
+  ],
+  "cold_read_verified": true,
+  "overlapped_windows": 178,
+  "chunk_jobs": 66,
+  "batched_drafts_accepted": 1386,
+  "batched_drafts_offered": 1422,
+  "checkpoint_reuse_observed": true,
+  "kv_growth_observed": true,
+  "separate_prompt_scratch_observed": true,
+  "passed": true,
+  "telemetry": {
+    "source": "SparkHelper, approximately two-second cadence. Full fixture window includes model load and exit. Busy samples use GPU utilization >=80%.",
+    "start": "2026-11-24T19:19:16.6653934-08:00",
+    "end": "2026-11-24T19:20:35.2323005-08:00",
+    "whole_fixture": {
+      "samples": 39,
+      "ac_samples": 39,
+      "metrics": {
+        "gpu_w": {
+          "samples": 39,
+          "mean": 32.55,
+          "min": 1.661,
+          "max": 57.692
+        },
+        "cpu_w": {
+          "samples": 39,
+          "mean": 21.37,
+          "min": 4.675,
+          "max": 32.141
+        },
+        "gpu_mhz": {
+          "samples": 39,
+          "mean": 1849.28,
+          "min": 227.0,
+          "max": 2489.0
+        },
+        "gpu_c": {
+          "samples": 39,
+          "mean": 65.33,
+          "min": 56.0,
+          "max": 72.0
+        },
+        "soc_c": {
+          "samples": 39,
+          "mean": 81.76,
+          "min": 75.1,
+          "max": 87.8
+        },
+        "gpu_util": {
+          "samples": 39,
+          "mean": 60.59,
+          "min": 2.0,
+          "max": 96.0
+        }
+      }
+    },
+    "busy_fixture": {
+      "samples": 22,
+      "ac_samples": 22,
+      "metrics": {
+        "gpu_w": {
+          "samples": 22,
+          "mean": 46.73,
+          "min": 31.324,
+          "max": 57.692
+        },
+        "cpu_w": {
+          "samples": 22,
+          "mean": 21.86,
+          "min": 9.129,
+          "max": 29.307
+        },
+        "gpu_mhz": {
+          "samples": 22,
+          "mean": 1980.23,
+          "min": 1215.0,
+          "max": 2424.0
+        },
+        "gpu_c": {
+          "samples": 22,
+          "mean": 68.32,
+          "min": 64.0,
+          "max": 72.0
+        },
+        "soc_c": {
+          "samples": 22,
+          "mean": 82.46,
+          "min": 77.5,
+          "max": 87.4
+        },
+        "gpu_util": {
+          "samples": 22,
+          "mean": 92.55,
+          "min": 83.0,
+          "max": 96.0
+        }
+      }
+    },
+    "join_prefill": {
+      "samples": 21,
+      "ac_samples": 21,
+      "metrics": {
+        "gpu_w": {
+          "samples": 21,
+          "mean": 42.92,
+          "min": 13.559,
+          "max": 56.873
+        },
+        "cpu_w": {
+          "samples": 21,
+          "mean": 21.89,
+          "min": 17.054,
+          "max": 29.307
+        },
+        "gpu_mhz": {
+          "samples": 21,
+          "mean": 1973.57,
+          "min": 1215.0,
+          "max": 2476.0
+        },
+        "gpu_c": {
+          "samples": 21,
+          "mean": 68.19,
+          "min": 64.0,
+          "max": 71.0
+        },
+        "soc_c": {
+          "samples": 21,
+          "mean": 82.53,
+          "min": 76.2,
+          "max": 87.4
+        },
+        "gpu_util": {
+          "samples": 21,
+          "mean": 84.05,
+          "min": 27.0,
+          "max": 95.0
+        }
+      }
+    }
+  }
+}

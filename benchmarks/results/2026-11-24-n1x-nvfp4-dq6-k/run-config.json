@@ -1,0 +1,128 @@
+{
+  "executable_sha256": "9b7e8d21f010af902a487ed0034139e2c7446cb7ab419e925369967c32449e15",
+  "checkout_sha": "b0a9e6280e122ed7c3152b201fdccd989daf5b47",
+  "native_source": "1bc565f277a3fb02c6182ea5ba0e9086b3f637e0",
+  "pack": "Qwen3.8-Flash-Next NVFP4-DQ6_K",
+  "defaults": {
+    "context": [
+      262144,
+      262144,
+      262144,
+      262144
+    ],
+    "reply_tokens": 3,
+    "line": "[server] flash-next  batch=4 ctx=262144 kv=int8 spec=8 temp=1.0 top_p=0.95 top_k=20"
+  },
+  "placement": "[server] auto     ram-experts=4.4GB pool-affinity=auto pool=14",
+  "expert_cache": "basalt generate: expert cache auto: 79.37 GiB free, 700 MiB reserved (+39 MiB for the draft head, +208 MiB for what loads after) -> 24576 slots",
+  "expert_cache_allocation": "basalt generate: expert cache 24576 slots, 63.29 GiB of VRAM; policy is",
+  "gpu_memory_gib": 96,
+  "device": "HP OmniBook X, RTX Spark N1X, 128 GiB unified memory, Windows 11 on Arm64, NVIDIA 621.24",
+  "gpu_power_limit_w": null,
+  "windows_base_scheme": "Balanced",
+  "spark_profile": "Performance",
+  "cooling_mode": "Configured HP Performance firmware table",
+  "clock_cap_mhz": null,
+  "fan_rpm": null,
+  "cold_prefill_staging": {
+    "log_entries": 701,
+    "entries_with_staged_blobs": 50,
+    "first_chunk_rows_with_staged_blobs": 257,
+    "max_staged_blobs_in_entry": 1093,
+    "max_cpu_experts_in_entry": 0,
+    "observed_example": "basalt prefill: direct RAM expert groups for 23676 prompt rows: 727; staged 1093 blobs (0 by DMA) in 859.8 ms of host time, 18130 resident groups, 0 CPU experts, 1 chunks in 11173 ms",
+    "large_prompt_buffer_example": null,
+    "large_prompt_chunk_example": null
+  },
+  "resident_ring": {
+    "marker_count": 0,
+    "observed_transitions": [],
+    "chunk_tokens": [],
+    "nominal_32k_native_chunks": [
+      {
+        "rows": 23676,
+        "ram_groups": 727,
+        "staged_blobs": 1093,
+        "cpu_experts": 0
+      },
+      {
+        "rows": 23703,
+        "ram_groups": 744,
+        "staged_blobs": 1093,
+        "cpu_experts": 0
+      },
+      {
+        "rows": 23682,
+        "ram_groups": 695,
+        "staged_blobs": 1093,
+        "cpu_experts": 0
+      },
+      {
+        "rows": 23773,
+        "ram_groups": 757,
+        "staged_blobs": 1093,
+        "cpu_experts": 0
+      },
+      {
+        "rows": 23433,
+        "ram_groups": 716,
+        "staged_blobs": 1072,
+        "cpu_experts": 0
+      },
+      {
+        "rows": 23639,
+        "ram_groups": 718,
+        "staged_blobs": 1093,
+        "cpu_experts": 0
+      },
+      {
+        "rows": 23653,
+        "ram_groups": 694,
+        "staged_blobs": 1093,
+        "cpu_experts": 0
+      },
+      {
+        "rows": 23532,
+        "ram_groups": 704,
+        "staged_blobs": 1072,
+        "cpu_experts": 0
+      },
+      {
+        "rows": 23497,
+        "ram_groups": 733,
+        "staged_blobs": 1072,
+        "cpu_experts": 0
+      },
+      {
+        "rows": 23617,
+        "ram_groups": 729,
+        "staged_blobs": 1093,
+        "cpu_experts": 0
+      }
+    ]
+  },
+  "initial_host_expert_backing_gib": 4.38,
+  "source_build": "Release v0.4.1-rtx-spark.2 native source plus the resident staging-ring change. Locally built executable.",
+  "performance_commit": "3b2b42685a7b11895b57894715032d1c25aba94f",
+  "model_file": "Qwen3.8-FN-NVFP4-DQ6_K.basalt",
+  "model_file_bytes": 131681979197,
+  "ngram_table_read": "[server] warning: table read through the file cache: no room for a 50.7 GiB copy beside the model (6.2 GiB free)",
+  "timed_phase_power_source": [
+    {
+      "ac": "1",
+      "samples": 1047,
+      "first": "2026-11-24T18:44:06.1047038-08:00",
+      "last": "2026-11-24T19:19:13.1947649-08:00"
+    }
+  ],
+  "sampled_whole_gpu_memory": {
+    "source": "nvidia-smi memory.used, all processes on GPU 0; nominal one-second sampling over the timed suite",
+    "samples": 2092,
+    "peak_mib": 76830.0,
+    "phases_peak_mib": {
+      "decode": 74449.0,
+      "prefill": 76830.0,
+      "concurrency": 76202.0
+    }
+  }
+}

@@ -97,11 +97,27 @@ GPU clocks and power vary during sustained workloads. The [benchmark comparison]
 The measurements behind each: [performance notes](n1x-performance.md), [GPU-first placement](n1x-gpu-first.md),
 [prompt path](n1x-prompt-path.md).
 
-## Choosing a memory split on the 128 GiB laptop
+## Choose a model and memory split
+
+These are starting points for text inference on Windows Arm64. Choose the nearest available split on your device. The Windows column is the nominal amount left for the OS and apps. Microsoft offers N1X laptops in all five sizes below. The ASUS ProArt GR1X mini PC comes in 64 and 128 GB configurations. [Surface specifications](https://www.microsoft.com/en-us/surface/devices/surface-laptop-ultra) · [ASUS GR1X configurations](https://press.asus.com/news/press-releases/asus-announces-availability-proart-gr1x-rtx-spark-mini-pc)
+
+| Total memory | GPU / Windows | Model and engine | When to use it |
+| --- | --- | --- | --- |
+| 24 GB | 8 / 16 GB | Qwen3.5-4B `Q4_K_M` · llama.cpp | Everyday chat alongside Windows apps. The text weights are 2.74 GB. [4B pack](https://huggingface.co/unsloth/Qwen3.5-4B-GGUF) |
+| 32 GB | 12 / 20 GB | Qwen3.5-9B `Q4_K_M` · llama.cpp | More room for a browser and editor. Try 16/16 if longer prompts exhaust the GPU budget. [9B pack](https://huggingface.co/unsloth/Qwen3.5-9B-GGUF) |
+| 48 GB | 24 / 24 GB | Qwen3.8-27B `QUASAR-NVFP4` · Basalt | Start with one slot, 8K context and INT8 KV. With the drafter, weights take about 16 GiB on the GPU and the embeddings take 2.4 GiB of host RAM. [27B memory layout](models/qwen38-27b.md#pack) |
+| 64 GB | 32 / 32 GB | Qwen3.8-27B `QUASAR-NVFP4` · Basalt | A daily-use 27B machine with room for longer context or a second request. |
+| 128 GB | 80 / 48 GB daily · 96 / 32 GB for dedicated inference | Qwen3.8-Flash-Next · Basalt | Use `UD-IQ3_XXS` for speed or `NVFP4-DQ6_K` for closer agreement with BF16. [Speed, memory and quality comparison](../benchmarks/results/2026-11-23-n1x-quantization/#how-the-nvfp4-dq6_k-pack-compares) |
+
+The project measured Flash-Next on a **128 GB laptop**. Its earlier 64 GiB GPU run still left roughly 64 GiB for Windows. The 24–64 GB rows above are sizing estimates for whole machines. NVIDIA also places 27B on 48 and 64 GB RTX Spark systems in its Windows llama.cpp recipes. [NVIDIA recipe catalog](https://github.com/NVIDIA/local-ai-inference-recipes/blob/main/recommended_catalog.json)
+
+### Choosing a memory split on the 128 GiB laptop
 
 For mixed Windows and inference use, try **80 GiB GPU / 48 GiB host** if your laptop offers it. With 96 GiB assigned to the GPU, device-wide usage peaked at **68.0 GiB for IQ3**. FP4-Local peaked at **79.3 GiB** on the release and **78.2 GiB** on the newer build. An 80 GiB split leaves about 12 GiB above the IQ3 peak and only 0.7–1.8 GiB above those FP4 peaks. Throughput at 80 GiB and four near-full contexts at that split still need measurement. Choose 96/32 for FP4 benchmark runs or 64/64 when Windows needs more than 48 GiB. [IQ3 telemetry](../benchmarks/results/2026-11-24-n1x-cooled-release/release/gpu.csv) · [FP4 release](../benchmarks/results/2026-11-24-n1x-fp4-local/gpu.csv) · [FP4 source build](../benchmarks/results/2026-11-24-n1x-fp4-resident-ring/gpu.csv)
 
 On the same earlier IQ3 build, 64 vs 96 GiB for the GPU delivered **74.0 vs 91.9 tok/s** single-stream decode and **697 vs 1,218 input tok/s** at the 2K cold-prefill target. Power varied between the runs. Windows manages dedicated and shared memory as separate budgets even though the CPU and GPU share physical memory. [Split measurements](n1x-vs-vllm.md) · [NVIDIA UMA guide](https://docs.nvidia.com/rtx-spark/rtx-spark-porting-guide/latest/uma/umacuda.html)
+
+DQ6_K reached **75.03 GiB** peak GPU use in its 96 GiB run. Typical use was close to FP4-Local at **72.62 vs 72.77 GiB** median, and both packs held all 24,576 routed experts on the GPU. These peaks include the whole device and vary with prompt scratch and available memory. [DQ6_K comparison](../benchmarks/results/2026-11-24-n1x-nvfp4-dq6-k)
 
 ## Documentation
 
