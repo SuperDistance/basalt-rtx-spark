@@ -38,7 +38,7 @@ bool MtpDrafter::draft_batch(int S, const int* ids, const float* R_rows, const i
                              int32_t* const* drafts, float* const* probs, int* n_drafts, std::string& err, int32_t* const* q_ids,
                              float* const* q_p) {
     using namespace basalt::kernels;
-    if (!seg_on_ || S < 1 || S > kDraftRowsMax) { err = "mtp: a batched draft needs stores in place and 1-4 sequences"; return false; }
+    if (!seg_on_ || S < 1 || S > kDraftRowsMax) { err = "mtp: a batched draft needs stores in place and 1-8 sequences"; return false; }
     const OnDevice on_device(device_);
     int Ttot = 0;
     for (int s = 0; s < S; ++s) {

@@ -392,6 +392,7 @@ private:
     int64_t part_slots(const PfPart& p, int64_t c);
     uint64_t part_bytes(const PfPart& p, int32_t first);
     int64_t prompt_file_slots(int32_t first) const;
+    int64_t prompt_scratch_room() const;
     bool prompt_scratch_fits(uint64_t bytes) const;
     uint64_t prompt_decode_kv() const;
     bool prompt_park_fits(const basalt::core::SessionState& to, int64_t upto) const;

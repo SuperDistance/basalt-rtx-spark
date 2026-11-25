@@ -469,16 +469,22 @@ __global__ void q5k_proxy_pack_kernel(const uint8_t* __restrict__ q5, int64_t ro
     px::pack_group<true>(w, row, g, wq, sc);
 }
 
-// One block: the rows near the best approximate score are scored exactly (a warp per row), the exact best is the pick.
+// One block per activation row (row r: x + r * px::kXBlocks, its scratch, out_id[r] / out_prob[r], draw row r): the rows
+// near the best approximate score are scored exactly (a warp per row), the exact best is the pick.
 __global__ void __launch_bounds__(512) q5k_proxy_final_kernel(const Q5KBlock* __restrict__ w,
-                                                              const Q81Block* __restrict__ x, int n_tiles,
-                                                              const int32_t* __restrict__ map,
-                                                              const float2* __restrict__ cand,
-                                                              const float2* __restrict__ part, int* __restrict__ out_id,
-                                                              float* __restrict__ out_prob, DraftDrawArgs dda) {
+                                                              const Q81Block* __restrict__ x_rows, int n_tiles,
+                                                              const int32_t* __restrict__ map, void* __restrict__ scratch,
+                                                              int64_t n_cap, int* __restrict__ out_ids,
+                                                              float* __restrict__ out_probs, DraftDrawArgs dd_rows) {
     __shared__ __align__(16) int4 xe[80 * XS];
     __shared__ px::Final f;
-    const int tid = threadIdx.x, lane = tid & 31, warp = tid >> 5;
+    const int tid = threadIdx.x, lane = tid & 31, warp = tid >> 5, xr = blockIdx.x;
+    const Q81Block* const x = x_rows + (size_t) xr * px::kXBlocks;
+    const float2* const cand = px::row_cand(scratch, n_cap, xr);
+    const float2* const part = px::row_part(scratch, n_cap, xr);
+    int* const out_id = out_ids + xr;
+    float* const out_prob = out_probs + xr;
+    const DraftDrawArgs dda = px::row_draw(dd_rows, xr);
     pdl_wait();
     if (tid == 0) f.cnt = 0;
     for (int i = tid; i < 80 * 4; i += blockDim.x) {
@@ -522,18 +528,18 @@ void q5k_proxy_pack(const void* q5k_rows, int64_t row0, int64_t n, void* proxy, 
 }
 
 bool q5k_proxy_top1(const void* proxy, const void* q5k_rows, const void* x_q8_1, int n_rows, int64_t n_cap,
-                    const int32_t* map, int* out_id, float* out_prob, void* scratch, void* stream, const DraftDrawArgs* dd) {
-    if (n_rows <= 0 || n_rows > n_cap || !proxy || !q5k_rows || !x_q8_1 || !map || !out_id || !out_prob || !scratch)
+                    const int32_t* map, int* out_id, float* out_prob, void* scratch, void* stream, const DraftDrawArgs* dd,
+                    int n_x) {
+    if (n_rows <= 0 || n_rows > n_cap || n_x < 1 || n_x > px::kMaxX || !proxy || !q5k_rows || !x_q8_1 || !map || !out_id ||
+        !out_prob || !scratch)
         return false;
     const int tiles = (int) px::tiles(n_rows);
     const uint4* wq = (const uint4*) proxy;
     const uint32_t* sc = (const uint32_t*) px::scales(const_cast<void*>(proxy), n_cap);
-    float2* cand = (float2*) scratch;
-    float2* part = cand + (size_t) px::tiles(n_cap) * px::kPer;
     launch_pdl(px::score_kernel, dim3((unsigned) tiles), dim3(128), 0, (cudaStream_t) stream, wq, sc,
-               (const px::X81*) x_q8_1, n_rows, map, cand, part);
-    launch_pdl(q5k_proxy_final_kernel, dim3(1), dim3(512), 0, (cudaStream_t) stream, (const Q5KBlock*) q5k_rows,
-               (const Q81Block*) x_q8_1, tiles, map, (const float2*) cand, (const float2*) part, out_id, out_prob, dd ? *dd : DraftDrawArgs{});
+               (const px::X81*) x_q8_1, n_rows, map, scratch, n_cap, n_x);
+    launch_pdl(q5k_proxy_final_kernel, dim3((unsigned) n_x), dim3(512), 0, (cudaStream_t) stream, (const Q5KBlock*) q5k_rows,
+               (const Q81Block*) x_q8_1, tiles, map, scratch, n_cap, out_id, out_prob, dd ? *dd : DraftDrawArgs{});
     const cudaError_t e = cudaGetLastError();
     if (e != cudaSuccess) {
         basalt::log::error("basalt", "q5k_proxy_top1: %s", cudaGetErrorString(e));
