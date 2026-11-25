@@ -63,7 +63,7 @@ With every expert resident, the only misses are experts that elastic KV displace
 A correctness run after these changes: the GPU read 95-248 displaced experts per request (0.1-0.2% of routed) and the CPU
 none; greedy output repeated for a 30,105-token prompt read cold and from its checkpoint; decode at 30K context read
 74.9-78.2 tok/s and cold prefill 1,963-1,977 tok/s. The kernels match the staged CUDA path bit for bit
-(`dec_moe_parity --kq`, `--nvfp4`). Moving experts from the CPU to the GPU changes their rounding; the KLD gate is pending.
+(`dec_moe_parity --kq`, `--nvfp4`). On the IQ3 pack, the subsequent 100-chunk BF16 gate measured mean KLD of 0.11743 with CPU misses and 0.11634 with mapped GPU misses. BF16 top-1 agreement was 88.85% and 88.78%, respectively. [Placement, route counts and paired results](precision/qwen38-flash-next.md#gpu-reads-of-host-resident-iq3-experts)
 
 ## NVFP4 against IQ3_XXS
 

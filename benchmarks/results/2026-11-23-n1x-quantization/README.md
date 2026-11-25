@@ -4,7 +4,7 @@ The November 23 N1X single-stream test (UD-IQ3_XXS, FP4-Local, FP4-Local, UD-IQ3
 each arm. IQ3 used 46.84 GiB for routed weights and FP4-Local used 63.29 GiB. INT8 KV, seed 17, MTP8,
 context 16,720 and the fixtures were held fixed. The power limit was unavailable.
 
-| Pack in run order | Conv / struct / prose tok/s | Conv / struct / prose ms per window | Cold 16K tok/s | Busy GPU W |
+| This project · Basalt RTX Spark pack in run order | Conv / struct / prose tok/s | Conv / struct / prose ms per window | Cold 16K tok/s | Busy GPU W |
 | --- | --- | --- | ---: | ---: |
 | IQ3 | 79.0 / 141.3 / 75.4 | 33.54 / 51.89 / 29.06 | 1,789 | 36.8 |
 | FP4-Local | 82.7 / 136.1 / 68.3 | 35.86 / 57.11 / 33.11 | 1,774 | 41.4 |

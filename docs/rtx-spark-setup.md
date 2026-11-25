@@ -97,6 +97,12 @@ GPU clocks and power vary during sustained workloads. The [benchmark comparison]
 The measurements behind each: [performance notes](n1x-performance.md), [GPU-first placement](n1x-gpu-first.md),
 [prompt path](n1x-prompt-path.md).
 
+## Choosing a memory split on the 128 GiB laptop
+
+For mixed Windows and inference use, try **80 GiB GPU / 48 GiB host** if your laptop offers it. With 96 GiB assigned to the GPU, device-wide usage peaked at **68.0 GiB for IQ3** and **79.3 GiB for FP4-Local** during BetterBench. That leaves roughly 12 GiB of margin for IQ3 at an 80 GiB split, but less than 1 GiB for FP4. Throughput at 80 GiB and four near-full contexts at that split still need measurement. Choose 96/32 for FP4 benchmark runs or 64/64 when Windows needs more than 48 GiB. [IQ3 telemetry](../benchmarks/results/2026-11-24-n1x-cooled-release/release/gpu.csv) · [FP4 telemetry](../benchmarks/results/2026-11-24-n1x-fp4-local/gpu.csv)
+
+On the same earlier IQ3 build, 64 vs 96 GiB for the GPU delivered **74.0 vs 91.9 tok/s** single-stream decode and **697 vs 1,218 input tok/s** at the 2K cold-prefill target. Power varied between the runs. Windows manages dedicated and shared memory as separate budgets even though the CPU and GPU share physical memory. [Split measurements](n1x-vs-vllm.md) · [NVIDIA UMA guide](https://docs.nvidia.com/rtx-spark/rtx-spark-porting-guide/latest/uma/umacuda.html)
+
 ## Documentation
 
 [Contributing to Basalt RTX Spark](../CONTRIBUTING.md) · [Optional Linux container](docker.md)

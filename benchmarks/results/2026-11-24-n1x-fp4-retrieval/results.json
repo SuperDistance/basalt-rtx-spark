@@ -1,0 +1,96 @@
+{
+  "environment": {
+    "release": "v0.4.1-rtx-spark.2",
+    "native_source": "bd05fdf80da36d52f7e7b1978d635243c7aff6cc",
+    "model": "Qwen3.8-Flash-Next FP4-Local",
+    "device": "RTX Spark N1X 128 GiB, 96 GiB GPU allocation",
+    "api_model": "flash-next",
+    "hardware_settings": "4 \u00d7 262144-token slots, INT8 KV, MTP 8, automatic placement",
+    "sampler": {
+      "temperature": 0,
+      "reasoning_effort": "none",
+      "max_tokens": 96
+    },
+    "python": "3.13.18"
+  },
+  "runs": [
+    {
+      "seed": 729431,
+      "target": 65000,
+      "expected": [
+        662274,
+        224597,
+        161103
+      ],
+      "answer": "[662274, 224597, 161103]",
+      "correct": 3,
+      "usage": {
+        "prompt_tokens": 64991,
+        "completion_tokens": 25,
+        "total_tokens": 65016,
+        "prompt_tokens_details": {
+          "cached_tokens": 0
+        }
+      },
+      "finish": "stop",
+      "submitted": "2026-11-24T16:51:53.003511-08:00",
+      "elapsed_s": 27.73,
+      "text_sha256": "8f2085ec9260d9cf1a0eef40658e285e6b5a188ba664aa1f363db2c7f315decd",
+      "record_depths": [
+        0.055,
+        0.51,
+        0.943
+      ],
+      "record_count": 3606,
+      "requested_ids": [
+        "R00198",
+        "R01839",
+        "R03400"
+      ],
+      "returned_value_source_ids": [
+        "R00198",
+        "R01839",
+        "R03400"
+      ]
+    },
+    {
+      "seed": 452679,
+      "target": 260000,
+      "expected": [
+        810960,
+        483165,
+        553372
+      ],
+      "answer": "[947361, 483165, 553372]",
+      "correct": 2,
+      "usage": {
+        "prompt_tokens": 259985,
+        "completion_tokens": 25,
+        "total_tokens": 260010,
+        "prompt_tokens_details": {
+          "cached_tokens": 0
+        }
+      },
+      "finish": "stop",
+      "submitted": "2026-11-24T16:52:21.021882-08:00",
+      "elapsed_s": 125.78,
+      "text_sha256": "ea64c57dfebdcc9d858c76499d1f8c8506b71749604d3fde2cbf367d76b1590a",
+      "record_depths": [
+        0.055,
+        0.51,
+        0.943
+      ],
+      "record_count": 14439,
+      "requested_ids": [
+        "R00794",
+        "R07363",
+        "R13615"
+      ],
+      "returned_value_source_ids": [
+        "R00793",
+        "R07363",
+        "R13615"
+      ]
+    }
+  ]
+}

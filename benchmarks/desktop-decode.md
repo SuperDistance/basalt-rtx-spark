@@ -1,13 +1,14 @@
 # Qwen3.8-Flash-Next on discrete GPUs
 
-The RTX Spark N1X recorded 92.76 tok/s weighted single-stream decode on BetterBench with UD-IQ3_XXS. CPU and GPU draw averaged 51.34 W combined during busy decode samples. The community results below used the same model family with different weights, prompts and measurement intervals. [N1X run and power method](results/2026-11-24-n1x-cooled-release/release/power.json)
+This project · Basalt RTX Spark on the RTX Spark N1X recorded 92.76 tok/s weighted single-stream decode on BetterBench with UD-IQ3_XXS. CPU and GPU draw averaged 51.34 W combined during busy decode samples. The external reference-engine results below used the same model family with different weights, prompts, GPUs and measurement intervals; they are context, not matched tests. [N1X run and power method](results/2026-11-24-n1x-cooled-release/release/power.json)
 
 | GPU | Engine | Weights | Reported single-stream decode |
 | --- | --- | --- | ---: |
-| GeForce RTX 4080 SUPER desktop, Ryzen 9 5950X | Strata | IQ3_S | 90.2 tok/s |
-| Same RTX 4080 SUPER and CPU | Strata | IQ3_XXS | 115.8 tok/s |
-| Radeon AI PRO R9700 desktop, Ryzen 9 9950X | Radiance | Q4 | 90–100 tok/s |
-| GeForce RTX 4090 Laptop GPU, Core i9-13900HX | Strata | IQ3_S | 51.2 tok/s |
+| RTX Spark N1X laptop | This project · Basalt RTX Spark | UD-IQ3_XXS | 92.76 tok/s |
+| GeForce RTX 4080 SUPER desktop, Ryzen 9 5950X | Reference engine · Strata | IQ3_S | 90.2 tok/s |
+| Same RTX 4080 SUPER and CPU | Reference engine · Strata | IQ3_XXS | 115.8 tok/s |
+| Radeon AI PRO R9700 desktop, Ryzen 9 9950X | Reference engine · Radiance | Q4 | 90–100 tok/s |
+| GeForce RTX 4090 Laptop GPU, Core i9-13900HX | Reference engine · Strata | IQ3_S | 51.2 tok/s |
 
 The RTX 4080 SUPER report gives median decode across prompt lengths from 1K to 123K tokens. It lists average GPU board power of 257 W for both packs, sampled across the suite including gaps between requests. The N1X measurement covers CPU and GPU during busy decode. [Strata desktop benchmark](https://github.com/Niko1221/Strata/issues/2314#issuecomment-6226756317)
 

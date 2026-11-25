@@ -6,7 +6,7 @@ The test ran on an HP OmniBook X with an RTX Spark N1X, 128 GiB system RAM, a 96
 
 ## BetterBench 0.6.1
 
-| Metric | Basalt `3b27d149` (current) | Basalt `0cb0b207` (previous) | vLLM RTX Spark 0.2.0 |
+| Metric | This project · Basalt `3b27d149` (current) | This project · Basalt `0cb0b207` (previous) | Reference engine · vLLM RTX Spark 0.2.0 |
 | --- | ---: | ---: | ---: |
 | Weighted single-stream decode | 90.79 tok/s | 87.55 tok/s | 54.19 tok/s |
 | Short-request median TTFT | 289 ms | 304 ms | 271 ms |
@@ -16,11 +16,11 @@ The test ran on an HP OmniBook X with an RTX Spark N1X, 128 GiB system RAM, a 96
 
 All 392 BetterBench requests completed for each of the three runs, with zero reported cache hits. The old-default-to-current comparison was +3.7% weighted decode (87.55 → 90.79 tok/s), −4.8% short TTFT (303.7 → 289.1 ms) and +3.9% mixed C4 output (106.34 → 110.50 tok/s). Automatic RAM backing differed: 3.32 GiB for the old default and 1.74 GiB for the current build, both started with a full cache of 24,576 GPU expert groups; scratch loans on the old build temporarily reduced that to 22,509 during the deep prompt. The builds used different weight and KV formats: Basalt ran UD-IQ3_XXS with INT8 KV and MTP window 8; vLLM used NVIDIA FP4-Local weights, FP8 target KV, BF16 draft KV and block MTP 7. The comparison does not establish equal model quality. The original [November 22–23 runs](../2026-11-22-hp-omnibook-x-n1x-128gb-vllm) remain available for their distinct power-floor conditions.
 
-![Basalt 3b27d149 (current), Basalt 0cb0b207 (previous), and vLLM RTX Spark 0.2.0 weighted single-stream decode by scenario](../../img/verified-default-decode.svg)
+![This project · Basalt 3b27d149 (current) and Basalt 0cb0b207 (previous), compared with reference engine · vLLM RTX Spark 0.2.0, weighted single-stream decode by scenario](../../img/verified-default-decode.svg)
 
-![Basalt 3b27d149 (current), Basalt 0cb0b207 (previous), and vLLM RTX Spark 0.2.0 aggregate output at one through four streams](../../img/verified-default-concurrency.svg)
+![This project · Basalt 3b27d149 (current) and Basalt 0cb0b207 (previous), compared with reference engine · vLLM RTX Spark 0.2.0, aggregate output at one through four streams](../../img/verified-default-concurrency.svg)
 
-![Basalt 3b27d149 (current), Basalt 0cb0b207 (previous), and vLLM RTX Spark 0.2.0 cold prefill by prompt depth](../../img/verified-default-prefill.svg)
+![This project · Basalt 3b27d149 (current) and Basalt 0cb0b207 (previous), compared with reference engine · vLLM RTX Spark 0.2.0, cold prefill by prompt depth](../../img/verified-default-prefill.svg)
 
 NVIDIA samples during the Basalt C4 interval reported a busy mean GPU draw of 38.98 W and median SM clock of 2,021 MHz. The complete aligned SparkHelper power comparison is in [common-power.json](common-power.json). At C4, mean busy GPU draw was 41.45 W for the old default, 39.33 W for current Basalt and 34.46 W for vLLM; mean measured CPU+GPU+NPU draw was 45.68, 44.19 and 41.90 W respectively. Busy SM clocks were 2,232.5, 2,034 and 2,060 MHz. The candidate improved while its clock and power were lower than the old-default replay. The vLLM NVIDIA CSV missed its final roughly 42 seconds at shutdown: the C4 interval has 148 samples across about 191 seconds, 146 above the 80% busy threshold. Those NVIDIA values are retained as partial and are not used for the direct comparison in the [power-method note](power-method.md). Phase power extraction and sample counts are in [old-default power.json](old-default/power.json), [Basalt power.json](basalt/power.json) and [vLLM power data](vllm/). The full BetterBench outputs are [old default](old-default/results.json), [Basalt](basalt/results.json) and [vLLM](vllm/results.json), with per-scenario summaries in their `summary.json` files.
 

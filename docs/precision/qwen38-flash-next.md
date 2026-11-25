@@ -200,6 +200,28 @@ Costs: the Q6_K head adds KLD 0.0022 [0.0018, 0.0025] (1.5%) and PPL 0.25% (IQ3_
 25,500 rows. The Q8_0 two-stage head is 350 us per window against 439 us for the Q8_0 head (NVFP4, cold prose, 400 W + 180 W).
 Greedy output with the tiers pinned matches the exact head token for token.
 
+## GPU reads of host-resident IQ3 experts
+
+On RTX Spark N1X, build `0732e1c6`, IQ3_XXS and INT8 KV, 23,577 of 24,576 experts were resident in the main
+GPU cache. The other 999 occupied 1.96 GiB. The CPU arm computed their outputs on the CPU. The mapped arm
+registered their file-backed pages and ran the GPU expert kernels against those pages. Across 12.24 million
+decode routes, 0.8% went to the respective off-cache tier. The integrated GPU power limit was unavailable.
+
+| Decode placement | PPL | Mean KLD | BF16 top-1 agreement |
+| --- | ---: | ---: | ---: |
+| CPU misses | 3.2398 | 0.11743 | 88.85% |
+| Mapped GPU misses | 3.2407 | 0.11634 | 88.78% |
+
+The 100-chunk BF16 gate scored 25,500 positions. Paired mapped-minus-CPU differences by chunk were
+−0.00109 ± 0.00072 KLD, +0.00028 ± 0.00213 mean negative log likelihood, and −0.067 ± 0.206 percentage
+points of top-1 agreement (95% t intervals over 100 equal-size chunks). The arms picked the same top token
+at 24,765 positions. On the first 20 chunks the mapped arm matched the fully GPU-resident control on all
+5,100 scored rows, including the recorded scores. These results cover this pack and placement.
+
+Use `tools/ppl_gate.py --chunks 100 --t 3 --kv int8 --max-context 4096 --prefill 512 --prefill-cpu-share 0
+--expert-cache 18100 --mmap-experts --stats` with the same model, BF16 base and engine for both arms. Set
+`--exp n1x_file_gpu_mib=0` or `3072` respectively. The GPU arm logged 2,010 MiB registered in 891 ranges.
+
 ## GDN split across two cards
 
 With a peer card faster than the main card, each GDN mixer may be split by key head. The split changes reduction order, so output

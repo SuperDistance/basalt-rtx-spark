@@ -1,0 +1,541 @@
+{
+  "native_release": "bd05fdf80da36d52f7e7b1978d635243c7aff6cc",
+  "native_candidate": "1bc565f277a3fb02c6182ea5ba0e9086b3f637e0",
+  "performance_commit": "3b2b42685a7b11895b57894715032d1c25aba94f",
+  "candidate_artifact_sha256": "9b7e8d21f010af902a487ed0034139e2c7446cb7ab419e925369967c32449e15",
+  "fixture": "Same as chunk-control.json. Both arms used bare automatic prefill. A is the released engine. B is the resident-ring build.",
+  "reservations": {
+    "3072": [
+      {
+        "arm": "A1",
+        "cap": "auto",
+        "input_tokens": 23633,
+        "input_sha256": "bafce24df0ab3d36f6b05910833ff8cbbcbafed36fdf2aea9fbd983d9372ede7",
+        "output_ids": [
+          463,
+          248046
+        ],
+        "start_local": "2026-11-24T16:42:37-08:00",
+        "ttft_s": 16.0592,
+        "native_prefill_tok_s": 1479.7,
+        "chunks": [
+          23626
+        ],
+        "staged": 1586,
+        "owned_scratch": [],
+        "expert_backing": [
+          "basalt: FileExpertSource: 823 of the prompt path's 8473 lendable slots keep their experts in RAM too (the others are read from the file when lent: not enough RAM for them)"
+        ],
+        "gpu_experts": 24576,
+        "rails_to_first_token": {
+          "n": 8,
+          "ac": 8,
+          "mean_gpu_w": 30.99,
+          "mean_cpu_w": 20.79,
+          "mean_gpu_c": 56.38,
+          "mean_gpu_mhz": 1652.38,
+          "mean_gpu_util": 61.5
+        },
+        "decode_control": {
+          "tokens": 128,
+          "id_sha256": "70c1e5710ff96204d305a968bc569889fd0ef19f89a60d4c8f24c4d762ccb447",
+          "tok_s": 117.78
+        },
+        "cooling": [
+          [
+            46.41,
+            4.0
+          ],
+          [
+            45.59,
+            3.0
+          ],
+          [
+            44.68,
+            5.0
+          ],
+          [
+            43.91,
+            3.0
+          ],
+          [
+            43.39,
+            4.0
+          ]
+        ],
+        "binary_sha256": "705cb1b0e0632358a728d8d855abb8a77d066cf596775efb6107f48900909f98",
+        "ring_reduction": [],
+        "before_read": {
+          "gpu": "74328 MiB, 23963 MiB, 43.39, 630 MHz, 1.36 W, [N/A], 4 %",
+          "free_physical_gib": 4.439,
+          "commit_free_gib": 12.621
+        }
+      },
+      {
+        "arm": "B1",
+        "cap": "auto",
+        "input_tokens": 23633,
+        "input_sha256": "bafce24df0ab3d36f6b05910833ff8cbbcbafed36fdf2aea9fbd983d9372ede7",
+        "output_ids": [
+          463,
+          248046
+        ],
+        "start_local": "2026-11-24T16:43:39-08:00",
+        "ttft_s": 17.266,
+        "native_prefill_tok_s": 1376.2,
+        "chunks": [
+          23626
+        ],
+        "staged": 1586,
+        "owned_scratch": [],
+        "expert_backing": [
+          "basalt: FileExpertSource: 823 of the prompt path's 8473 lendable slots keep their experts in RAM too (the others are read from the file when lent: not enough RAM for them)"
+        ],
+        "gpu_experts": 24576,
+        "rails_to_first_token": {
+          "n": 9,
+          "ac": 9,
+          "mean_gpu_w": 27.03,
+          "mean_cpu_w": 24.16,
+          "mean_gpu_c": 57.89,
+          "mean_gpu_mhz": 1585.11,
+          "mean_gpu_util": 55.22
+        },
+        "decode_control": {
+          "tokens": 128,
+          "id_sha256": "70c1e5710ff96204d305a968bc569889fd0ef19f89a60d4c8f24c4d762ccb447",
+          "tok_s": 117.51
+        },
+        "cooling": [
+          [
+            51.09,
+            4.0
+          ],
+          [
+            50.21,
+            4.0
+          ],
+          [
+            49.45,
+            4.0
+          ],
+          [
+            48.77,
+            3.0
+          ],
+          [
+            48.18,
+            4.0
+          ]
+        ],
+        "binary_sha256": "9b7e8d21f010af902a487ed0034139e2c7446cb7ab419e925369967c32449e15",
+        "ring_reduction": [],
+        "before_read": {
+          "gpu": "74325 MiB, 23966 MiB, 48.03, 624 MHz, 1.47 W, [N/A], 4 %",
+          "free_physical_gib": 4.507,
+          "commit_free_gib": 12.58
+        }
+      },
+      {
+        "arm": "B2",
+        "cap": "auto",
+        "input_tokens": 23633,
+        "input_sha256": "bafce24df0ab3d36f6b05910833ff8cbbcbafed36fdf2aea9fbd983d9372ede7",
+        "output_ids": [
+          463,
+          248046
+        ],
+        "start_local": "2026-11-24T16:44:36-08:00",
+        "ttft_s": 14.2413,
+        "native_prefill_tok_s": 1665.9,
+        "chunks": [
+          23626
+        ],
+        "staged": 1586,
+        "owned_scratch": [],
+        "expert_backing": [
+          "basalt: FileExpertSource: 823 of the prompt path's 8473 lendable slots keep their experts in RAM too (the others are read from the file when lent: not enough RAM for them)"
+        ],
+        "gpu_experts": 24576,
+        "rails_to_first_token": {
+          "n": 7,
+          "ac": 7,
+          "mean_gpu_w": 34.85,
+          "mean_cpu_w": 27.86,
+          "mean_gpu_c": 59.43,
+          "mean_gpu_mhz": 1958.14,
+          "mean_gpu_util": 69.43
+        },
+        "decode_control": {
+          "tokens": 128,
+          "id_sha256": "70c1e5710ff96204d305a968bc569889fd0ef19f89a60d4c8f24c4d762ccb447",
+          "tok_s": 117.32
+        },
+        "cooling": [
+          [
+            47.33,
+            3.0
+          ],
+          [
+            46.47,
+            4.0
+          ],
+          [
+            45.83,
+            3.0
+          ],
+          [
+            45.21,
+            4.0
+          ],
+          [
+            44.59,
+            4.0
+          ]
+        ],
+        "binary_sha256": "9b7e8d21f010af902a487ed0034139e2c7446cb7ab419e925369967c32449e15",
+        "ring_reduction": [],
+        "before_read": {
+          "gpu": "74326 MiB, 23965 MiB, 44.59, 630 MHz, 1.30 W, [N/A], 4 %",
+          "free_physical_gib": 4.679,
+          "commit_free_gib": 12.65
+        }
+      },
+      {
+        "arm": "A2",
+        "cap": "auto",
+        "input_tokens": 23633,
+        "input_sha256": "bafce24df0ab3d36f6b05910833ff8cbbcbafed36fdf2aea9fbd983d9372ede7",
+        "output_ids": [
+          463,
+          248046
+        ],
+        "start_local": "2026-11-24T16:45:30-08:00",
+        "ttft_s": 14.1746,
+        "native_prefill_tok_s": 1674.3,
+        "chunks": [
+          23626
+        ],
+        "staged": 1586,
+        "owned_scratch": [],
+        "expert_backing": [
+          "basalt: FileExpertSource: 823 of the prompt path's 8473 lendable slots keep their experts in RAM too (the others are read from the file when lent: not enough RAM for them)"
+        ],
+        "gpu_experts": 24576,
+        "rails_to_first_token": {
+          "n": 7,
+          "ac": 7,
+          "mean_gpu_w": 33.63,
+          "mean_cpu_w": 23.32,
+          "mean_gpu_c": 61.14,
+          "mean_gpu_mhz": 1726.0,
+          "mean_gpu_util": 69.71
+        },
+        "decode_control": {
+          "tokens": 128,
+          "id_sha256": "70c1e5710ff96204d305a968bc569889fd0ef19f89a60d4c8f24c4d762ccb447",
+          "tok_s": 116.66
+        },
+        "cooling": [
+          [
+            51.56,
+            5.0
+          ],
+          [
+            50.3,
+            4.0
+          ],
+          [
+            49.3,
+            5.0
+          ],
+          [
+            48.33,
+            4.0
+          ],
+          [
+            47.53,
+            5.0
+          ]
+        ],
+        "binary_sha256": "705cb1b0e0632358a728d8d855abb8a77d066cf596775efb6107f48900909f98",
+        "ring_reduction": [],
+        "before_read": {
+          "gpu": "74326 MiB, 23965 MiB, 47.53, 624 MHz, 1.44 W, [N/A], 5 %",
+          "free_physical_gib": 4.845,
+          "commit_free_gib": 12.74
+        }
+      }
+    ],
+    "2560": [
+      {
+        "arm": "A1",
+        "cap": "auto",
+        "input_tokens": 23633,
+        "input_sha256": "bafce24df0ab3d36f6b05910833ff8cbbcbafed36fdf2aea9fbd983d9372ede7",
+        "output_ids": [
+          463,
+          248046
+        ],
+        "start_local": "2026-11-24T16:46:51-08:00",
+        "ttft_s": 14.2038,
+        "native_prefill_tok_s": 1673.9,
+        "chunks": [
+          23626
+        ],
+        "staged": 1586,
+        "owned_scratch": [],
+        "expert_backing": [
+          "basalt: FileExpertSource: 823 of the prompt path's 8473 lendable slots keep their experts in RAM too (the others are read from the file when lent: not enough RAM for them)"
+        ],
+        "gpu_experts": 24576,
+        "rails_to_first_token": {
+          "n": 7,
+          "ac": 7,
+          "mean_gpu_w": 29.17,
+          "mean_cpu_w": 23.85,
+          "mean_gpu_c": 60.14,
+          "mean_gpu_mhz": 1869.86,
+          "mean_gpu_util": 57.29
+        },
+        "decode_control": {
+          "tokens": 128,
+          "id_sha256": "70c1e5710ff96204d305a968bc569889fd0ef19f89a60d4c8f24c4d762ccb447",
+          "tok_s": 118.01
+        },
+        "cooling": [
+          [
+            50.15,
+            3.0
+          ],
+          [
+            49.12,
+            5.0
+          ],
+          [
+            48.18,
+            5.0
+          ],
+          [
+            47.47,
+            5.0
+          ],
+          [
+            46.8,
+            3.0
+          ]
+        ],
+        "binary_sha256": "705cb1b0e0632358a728d8d855abb8a77d066cf596775efb6107f48900909f98",
+        "ring_reduction": [],
+        "before_read": {
+          "gpu": "74326 MiB, 23965 MiB, 46.80, 611 MHz, 1.28 W, [N/A], 3 %",
+          "free_physical_gib": 4.923,
+          "commit_free_gib": 12.874
+        }
+      },
+      {
+        "arm": "B1",
+        "cap": "auto",
+        "input_tokens": 23633,
+        "input_sha256": "bafce24df0ab3d36f6b05910833ff8cbbcbafed36fdf2aea9fbd983d9372ede7",
+        "output_ids": [
+          463,
+          248046
+        ],
+        "start_local": "2026-11-24T16:47:46-08:00",
+        "ttft_s": 10.4125,
+        "native_prefill_tok_s": 2282.0,
+        "chunks": [
+          23626
+        ],
+        "staged": 0,
+        "owned_scratch": [
+          "basalt serve: prompt buffers: 5.38 GiB outside the full expert cache for a 23808-token chunk (1586 lent slots would require file reads)"
+        ],
+        "expert_backing": [
+          "basalt: FileExpertSource: 823 of the prompt path's 8473 lendable slots keep their experts in RAM too (the others are read from the file when lent: not enough RAM for them)"
+        ],
+        "gpu_experts": 24576,
+        "rails_to_first_token": {
+          "n": 5,
+          "ac": 5,
+          "mean_gpu_w": 46.97,
+          "mean_cpu_w": 17.92,
+          "mean_gpu_c": 63.4,
+          "mean_gpu_mhz": 2164.4,
+          "mean_gpu_util": 77.0
+        },
+        "decode_control": {
+          "tokens": 128,
+          "id_sha256": "70c1e5710ff96204d305a968bc569889fd0ef19f89a60d4c8f24c4d762ccb447",
+          "tok_s": 114.97
+        },
+        "cooling": [
+          [
+            50.62,
+            5.0
+          ],
+          [
+            49.41,
+            3.0
+          ],
+          [
+            48.53,
+            5.0
+          ],
+          [
+            47.62,
+            3.0
+          ],
+          [
+            47.12,
+            5.0
+          ]
+        ],
+        "binary_sha256": "9b7e8d21f010af902a487ed0034139e2c7446cb7ab419e925369967c32449e15",
+        "ring_reduction": [
+          "basalt serve: prompt staging ring reduced from 384 to 64 slots for the 23808-token resident chunk"
+        ],
+        "before_read": {
+          "gpu": "74326 MiB, 23965 MiB, 47.09, 624 MHz, 1.47 W, [N/A], 5 %",
+          "free_physical_gib": 4.959,
+          "commit_free_gib": 12.896
+        }
+      },
+      {
+        "arm": "B2",
+        "cap": "auto",
+        "input_tokens": 23633,
+        "input_sha256": "bafce24df0ab3d36f6b05910833ff8cbbcbafed36fdf2aea9fbd983d9372ede7",
+        "output_ids": [
+          463,
+          248046
+        ],
+        "start_local": "2026-11-24T16:48:35-08:00",
+        "ttft_s": 10.3757,
+        "native_prefill_tok_s": 2290.9,
+        "chunks": [
+          23626
+        ],
+        "staged": 0,
+        "owned_scratch": [
+          "basalt serve: prompt buffers: 5.38 GiB outside the full expert cache for a 23808-token chunk (1586 lent slots would require file reads)"
+        ],
+        "expert_backing": [
+          "basalt: FileExpertSource: 823 of the prompt path's 8473 lendable slots keep their experts in RAM too (the others are read from the file when lent: not enough RAM for them)"
+        ],
+        "gpu_experts": 24576,
+        "rails_to_first_token": {
+          "n": 6,
+          "ac": 6,
+          "mean_gpu_w": 44.05,
+          "mean_cpu_w": 14.38,
+          "mean_gpu_c": 60.67,
+          "mean_gpu_mhz": 1807.83,
+          "mean_gpu_util": 80.5
+        },
+        "decode_control": {
+          "tokens": 128,
+          "id_sha256": "70c1e5710ff96204d305a968bc569889fd0ef19f89a60d4c8f24c4d762ccb447",
+          "tok_s": 118.84
+        },
+        "cooling": [
+          [
+            50.74,
+            5.0
+          ],
+          [
+            49.8,
+            4.0
+          ],
+          [
+            48.5,
+            5.0
+          ],
+          [
+            47.77,
+            5.0
+          ],
+          [
+            47.18,
+            4.0
+          ]
+        ],
+        "binary_sha256": "9b7e8d21f010af902a487ed0034139e2c7446cb7ab419e925369967c32449e15",
+        "ring_reduction": [
+          "basalt serve: prompt staging ring reduced from 384 to 64 slots for the 23808-token resident chunk"
+        ],
+        "before_read": {
+          "gpu": "74325 MiB, 23966 MiB, 47.18, 624 MHz, 1.34 W, [N/A], 4 %",
+          "free_physical_gib": 4.822,
+          "commit_free_gib": 12.752
+        }
+      },
+      {
+        "arm": "A2",
+        "cap": "auto",
+        "input_tokens": 23633,
+        "input_sha256": "bafce24df0ab3d36f6b05910833ff8cbbcbafed36fdf2aea9fbd983d9372ede7",
+        "output_ids": [
+          463,
+          248046
+        ],
+        "start_local": "2026-11-24T16:49:24-08:00",
+        "ttft_s": 14.1643,
+        "native_prefill_tok_s": 1675.1,
+        "chunks": [
+          23626
+        ],
+        "staged": 1586,
+        "owned_scratch": [],
+        "expert_backing": [
+          "basalt: FileExpertSource: 823 of the prompt path's 8473 lendable slots keep their experts in RAM too (the others are read from the file when lent: not enough RAM for them)"
+        ],
+        "gpu_experts": 24576,
+        "rails_to_first_token": {
+          "n": 7,
+          "ac": 7,
+          "mean_gpu_w": 33.48,
+          "mean_cpu_w": 28.11,
+          "mean_gpu_c": 59.0,
+          "mean_gpu_mhz": 1745.57,
+          "mean_gpu_util": 68.57
+        },
+        "decode_control": {
+          "tokens": 128,
+          "id_sha256": "70c1e5710ff96204d305a968bc569889fd0ef19f89a60d4c8f24c4d762ccb447",
+          "tok_s": 119.7
+        },
+        "cooling": [
+          [
+            49.47,
+            3.0
+          ],
+          [
+            48.39,
+            3.0
+          ],
+          [
+            47.62,
+            3.0
+          ],
+          [
+            46.95,
+            3.0
+          ],
+          [
+            46.24,
+            3.0
+          ]
+        ],
+        "binary_sha256": "705cb1b0e0632358a728d8d855abb8a77d066cf596775efb6107f48900909f98",
+        "ring_reduction": [],
+        "before_read": {
+          "gpu": "74313 MiB, 23978 MiB, 46.24, 624 MHz, 1.25 W, [N/A], 3 %",
+          "free_physical_gib": 4.849,
+          "commit_free_gib": 12.821
+        }
+      }
+    ]
+  }
+}

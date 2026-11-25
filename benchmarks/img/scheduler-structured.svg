@@ -1,6 +1,7 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="920" height="420" viewBox="0 0 920 420" font-family="Segoe UI, Helvetica, Arial, sans-serif">
 <rect width="920" height="420" fill="#ffffff"/>
 <text x="64" y="28" font-size="18" font-weight="600" fill="#1f2328">Four structured replies on IQ3, 1,024 output tokens each</text>
+<text x="64" y="47" font-size="12" font-weight="600" fill="#3c5550">THIS PROJECT · BASALT RTX SPARK · INTERNAL BUILDS</text>
 <line x1="64" y1="350.0" x2="900" y2="350.0" stroke="#e5e7eb"/>
 <text x="56" y="354.0" font-size="11" text-anchor="end" fill="#57606a">0</text>
 <line x1="64" y1="292.8" x2="900" y2="292.8" stroke="#e5e7eb"/>

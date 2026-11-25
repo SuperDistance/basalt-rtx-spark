@@ -35,8 +35,71 @@ def load(path: Path) -> dict:
     return {"decode": decode, "weighted": weighted, "conc": conc, "prefill": prefill}
 
 
+def engine_labels(labels: list[str]) -> tuple[list[str], list[str], int]:
+    """Split chart labels into engines and packs. Group contiguous packs of the first engine."""
+    names = [label.rsplit(" (", 1)[0] if label.endswith(")") else label for label in labels]
+    packs = [label[len(name):].strip(" ()") for label, name in zip(labels, names)]
+    count = next((i for i, name in enumerate(names) if name != names[0]), len(names))
+    return names, packs, count if count > 1 and all(packs[:count]) else 0
+
+
+def grouped_rates(title, unit, groups, series, path, names, packs, project_count):
+    """Label every value by row and column so both the engine and its pack are readable without color."""
+    left, col, row = 116, 127, 39
+    width, height = left + col * len(series) + 12, 142 + row * len(groups)
+    title = escape(title)
+    desc = ". ".join(f"{group}: " + ", ".join(
+        f"{name} {rates[i]:,.0f}" for name, rates in series if rates[i] is not None
+    ) for i, group in enumerate(groups))
+    out = [f'<svg xmlns="http://www.w3.org/2000/svg" width="{width}" height="{height}" viewBox="0 0 {width} {height}" '
+           'role="img" aria-labelledby="title desc" font-family="Segoe UI, Helvetica, Arial, sans-serif">',
+           f'<title id="title">{title}</title><desc id="desc">{escape(unit)}. {escape(desc)}</desc>',
+           f'<rect width="{width}" height="{height}" rx="10" fill="#fbfcfc"/>',
+           f'<text x="16" y="28" font-size="20" font-weight="700" fill="#182c33">{title}</text>',
+           f'<text x="{width - 16}" y="28" font-size="14" text-anchor="end" fill="#435760">{escape(unit)}</text>']
+    for first, count, label, bg, ink in (
+        (0, project_count, f"THIS PROJECT · {names[0].upper()}", "#e8f4e9", "#245239"),
+        (project_count, len(series) - project_count, "REFERENCE ENGINES", "#edf1f4", "#3d5363"),
+    ):
+        if count:
+            x = left + first * col
+            out.append(f'<rect x="{x - 4}" y="42" width="{col * count - 3}" height="{height - 49}" rx="7" fill="{bg}"/>')
+            out.append(f'<text x="{x + 3}" y="63" font-size="13" font-weight="700" fill="{ink}">{escape(label)}</text>')
+    maximum = max((v for _, rates in series for v in rates if v is not None), default=1.0) or 1.0
+    for j, (_, rates) in enumerate(series):
+        x = left + col * j + 4
+        name = names[j]
+        if j < project_count:
+            headings = [packs[j]]
+        else:
+            first, sep, rest = name.partition(" for ")
+            engine_lines = [first, "for " + rest] if sep else [name]
+            if " + " in name:
+                first, rest = name.split(" + ", 1)
+                engine_lines = [first + " +", rest]
+            headings = engine_lines + ([packs[j]] if packs[j] else [])
+        for k, label in enumerate(headings):
+            strong = k == 0
+            out.append(f'<text x="{x}" y="{84 + k * 16}" font-size="{14 if strong else 12}" '
+                       f'font-weight="{600 if strong else 400}" fill="#22353b">{escape(label)}</text>')
+        color = COLORS[j % len(COLORS)]
+        for i, v in enumerate(rates):
+            if v is None:
+                continue
+            y = 146 + i * row
+            out.append(f'<text x="{x}" y="{y}" font-size="17" font-weight="600" fill="#152b33">{v:,.0f}</text>')
+            out.append(f'<rect x="{x}" y="{y + 5}" width="{col - 20}" height="5" rx="2.5" fill="#cdd8db"/>')
+            out.append(f'<rect x="{x}" y="{y + 5}" width="{(col - 20) * v / maximum:.2f}" height="5" rx="2.5" fill="{color}"/>')
+    for i, group in enumerate(groups):
+        out.append(f'<text x="16" y="{146 + row * i}" font-size="14" font-weight="600" fill="#243840">{escape(group)}</text>')
+    path.write_text("\n".join(out + ["</svg>"]) + "\n", encoding="utf-8")
+
 def bars(title: str, unit: str, groups: list[str], series: list[tuple[str, list[float | None]]], path: Path) -> None:
     """A grouped bar chart as SVG: one group per x label, one bar per series, the value above each bar."""
+    names, packs, count = engine_labels([name for name, _ in series])
+    if count and count < len(series):
+        grouped_rates(title, unit, groups, series, path, names, packs, count)
+        return
     W, H, L, R, T, B = 920, 420, 64, 20, 64, 70
     legend = []
     lx, row = L, 0
@@ -95,17 +158,20 @@ def overview(runs: list[tuple[str, dict]], path: Path) -> None:
     rows = [(label, run) for label, run in runs if run["weighted"] is not None]
     if not rows:
         return
-    metrics = [("Single-stream decode", "weighted output tok/s", [run["weighted"] for _, run in rows], ".2f")]
+    metrics = [("Decode · 1 stream", "weighted output tok/s", [run["weighted"] for _, run in rows], ".2f")]
     prefill = [run["prefill"].get(2000) for _, run in rows]
     if any(rate is not None for rate in prefill):
         metrics.append(("Cold prefill", "input tok/s · 2K target", prefill, ",.0f"))
 
     title = "BetterBench · decode and cold prefill" if len(metrics) == 2 else "BetterBench · single-stream decode"
-    names = [label.rsplit(" (", 1)[0] if label.endswith(")") else label for label, _ in rows]
-    label_width = max(225, 30 + 10 * max(map(len, names)))
-    col_width, row_height = 203, 48
-    width = label_width + col_width * len(metrics) + 24
-    height = 92 + row_height * len(rows)
+    names, packs, peer_start = engine_labels([label for label, _ in rows])
+    grouped = peer_start > 0
+    label_width = max(224, 36 + 8 * max(map(len, names)))
+    col_width, row_height = 166, 47
+    width = label_width + col_width * len(metrics) + 12
+    row_y = [(122 if grouped else 100) + row_height * i + (26 if grouped and i >= peer_start else 0)
+             for i in range(len(rows))]
+    height = row_y[-1] + 36
     desc = ". ".join(f"{heading}: " + ", ".join(
         f"{label} {rate:{fmt}} tok/s" for (label, _), rate in zip(rows, rates) if rate is not None
     ) for heading, _, rates, fmt in metrics)
@@ -114,6 +180,15 @@ def overview(runs: list[tuple[str, dict]], path: Path) -> None:
            f'<title id="title">{title}</title>', f'<desc id="desc">{escape(desc)}</desc>',
            f'<rect width="{width}" height="{height}" rx="12" fill="#101e26"/>',
            f'<text x="22" y="32" font-size="23" font-weight="700" fill="#f0f6f5">{title}</text>']
+    if grouped:
+        bottom = row_y[peer_start - 1] + 25
+        out.extend([
+            f'<rect x="10" y="84" width="{width - 20}" height="{bottom - 84}" rx="7" fill="#1b382f"/>',
+            f'<rect x="10" y="84" width="4" height="{bottom - 84}" rx="2" fill="#9bd568"/>',
+            f'<text x="23" y="105" font-size="14" font-weight="700" fill="#b9ee92">THIS PROJECT · {escape(names[0].upper())}</text>',
+        ])
+        if peer_start < len(rows):
+            out.append(f'<text x="23" y="{row_y[peer_start] - 18}" font-size="14" font-weight="700" fill="#bfccd1">REFERENCE ENGINES</text>')
     for col, (heading, unit, rates, fmt) in enumerate(metrics):
         x = label_width + col * col_width
         out.append(f'<text x="{x}" y="59" font-size="16" font-weight="600" fill="#f0f6f5">{escape(heading)}</text>')
@@ -122,19 +197,20 @@ def overview(runs: list[tuple[str, dict]], path: Path) -> None:
         for i, rate in enumerate(rates):
             if rate is None:
                 continue
-            y = 100 + row_height * i
+            y = row_y[i]
             color = "#a6ed60" if i == 0 else "#7fdbca" if names[i] == names[0] else "#a8c1d0"
-            span = col_width - 24
-            out.append(f'<text x="{x}" y="{y + 8}" font-size="19" font-weight="700" fill="{color}">{rate:{fmt}}</text>')
+            span = col_width - 19
+            out.append(f'<text x="{x}" y="{y + 8}" font-size="21" font-weight="700" fill="{color}">{rate:{fmt}}</text>')
             out.append(f'<rect x="{x}" y="{y + 14}" width="{span}" height="6" rx="3" fill="#293b46"/>')
             out.append(f'<rect x="{x}" y="{y + 14}" width="{span * rate / maximum:.2f}" height="6" rx="3" fill="{color}"/>')
-    for i, (label, _) in enumerate(rows):
-        y = 100 + row_height * i
-        name = names[i]
-        pack = label[len(name):].strip(" ()")
-        out.append(f'<text x="22" y="{y + 6}" font-size="16" font-weight="600" fill="#f0f6f5">{escape(name)}</text>')
-        if pack:
-            out.append(f'<text x="22" y="{y + 23}" font-size="13" fill="#b7c9d0">{escape(pack)}</text>')
+    for i, (name, pack) in enumerate(zip(names, packs)):
+        y = row_y[i]
+        if grouped and i < peer_start:
+            out.append(f'<text x="28" y="{y + 9}" font-size="18" font-weight="600" fill="#f0f6f5">{escape(pack)}</text>')
+        else:
+            out.append(f'<text x="22" y="{y + 6}" font-size="16" font-weight="600" fill="#f0f6f5">{escape(name)}</text>')
+            if pack:
+                out.append(f'<text x="22" y="{y + 23}" font-size="13" fill="#b7c9d0">{escape(pack)}</text>')
     out.append("</svg>")
     path.write_text("\n".join(out) + "\n", encoding="utf-8")
 

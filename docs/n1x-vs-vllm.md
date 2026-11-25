@@ -5,7 +5,7 @@ Basalt serves UD-IQ3_XXS; vLLM for RTX Spark 0.2.0 (vLLM 0.32.0) serves FP4-Loca
 block verification, Marlin weight-only NVFP4 MoE, b12x MXFP8 dense; its kernels are sm_121a code, and its FP4 GEMMs need
 sm_100, so the experts run weight-only).
 
-| | Basalt 2dacc65 | Basalt a67b9d4 | Basalt 08f5791 | Basalt c4ca7d2 | vLLM |
+| | This project · Basalt `2dacc65` | This project · Basalt `a67b9d4` | This project · Basalt `08f5791` | This project · Basalt `c4ca7d2` | Reference engine · vLLM |
 | --- | ---: | ---: | ---: | ---: | ---: |
 | Single-stream decode, weighted median (tok/s) | 91.9 | 88.8 | 80.9 | 88.2 | 55.1 |
 | First token, short prompts, p50 (ms) | 375 | 363 | 420 | 324 | 279 |
