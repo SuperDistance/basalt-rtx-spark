@@ -1,0 +1,16 @@
+{
+  "before_model": {
+    "time": "2026-11-24T17:13:36-08:00",
+    "free_physical_gib": 15.56,
+    "committed_gib": 32.02,
+    "commit_limit_gib": 126.43,
+    "gpu": "98304 MiB, 2448 MiB, 49.89, 624 MHz, 1.45 W, [N/A]"
+  },
+  "before_benchmark": {
+    "time": "2026-11-24T17:15:03-08:00",
+    "free_physical_gib": 3.29,
+    "committed_gib": 115.37,
+    "commit_limit_gib": 126.43,
+    "gpu": "98304 MiB, 74372 MiB, 52.15, 624 MHz, 1.43 W, [N/A]"
+  }
+}

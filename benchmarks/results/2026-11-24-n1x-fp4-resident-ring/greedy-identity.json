@@ -1,0 +1,22 @@
+{
+  "fixture": "tools/greedy_identity.py",
+  "prompts": [
+    "data/bench/conv.ids",
+    "data/bench/struct.ids",
+    "data/bench/prose.ids"
+  ],
+  "tokens_per_prompt": 300,
+  "native_reference_token_ids": 900,
+  "native_candidate_token_ids": 900,
+  "mismatch_count": 0,
+  "temperature": 0,
+  "spec": 8,
+  "max_context": 262144,
+  "kv": "int8",
+  "expert_cache_slots": 24576,
+  "host_expert_budget_gib": 1,
+  "adapt_swaps": 0,
+  "peer_adapt_swaps": 0,
+  "reference_executable_sha256": "705cb1b0e0632358a728d8d855abb8a77d066cf596775efb6107f48900909f98",
+  "candidate_executable_sha256": "9b7e8d21f010af902a487ed0034139e2c7446cb7ab419e925369967c32449e15"
+}

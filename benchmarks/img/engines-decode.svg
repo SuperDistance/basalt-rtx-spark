@@ -1,5 +1,5 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="636" height="454" viewBox="0 0 636 454" role="img" aria-labelledby="title desc" font-family="Segoe UI, Helvetica, Arial, sans-serif">
-<title id="title">Single-stream decode by scenario (median)</title><desc id="desc">tok/s. chat: Basalt RTX Spark (UD-IQ3_XXS) 84, Basalt RTX Spark (FP4-Local) 75, Basalt + Arm64 port (UD-IQ3_XXS) 72, Native vLLM for RTX Spark (FP4-Local) 50. code: Basalt RTX Spark (UD-IQ3_XXS) 96, Basalt RTX Spark (FP4-Local) 89, Basalt + Arm64 port (UD-IQ3_XXS) 88, Native vLLM for RTX Spark (FP4-Local) 52. file_edit: Basalt RTX Spark (UD-IQ3_XXS) 99, Basalt RTX Spark (FP4-Local) 90, Basalt + Arm64 port (UD-IQ3_XXS) 84, Native vLLM for RTX Spark (FP4-Local) 63. json: Basalt RTX Spark (UD-IQ3_XXS) 113, Basalt RTX Spark (FP4-Local) 99, Basalt + Arm64 port (UD-IQ3_XXS) 111, Native vLLM for RTX Spark (FP4-Local) 64. math: Basalt RTX Spark (UD-IQ3_XXS) 107, Basalt RTX Spark (FP4-Local) 100, Basalt + Arm64 port (UD-IQ3_XXS) 103, Native vLLM for RTX Spark (FP4-Local) 66. prose: Basalt RTX Spark (UD-IQ3_XXS) 77, Basalt RTX Spark (FP4-Local) 69, Basalt + Arm64 port (UD-IQ3_XXS) 68, Native vLLM for RTX Spark (FP4-Local) 48. reasoning: Basalt RTX Spark (UD-IQ3_XXS) 76, Basalt RTX Spark (FP4-Local) 73, Basalt + Arm64 port (UD-IQ3_XXS) 69, Native vLLM for RTX Spark (FP4-Local) 46. summarization: Basalt RTX Spark (UD-IQ3_XXS) 102, Basalt RTX Spark (FP4-Local) 90, Basalt + Arm64 port (UD-IQ3_XXS) 85, Native vLLM for RTX Spark (FP4-Local) 63</desc>
+<title id="title">Single-stream decode by scenario (median)</title><desc id="desc">tok/s. chat: Basalt RTX Spark (UD-IQ3_XXS) 84, Basalt RTX Spark (FP4-Local) 79, Basalt + Arm64 port (UD-IQ3_XXS) 72, Native vLLM for RTX Spark (FP4-Local) 50. code: Basalt RTX Spark (UD-IQ3_XXS) 96, Basalt RTX Spark (FP4-Local) 86, Basalt + Arm64 port (UD-IQ3_XXS) 88, Native vLLM for RTX Spark (FP4-Local) 52. file_edit: Basalt RTX Spark (UD-IQ3_XXS) 99, Basalt RTX Spark (FP4-Local) 93, Basalt + Arm64 port (UD-IQ3_XXS) 84, Native vLLM for RTX Spark (FP4-Local) 63. json: Basalt RTX Spark (UD-IQ3_XXS) 113, Basalt RTX Spark (FP4-Local) 106, Basalt + Arm64 port (UD-IQ3_XXS) 111, Native vLLM for RTX Spark (FP4-Local) 64. math: Basalt RTX Spark (UD-IQ3_XXS) 107, Basalt RTX Spark (FP4-Local) 101, Basalt + Arm64 port (UD-IQ3_XXS) 103, Native vLLM for RTX Spark (FP4-Local) 66. prose: Basalt RTX Spark (UD-IQ3_XXS) 77, Basalt RTX Spark (FP4-Local) 70, Basalt + Arm64 port (UD-IQ3_XXS) 68, Native vLLM for RTX Spark (FP4-Local) 48. reasoning: Basalt RTX Spark (UD-IQ3_XXS) 76, Basalt RTX Spark (FP4-Local) 73, Basalt + Arm64 port (UD-IQ3_XXS) 69, Native vLLM for RTX Spark (FP4-Local) 46. summarization: Basalt RTX Spark (UD-IQ3_XXS) 102, Basalt RTX Spark (FP4-Local) 93, Basalt + Arm64 port (UD-IQ3_XXS) 85, Native vLLM for RTX Spark (FP4-Local) 63</desc>
 <rect width="636" height="454" rx="10" fill="#fbfcfc"/>
 <text x="16" y="28" font-size="20" font-weight="700" fill="#182c33">Single-stream decode by scenario (median)</text>
 <text x="620" y="28" font-size="14" text-anchor="end" fill="#435760">tok/s</text>
@@ -33,30 +33,30 @@
 <rect x="120" y="424" width="107" height="5" rx="2.5" fill="#cdd8db"/>
 <rect x="120" y="424" width="96.93" height="5" rx="2.5" fill="#76B900"/>
 <text x="247" y="84" font-size="14" font-weight="600" fill="#22353b">FP4-Local</text>
-<text x="247" y="146" font-size="17" font-weight="600" fill="#152b33">75</text>
+<text x="247" y="146" font-size="17" font-weight="600" fill="#152b33">79</text>
 <rect x="247" y="151" width="107" height="5" rx="2.5" fill="#cdd8db"/>
-<rect x="247" y="151" width="71.29" height="5" rx="2.5" fill="#008675"/>
-<text x="247" y="185" font-size="17" font-weight="600" fill="#152b33">89</text>
+<rect x="247" y="151" width="75.04" height="5" rx="2.5" fill="#008675"/>
+<text x="247" y="185" font-size="17" font-weight="600" fill="#152b33">86</text>
 <rect x="247" y="190" width="107" height="5" rx="2.5" fill="#cdd8db"/>
-<rect x="247" y="190" width="83.89" height="5" rx="2.5" fill="#008675"/>
-<text x="247" y="224" font-size="17" font-weight="600" fill="#152b33">90</text>
+<rect x="247" y="190" width="81.09" height="5" rx="2.5" fill="#008675"/>
+<text x="247" y="224" font-size="17" font-weight="600" fill="#152b33">93</text>
 <rect x="247" y="229" width="107" height="5" rx="2.5" fill="#cdd8db"/>
-<rect x="247" y="229" width="85.66" height="5" rx="2.5" fill="#008675"/>
-<text x="247" y="263" font-size="17" font-weight="600" fill="#152b33">99</text>
+<rect x="247" y="229" width="88.39" height="5" rx="2.5" fill="#008675"/>
+<text x="247" y="263" font-size="17" font-weight="600" fill="#152b33">106</text>
 <rect x="247" y="268" width="107" height="5" rx="2.5" fill="#cdd8db"/>
-<rect x="247" y="268" width="93.92" height="5" rx="2.5" fill="#008675"/>
-<text x="247" y="302" font-size="17" font-weight="600" fill="#152b33">100</text>
+<rect x="247" y="268" width="100.18" height="5" rx="2.5" fill="#008675"/>
+<text x="247" y="302" font-size="17" font-weight="600" fill="#152b33">101</text>
 <rect x="247" y="307" width="107" height="5" rx="2.5" fill="#cdd8db"/>
-<rect x="247" y="307" width="94.83" height="5" rx="2.5" fill="#008675"/>
-<text x="247" y="341" font-size="17" font-weight="600" fill="#152b33">69</text>
+<rect x="247" y="307" width="95.85" height="5" rx="2.5" fill="#008675"/>
+<text x="247" y="341" font-size="17" font-weight="600" fill="#152b33">70</text>
 <rect x="247" y="346" width="107" height="5" rx="2.5" fill="#cdd8db"/>
-<rect x="247" y="346" width="65.50" height="5" rx="2.5" fill="#008675"/>
+<rect x="247" y="346" width="66.35" height="5" rx="2.5" fill="#008675"/>
 <text x="247" y="380" font-size="17" font-weight="600" fill="#152b33">73</text>
 <rect x="247" y="385" width="107" height="5" rx="2.5" fill="#cdd8db"/>
-<rect x="247" y="385" width="68.69" height="5" rx="2.5" fill="#008675"/>
-<text x="247" y="419" font-size="17" font-weight="600" fill="#152b33">90</text>
+<rect x="247" y="385" width="68.91" height="5" rx="2.5" fill="#008675"/>
+<text x="247" y="419" font-size="17" font-weight="600" fill="#152b33">93</text>
 <rect x="247" y="424" width="107" height="5" rx="2.5" fill="#cdd8db"/>
-<rect x="247" y="424" width="85.19" height="5" rx="2.5" fill="#008675"/>
+<rect x="247" y="424" width="87.95" height="5" rx="2.5" fill="#008675"/>
 <text x="374" y="84" font-size="14" font-weight="600" fill="#22353b">Basalt +</text>
 <text x="374" y="100" font-size="12" font-weight="400" fill="#22353b">Arm64 port</text>
 <text x="374" y="116" font-size="12" font-weight="400" fill="#22353b">UD-IQ3_XXS</text>

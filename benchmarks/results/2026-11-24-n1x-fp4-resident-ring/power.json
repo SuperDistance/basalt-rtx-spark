@@ -1,0 +1,521 @@
+{
+  "source": "SparkHelper common rail samples, >=80% GPU utilization for total and per-workload busy summaries. whole_interval and idle_60s include all samples.",
+  "idle_60s": {
+    "start": "2026-11-24T17:14:03.549-08:00",
+    "end": "2026-11-24T17:15:03.549-08:00",
+    "duration_s": 60.0,
+    "samples": 30,
+    "selected": 30,
+    "ac_counts": {
+      "1": 30
+    },
+    "mean_gpu_w": 1.46,
+    "mean_cpu_w": 6.89,
+    "cpu_gpu_samples": 30,
+    "mean_cpu_gpu_w": 8.36,
+    "mean_npu_w": 0.82,
+    "mean_measured_soc_w": 9.18,
+    "median_sm_mhz": 630.0,
+    "mean_gpu_c": 48.6,
+    "mean_soc_c": 61.52,
+    "max_gpu_c": 53.0,
+    "max_soc_c": 74.2
+  },
+  "phases": {
+    "decode": {
+      "total": {
+        "start": "2026-11-24T17:15:03.549-08:00",
+        "end": "2026-11-24T17:29:37.435-08:00",
+        "duration_s": 873.89,
+        "samples": 435,
+        "selected": 430,
+        "ac_counts": {
+          "1": 430
+        },
+        "mean_gpu_w": 46.0,
+        "mean_cpu_w": 6.45,
+        "cpu_gpu_samples": 430,
+        "mean_cpu_gpu_w": 52.45,
+        "mean_npu_w": 0.98,
+        "mean_measured_soc_w": 53.44,
+        "median_sm_mhz": 2288.0,
+        "mean_gpu_c": 73.11,
+        "mean_soc_c": 80.43,
+        "max_gpu_c": 77.0,
+        "max_soc_c": 84.8
+      },
+      "whole_interval": {
+        "start": "2026-11-24T17:15:03.549-08:00",
+        "end": "2026-11-24T17:29:37.435-08:00",
+        "duration_s": 873.89,
+        "samples": 435,
+        "selected": 435,
+        "ac_counts": {
+          "1": 435
+        },
+        "mean_gpu_w": 45.93,
+        "mean_cpu_w": 6.44,
+        "cpu_gpu_samples": 435,
+        "mean_cpu_gpu_w": 52.36,
+        "mean_npu_w": 0.98,
+        "mean_measured_soc_w": 53.34,
+        "median_sm_mhz": 2288.0,
+        "mean_gpu_c": 73.08,
+        "mean_soc_c": 80.43,
+        "max_gpu_c": 77.0,
+        "max_soc_c": 84.8
+      },
+      "workloads": {
+        "chat": {
+          "start": "2026-11-24T17:15:03.549-08:00",
+          "end": "2026-11-24T17:16:24.711-08:00",
+          "duration_s": 81.16,
+          "samples": 41,
+          "selected": 40,
+          "ac_counts": {
+            "1": 40
+          },
+          "mean_gpu_w": 53.78,
+          "mean_cpu_w": 6.2,
+          "cpu_gpu_samples": 40,
+          "mean_cpu_gpu_w": 59.97,
+          "mean_npu_w": 0.99,
+          "mean_measured_soc_w": 60.96,
+          "median_sm_mhz": 2369.0,
+          "mean_gpu_c": 72.7,
+          "mean_soc_c": 80.67,
+          "max_gpu_c": 76.0,
+          "max_soc_c": 83.6
+        },
+        "code": {
+          "start": "2026-11-24T17:16:24.711-08:00",
+          "end": "2026-11-24T17:18:38.321-08:00",
+          "duration_s": 133.61,
+          "samples": 67,
+          "selected": 66,
+          "ac_counts": {
+            "1": 66
+          },
+          "mean_gpu_w": 47.98,
+          "mean_cpu_w": 8.34,
+          "cpu_gpu_samples": 66,
+          "mean_cpu_gpu_w": 56.32,
+          "mean_npu_w": 1.01,
+          "mean_measured_soc_w": 57.32,
+          "median_sm_mhz": 2314.0,
+          "mean_gpu_c": 74.71,
+          "mean_soc_c": 82.23,
+          "max_gpu_c": 77.0,
+          "max_soc_c": 84.8
+        },
+        "file_edit": {
+          "start": "2026-11-24T17:18:38.321-08:00",
+          "end": "2026-11-24T17:20:11.402-08:00",
+          "duration_s": 93.08,
+          "samples": 46,
+          "selected": 46,
+          "ac_counts": {
+            "1": 46
+          },
+          "mean_gpu_w": 47.01,
+          "mean_cpu_w": 3.62,
+          "cpu_gpu_samples": 46,
+          "mean_cpu_gpu_w": 50.64,
+          "mean_npu_w": 1.0,
+          "mean_measured_soc_w": 51.63,
+          "median_sm_mhz": 2278.0,
+          "mean_gpu_c": 74.02,
+          "mean_soc_c": 81.49,
+          "max_gpu_c": 76.0,
+          "max_soc_c": 83.9
+        },
+        "json": {
+          "start": "2026-11-24T17:20:11.402-08:00",
+          "end": "2026-11-24T17:21:12.610-08:00",
+          "duration_s": 61.21,
+          "samples": 30,
+          "selected": 30,
+          "ac_counts": {
+            "1": 30
+          },
+          "mean_gpu_w": 41.34,
+          "mean_cpu_w": 3.12,
+          "cpu_gpu_samples": 30,
+          "mean_cpu_gpu_w": 44.46,
+          "mean_npu_w": 0.92,
+          "mean_measured_soc_w": 45.38,
+          "median_sm_mhz": 2203.0,
+          "mean_gpu_c": 70.2,
+          "mean_soc_c": 77.02,
+          "max_gpu_c": 72.0,
+          "max_soc_c": 79.0
+        },
+        "math": {
+          "start": "2026-11-24T17:21:12.610-08:00",
+          "end": "2026-11-24T17:23:04.645-08:00",
+          "duration_s": 112.04,
+          "samples": 56,
+          "selected": 55,
+          "ac_counts": {
+            "1": 55
+          },
+          "mean_gpu_w": 51.39,
+          "mean_cpu_w": 4.63,
+          "cpu_gpu_samples": 55,
+          "mean_cpu_gpu_w": 56.02,
+          "mean_npu_w": 1.01,
+          "mean_measured_soc_w": 57.03,
+          "median_sm_mhz": 2353.0,
+          "mean_gpu_c": 74.96,
+          "mean_soc_c": 82.71,
+          "max_gpu_c": 76.0,
+          "max_soc_c": 84.1
+        },
+        "prose": {
+          "start": "2026-11-24T17:23:04.645-08:00",
+          "end": "2026-11-24T17:25:45.324-08:00",
+          "duration_s": 160.68,
+          "samples": 79,
+          "selected": 77,
+          "ac_counts": {
+            "1": 77
+          },
+          "mean_gpu_w": 42.25,
+          "mean_cpu_w": 6.28,
+          "cpu_gpu_samples": 77,
+          "mean_cpu_gpu_w": 48.53,
+          "mean_npu_w": 0.98,
+          "mean_measured_soc_w": 49.5,
+          "median_sm_mhz": 2249.0,
+          "mean_gpu_c": 71.65,
+          "mean_soc_c": 78.62,
+          "max_gpu_c": 75.0,
+          "max_soc_c": 82.1
+        },
+        "reasoning": {
+          "start": "2026-11-24T17:25:45.324-08:00",
+          "end": "2026-11-24T17:28:50.746-08:00",
+          "duration_s": 185.42,
+          "samples": 93,
+          "selected": 93,
+          "ac_counts": {
+            "1": 93
+          },
+          "mean_gpu_w": 42.67,
+          "mean_cpu_w": 8.79,
+          "cpu_gpu_samples": 93,
+          "mean_cpu_gpu_w": 51.46,
+          "mean_npu_w": 0.97,
+          "mean_measured_soc_w": 52.43,
+          "median_sm_mhz": 2249.0,
+          "mean_gpu_c": 72.65,
+          "mean_soc_c": 79.66,
+          "max_gpu_c": 76.0,
+          "max_soc_c": 83.8
+        },
+        "summarization": {
+          "start": "2026-11-24T17:28:50.746-08:00",
+          "end": "2026-11-24T17:29:37.435-08:00",
+          "duration_s": 46.69,
+          "samples": 23,
+          "selected": 23,
+          "ac_counts": {
+            "1": 23
+          },
+          "mean_gpu_w": 44.07,
+          "mean_cpu_w": 6.92,
+          "cpu_gpu_samples": 23,
+          "mean_cpu_gpu_w": 50.99,
+          "mean_npu_w": 0.99,
+          "mean_measured_soc_w": 51.98,
+          "median_sm_mhz": 2242.0,
+          "mean_gpu_c": 73.61,
+          "mean_soc_c": 80.85,
+          "max_gpu_c": 75.0,
+          "max_soc_c": 82.2
+        }
+      }
+    },
+    "prefill": {
+      "total": {
+        "start": "2026-11-24T17:29:37.435-08:00",
+        "end": "2026-11-24T17:36:40.882-08:00",
+        "duration_s": 423.45,
+        "samples": 210,
+        "selected": 188,
+        "ac_counts": {
+          "1": 188
+        },
+        "mean_gpu_w": 41.5,
+        "mean_cpu_w": 13.76,
+        "cpu_gpu_samples": 188,
+        "mean_cpu_gpu_w": 55.26,
+        "mean_npu_w": 0.96,
+        "mean_measured_soc_w": 56.22,
+        "median_sm_mhz": 1885.0,
+        "mean_gpu_c": 70.57,
+        "mean_soc_c": 78.21,
+        "max_gpu_c": 79.0,
+        "max_soc_c": 85.2
+      },
+      "whole_interval": {
+        "start": "2026-11-24T17:29:37.435-08:00",
+        "end": "2026-11-24T17:36:40.882-08:00",
+        "duration_s": 423.45,
+        "samples": 210,
+        "selected": 210,
+        "ac_counts": {
+          "1": 210
+        },
+        "mean_gpu_w": 39.21,
+        "mean_cpu_w": 13.1,
+        "cpu_gpu_samples": 210,
+        "mean_cpu_gpu_w": 52.3,
+        "mean_npu_w": 0.95,
+        "mean_measured_soc_w": 53.26,
+        "median_sm_mhz": 1885.0,
+        "mean_gpu_c": 70.06,
+        "mean_soc_c": 77.8,
+        "max_gpu_c": 79.0,
+        "max_soc_c": 85.2
+      },
+      "workloads": {
+        "2000": {
+          "start": "2026-11-24T17:29:37.435-08:00",
+          "end": "2026-11-24T17:29:48.820-08:00",
+          "duration_s": 11.38,
+          "samples": 6,
+          "selected": 4,
+          "ac_counts": {
+            "1": 4
+          },
+          "mean_gpu_w": 40.46,
+          "mean_cpu_w": 12.08,
+          "cpu_gpu_samples": 4,
+          "mean_cpu_gpu_w": 52.53,
+          "mean_npu_w": 0.99,
+          "mean_measured_soc_w": 53.53,
+          "median_sm_mhz": 2080.0,
+          "mean_gpu_c": 71.25,
+          "mean_soc_c": 78.22,
+          "max_gpu_c": 72.0,
+          "max_soc_c": 79.0
+        },
+        "8000": {
+          "start": "2026-11-24T17:29:48.820-08:00",
+          "end": "2026-11-24T17:30:19.122-08:00",
+          "duration_s": 30.3,
+          "samples": 15,
+          "selected": 15,
+          "ac_counts": {
+            "1": 15
+          },
+          "mean_gpu_w": 40.69,
+          "mean_cpu_w": 10.3,
+          "cpu_gpu_samples": 15,
+          "mean_cpu_gpu_w": 50.99,
+          "mean_npu_w": 1.1,
+          "mean_measured_soc_w": 52.09,
+          "median_sm_mhz": 1917.0,
+          "mean_gpu_c": 70.93,
+          "mean_soc_c": 76.97,
+          "max_gpu_c": 72.0,
+          "max_soc_c": 77.6
+        },
+        "16000": {
+          "start": "2026-11-24T17:30:19.122-08:00",
+          "end": "2026-11-24T17:31:13.269-08:00",
+          "duration_s": 54.15,
+          "samples": 27,
+          "selected": 24,
+          "ac_counts": {
+            "1": 24
+          },
+          "mean_gpu_w": 39.16,
+          "mean_cpu_w": 7.3,
+          "cpu_gpu_samples": 24,
+          "mean_cpu_gpu_w": 46.46,
+          "mean_npu_w": 0.92,
+          "mean_measured_soc_w": 47.38,
+          "median_sm_mhz": 1842.5,
+          "mean_gpu_c": 69.25,
+          "mean_soc_c": 75.21,
+          "max_gpu_c": 73.0,
+          "max_soc_c": 76.6
+        },
+        "32000": {
+          "start": "2026-11-24T17:31:13.269-08:00",
+          "end": "2026-11-24T17:33:19.210-08:00",
+          "duration_s": 125.94,
+          "samples": 63,
+          "selected": 51,
+          "ac_counts": {
+            "1": 51
+          },
+          "mean_gpu_w": 32.71,
+          "mean_cpu_w": 18.62,
+          "cpu_gpu_samples": 51,
+          "mean_cpu_gpu_w": 51.32,
+          "mean_npu_w": 0.9,
+          "mean_measured_soc_w": 52.22,
+          "median_sm_mhz": 1625.0,
+          "mean_gpu_c": 65.04,
+          "mean_soc_c": 73.72,
+          "max_gpu_c": 70.0,
+          "max_soc_c": 82.5
+        },
+        "64000": {
+          "start": "2026-11-24T17:33:19.210-08:00",
+          "end": "2026-11-24T17:36:40.882-08:00",
+          "duration_s": 201.67,
+          "samples": 99,
+          "selected": 94,
+          "ac_counts": {
+            "1": 94
+          },
+          "mean_gpu_w": 47.03,
+          "mean_cpu_w": 13.41,
+          "cpu_gpu_samples": 94,
+          "mean_cpu_gpu_w": 60.44,
+          "mean_npu_w": 0.98,
+          "mean_measured_soc_w": 61.42,
+          "median_sm_mhz": 1950.0,
+          "mean_gpu_c": 73.83,
+          "mean_soc_c": 81.62,
+          "max_gpu_c": 79.0,
+          "max_soc_c": 85.2
+        }
+      }
+    },
+    "concurrency": {
+      "total": {
+        "start": "2026-11-24T17:36:40.882-08:00",
+        "end": "2026-11-24T17:50:36.882-08:00",
+        "duration_s": 836.0,
+        "samples": 416,
+        "selected": 404,
+        "ac_counts": {
+          "1": 404
+        },
+        "mean_gpu_w": 46.18,
+        "mean_cpu_w": 4.46,
+        "cpu_gpu_samples": 404,
+        "mean_cpu_gpu_w": 50.64,
+        "mean_npu_w": 0.97,
+        "mean_measured_soc_w": 51.61,
+        "median_sm_mhz": 2275.0,
+        "mean_gpu_c": 73.05,
+        "mean_soc_c": 80.34,
+        "max_gpu_c": 77.0,
+        "max_soc_c": 87.2
+      },
+      "whole_interval": {
+        "start": "2026-11-24T17:36:40.882-08:00",
+        "end": "2026-11-24T17:50:36.882-08:00",
+        "duration_s": 836.0,
+        "samples": 416,
+        "selected": 416,
+        "ac_counts": {
+          "1": 416
+        },
+        "mean_gpu_w": 46.13,
+        "mean_cpu_w": 4.45,
+        "cpu_gpu_samples": 416,
+        "mean_cpu_gpu_w": 50.58,
+        "mean_npu_w": 0.97,
+        "mean_measured_soc_w": 51.55,
+        "median_sm_mhz": 2275.0,
+        "mean_gpu_c": 73.03,
+        "mean_soc_c": 80.31,
+        "max_gpu_c": 77.0,
+        "max_soc_c": 87.2
+      },
+      "workloads": {
+        "1": {
+          "start": "2026-11-24T17:36:40.882-08:00",
+          "end": "2026-11-24T17:40:33.587-08:00",
+          "duration_s": 232.7,
+          "samples": 116,
+          "selected": 113,
+          "ac_counts": {
+            "1": 113
+          },
+          "mean_gpu_w": 46.96,
+          "mean_cpu_w": 4.23,
+          "cpu_gpu_samples": 113,
+          "mean_cpu_gpu_w": 51.19,
+          "mean_npu_w": 0.98,
+          "mean_measured_soc_w": 52.17,
+          "median_sm_mhz": 2262.0,
+          "mean_gpu_c": 73.49,
+          "mean_soc_c": 80.71,
+          "max_gpu_c": 77.0,
+          "max_soc_c": 84.2
+        },
+        "2": {
+          "start": "2026-11-24T17:40:33.587-08:00",
+          "end": "2026-11-24T17:44:11.365-08:00",
+          "duration_s": 217.78,
+          "samples": 109,
+          "selected": 102,
+          "ac_counts": {
+            "1": 102
+          },
+          "mean_gpu_w": 45.76,
+          "mean_cpu_w": 5.19,
+          "cpu_gpu_samples": 102,
+          "mean_cpu_gpu_w": 50.95,
+          "mean_npu_w": 0.97,
+          "mean_measured_soc_w": 51.92,
+          "median_sm_mhz": 2288.0,
+          "mean_gpu_c": 72.89,
+          "mean_soc_c": 80.23,
+          "max_gpu_c": 76.0,
+          "max_soc_c": 87.2
+        },
+        "3": {
+          "start": "2026-11-24T17:44:11.365-08:00",
+          "end": "2026-11-24T17:47:24.971-08:00",
+          "duration_s": 193.61,
+          "samples": 96,
+          "selected": 94,
+          "ac_counts": {
+            "1": 94
+          },
+          "mean_gpu_w": 45.28,
+          "mean_cpu_w": 4.83,
+          "cpu_gpu_samples": 94,
+          "mean_cpu_gpu_w": 50.1,
+          "mean_npu_w": 0.95,
+          "mean_measured_soc_w": 51.05,
+          "median_sm_mhz": 2262.0,
+          "mean_gpu_c": 72.74,
+          "mean_soc_c": 80.14,
+          "max_gpu_c": 76.0,
+          "max_soc_c": 85.1
+        },
+        "4": {
+          "start": "2026-11-24T17:47:24.971-08:00",
+          "end": "2026-11-24T17:50:36.882-08:00",
+          "duration_s": 191.91,
+          "samples": 95,
+          "selected": 95,
+          "ac_counts": {
+            "1": 95
+          },
+          "mean_gpu_w": 46.62,
+          "mean_cpu_w": 3.58,
+          "cpu_gpu_samples": 95,
+          "mean_cpu_gpu_w": 50.21,
+          "mean_npu_w": 0.98,
+          "mean_measured_soc_w": 51.19,
+          "median_sm_mhz": 2281.0,
+          "mean_gpu_c": 73.0,
+          "mean_soc_c": 80.24,
+          "max_gpu_c": 76.0,
+          "max_soc_c": 83.7
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,49 @@
+{
+  "status": "stopped early after three successive zero-output memory-guard errors",
+  "remark": "Dispatch stopped while the fourth prose request waited. No full-suite score was calculated or plotted.",
+  "binary_sha256": "9b7e8d21f010af902a487ed0034139e2c7446cb7ab419e925369967c32449e15",
+  "settings": {
+    "context": [
+      262144,
+      262144,
+      262144,
+      262144
+    ],
+    "reply_tokens": 3,
+    "line": "[server] flash-next  batch=4 ctx=262144 kv=int8 spec=8 temp=1.0 top_p=0.95 top_k=20"
+  },
+  "expert_cache_slots": 24576,
+  "host_expert_backing_gib": 4.61,
+  "host_before_sweep": {
+    "time": "2026-11-24T16:56:46-08:00",
+    "free_physical_gib": 3.11,
+    "committed_gib": 115.83,
+    "commit_limit_gib": 126.43,
+    "gpu": "98304 MiB, 74385 MiB, 44.62, 630 MHz, 1.29 W, [N/A]"
+  },
+  "per_category_measured_completions": {
+    "chat": 20,
+    "code": 20,
+    "file_edit": 20,
+    "json": 20,
+    "math": 20,
+    "prose": 15,
+    "reasoning": 0,
+    "summarization": 0
+  },
+  "measured_decode_completions": 115,
+  "measured_prefill_completions": 0,
+  "measured_concurrency_completions": 0,
+  "failed_prose_requests": 3,
+  "interrupted_prose_requests": 1,
+  "guard_messages": [
+    "basalt: error: RAM low (1676 MiB free < 2048 MiB guard): request stopped; other programs took 1356 MiB since the engine was ready",
+    "basalt: error: RAM low (1614 MiB free < 2048 MiB guard): request stopped; other programs took 1417 MiB since the engine was ready",
+    "basalt: error: RAM low (1357 MiB free < 2048 MiB guard): request stopped; other programs took 1675 MiB since the engine was ready"
+  ],
+  "reported_failed_prompts": [
+    "prose/prose-poem-short: no content chunks received",
+    "prose/prose-story-long: no content chunks received",
+    "prose/prose-continue-medium: no content chunks received"
+  ]
+}

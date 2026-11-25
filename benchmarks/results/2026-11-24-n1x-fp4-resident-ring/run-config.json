@@ -1,0 +1,128 @@
+{
+  "executable_sha256": "9b7e8d21f010af902a487ed0034139e2c7446cb7ab419e925369967c32449e15",
+  "checkout_sha": "1bc565f277a3fb02c6182ea5ba0e9086b3f637e0",
+  "native_source": "1bc565f277a3fb02c6182ea5ba0e9086b3f637e0",
+  "pack": "Qwen3.8-Flash-Next FP4-Local (.basalt conversion)",
+  "defaults": {
+    "context": [
+      262144,
+      262144,
+      262144,
+      262144
+    ],
+    "reply_tokens": 3,
+    "line": "[server] flash-next  batch=4 ctx=262144 kv=int8 spec=8 temp=1.0 top_p=0.95 top_k=20"
+  },
+  "placement": "[server] auto     ram-experts=3.3GB pool-affinity=auto pool=14",
+  "expert_cache": "basalt generate: expert cache auto: 78.90 GiB free, 700 MiB reserved (+39 MiB for the draft head, +208 MiB for what loads after) -> 24576 slots",
+  "expert_cache_allocation": "basalt generate: expert cache 24576 slots, 63.29 GiB of VRAM; policy is",
+  "gpu_memory_gib": 96,
+  "device": "HP OmniBook X, RTX Spark N1X, 128 GiB unified memory, Windows 11 on Arm64, NVIDIA 621.24",
+  "gpu_power_limit_w": null,
+  "windows_base_scheme": "Balanced",
+  "spark_profile": "Performance",
+  "cooling_mode": "Configured HP Performance firmware table",
+  "clock_cap_mhz": null,
+  "fan_rpm": null,
+  "cold_prefill_staging": {
+    "log_entries": 690,
+    "entries_with_staged_blobs": 42,
+    "first_chunk_rows_with_staged_blobs": 316,
+    "max_staged_blobs_in_entry": 1528,
+    "max_cpu_experts_in_entry": 0,
+    "observed_example": "basalt prefill: direct RAM expert groups for 23631 prompt rows: 425; staged 1528 blobs (0 by DMA) in 1020.4 ms of host time, 17752 resident groups, 0 CPU experts, 1 chunks in 11736 ms",
+    "large_prompt_buffer_example": "basalt serve: prompt buffers: 4.10 GiB outside the full expert cache for a 15360-token chunk (711 lent slots would require file reads)",
+    "large_prompt_chunk_example": "basalt prefill: direct RAM expert groups for 15360 prompt rows: 0; staged 0 blobs (0 by DMA) in 0.0 ms of host time, 18073 resident groups, 0 CPU experts, 1 chunks in 6002 ms"
+  },
+  "resident_ring": {
+    "marker_count": 1,
+    "observed_transitions": [
+      "256 -> 64"
+    ],
+    "chunk_tokens": [
+      15360
+    ],
+    "nominal_32k_native_chunks": [
+      {
+        "rows": 23631,
+        "ram_groups": 425,
+        "staged_blobs": 1528,
+        "cpu_experts": 0
+      },
+      {
+        "rows": 23551,
+        "ram_groups": 405,
+        "staged_blobs": 1507,
+        "cpu_experts": 0
+      },
+      {
+        "rows": 23374,
+        "ram_groups": 400,
+        "staged_blobs": 1507,
+        "cpu_experts": 0
+      },
+      {
+        "rows": 23699,
+        "ram_groups": 431,
+        "staged_blobs": 1528,
+        "cpu_experts": 0
+      },
+      {
+        "rows": 23655,
+        "ram_groups": 415,
+        "staged_blobs": 1528,
+        "cpu_experts": 0
+      },
+      {
+        "rows": 23576,
+        "ram_groups": 410,
+        "staged_blobs": 1528,
+        "cpu_experts": 0
+      },
+      {
+        "rows": 23621,
+        "ram_groups": 408,
+        "staged_blobs": 1528,
+        "cpu_experts": 0
+      },
+      {
+        "rows": 23506,
+        "ram_groups": 393,
+        "staged_blobs": 1507,
+        "cpu_experts": 0
+      },
+      {
+        "rows": 23621,
+        "ram_groups": 416,
+        "staged_blobs": 1528,
+        "cpu_experts": 0
+      },
+      {
+        "rows": 23724,
+        "ram_groups": 402,
+        "staged_blobs": 1528,
+        "cpu_experts": 0
+      }
+    ],
+    "native_context": [
+      {
+        "marker": "basalt serve: prompt staging ring reduced from 256 to 64 slots for the 15360-token resident chunk",
+        "next_native_prompt_completion": "basalt serve: prompt 47104 tokens = 0 reused + 47104 read in 18720 ms (2516.3 tok/s), 16 generated in 273 ms (58.6 tok/s), drafts accepted 10 of 22, 2 checkpoints"
+      }
+    ]
+  },
+  "initial_host_expert_backing_gib": 3.26,
+  "source_build": "Release v0.4.1-rtx-spark.2 native source plus the resident staging-ring change. Locally built executable.",
+  "performance_commit": "3b2b42685a7b11895b57894715032d1c25aba94f",
+  "model_file": "Qwen3.8-FN-FP4-Local.basalt",
+  "model_file_bytes": 131681981152,
+  "ngram_table_read": "[server] warning: table read through the file cache: no room for a 50.7 GiB copy beside the model (7.5 GiB free)",
+  "timed_phase_power_source": [
+    {
+      "ac": "1",
+      "samples": 1061,
+      "first": "2026-11-24T17:15:03.7501454-08:00",
+      "last": "2026-11-24T17:50:35.1066604-08:00"
+    }
+  ]
+}

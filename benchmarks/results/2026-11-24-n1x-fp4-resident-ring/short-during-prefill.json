@@ -1,0 +1,104 @@
+{
+  "prompt_tokens": 49966,
+  "read_at_arrival": 1365,
+  "short_ttft_s": 1.6955563999945298,
+  "long_ttft_s": 73.21181490001618,
+  "short_output_tokens": 16,
+  "long_output_tokens": 32,
+  "short_sha256": "3e4dc2c92c99d56d99a873b307bc5fe0750123db0eccc494a44888b19eb6ee9a",
+  "long_sha256": "90aa59e4c880747783bdf6019c856ed5fa5ffc361a5c2ecd0c2d478ed4960680",
+  "short_finished_before_long_ttft": true,
+  "yield_at": 4096,
+  "initial_read_cold": true,
+  "resumed_from_yield": true,
+  "passed": true,
+  "telemetry": {
+    "source": "SparkHelper, approximately two-second cadence. Full fixture window includes model load and exit. Busy samples use GPU utilization >=80%.",
+    "start": "2026-11-24T17:51:56.2180202-08:00",
+    "end": "2026-11-24T17:53:35.7756896-08:00",
+    "whole_fixture": {
+      "samples": 50,
+      "ac_samples": 50,
+      "metrics": {
+        "gpu_w": {
+          "samples": 50,
+          "mean": 43.56,
+          "min": 1.721,
+          "max": 69.484
+        },
+        "cpu_w": {
+          "samples": 50,
+          "mean": 10.18,
+          "min": 3.089,
+          "max": 52.683
+        },
+        "gpu_mhz": {
+          "samples": 50,
+          "mean": 2030.48,
+          "min": 565.0,
+          "max": 2502.0
+        },
+        "gpu_c": {
+          "samples": 50,
+          "mean": 69.82,
+          "min": 54.0,
+          "max": 76.0
+        },
+        "soc_c": {
+          "samples": 50,
+          "mean": 81.47,
+          "min": 71.4,
+          "max": 85.2
+        },
+        "gpu_util": {
+          "samples": 50,
+          "mean": 70.66,
+          "min": 3.0,
+          "max": 95.0
+        }
+      }
+    },
+    "busy_fixture": {
+      "samples": 36,
+      "ac_samples": 36,
+      "metrics": {
+        "gpu_w": {
+          "samples": 36,
+          "mean": 56.32,
+          "min": 35.806,
+          "max": 69.484
+        },
+        "cpu_w": {
+          "samples": 36,
+          "mean": 5.7,
+          "min": 3.089,
+          "max": 13.526
+        },
+        "gpu_mhz": {
+          "samples": 36,
+          "mean": 2317.17,
+          "min": 663.0,
+          "max": 2502.0
+        },
+        "gpu_c": {
+          "samples": 36,
+          "mean": 74.11,
+          "min": 55.0,
+          "max": 76.0
+        },
+        "soc_c": {
+          "samples": 36,
+          "mean": 82.3,
+          "min": 75.1,
+          "max": 84.6
+        },
+        "gpu_util": {
+          "samples": 36,
+          "mean": 89.75,
+          "min": 82.0,
+          "max": 95.0
+        }
+      }
+    }
+  }
+}

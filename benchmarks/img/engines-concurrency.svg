@@ -1,5 +1,5 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="636" height="298" viewBox="0 0 636 298" role="img" aria-labelledby="title desc" font-family="Segoe UI, Helvetica, Arial, sans-serif">
-<title id="title">Aggregate output by concurrency</title><desc id="desc">tok/s. 1 stream: Basalt RTX Spark (UD-IQ3_XXS) 86, Basalt RTX Spark (FP4-Local) 78, Basalt + Arm64 port (UD-IQ3_XXS) 74, Native vLLM for RTX Spark (FP4-Local) 53. 2 streams: Basalt RTX Spark (UD-IQ3_XXS) 99, Basalt RTX Spark (FP4-Local) 87, Basalt + Arm64 port (UD-IQ3_XXS) 81, Native vLLM for RTX Spark (FP4-Local) 79. 3 streams: Basalt RTX Spark (UD-IQ3_XXS) 110, Basalt RTX Spark (FP4-Local) 91, Basalt + Arm64 port (UD-IQ3_XXS) 85, Native vLLM for RTX Spark (FP4-Local) 93. 4 streams: Basalt RTX Spark (UD-IQ3_XXS) 112, Basalt RTX Spark (FP4-Local) 94, Basalt + Arm64 port (UD-IQ3_XXS) 85, Native vLLM for RTX Spark (FP4-Local) 101</desc>
+<title id="title">Aggregate output by concurrency</title><desc id="desc">tok/s. 1 stream: Basalt RTX Spark (UD-IQ3_XXS) 86, Basalt RTX Spark (FP4-Local) 79, Basalt + Arm64 port (UD-IQ3_XXS) 74, Native vLLM for RTX Spark (FP4-Local) 53. 2 streams: Basalt RTX Spark (UD-IQ3_XXS) 99, Basalt RTX Spark (FP4-Local) 85, Basalt + Arm64 port (UD-IQ3_XXS) 81, Native vLLM for RTX Spark (FP4-Local) 79. 3 streams: Basalt RTX Spark (UD-IQ3_XXS) 110, Basalt RTX Spark (FP4-Local) 92, Basalt + Arm64 port (UD-IQ3_XXS) 85, Native vLLM for RTX Spark (FP4-Local) 93. 4 streams: Basalt RTX Spark (UD-IQ3_XXS) 112, Basalt RTX Spark (FP4-Local) 96, Basalt + Arm64 port (UD-IQ3_XXS) 85, Native vLLM for RTX Spark (FP4-Local) 101</desc>
 <rect width="636" height="298" rx="10" fill="#fbfcfc"/>
 <text x="16" y="28" font-size="20" font-weight="700" fill="#182c33">Aggregate output by concurrency</text>
 <text x="620" y="28" font-size="14" text-anchor="end" fill="#435760">tok/s</text>
@@ -21,18 +21,18 @@
 <rect x="120" y="268" width="107" height="5" rx="2.5" fill="#cdd8db"/>
 <rect x="120" y="268" width="107.00" height="5" rx="2.5" fill="#76B900"/>
 <text x="247" y="84" font-size="14" font-weight="600" fill="#22353b">FP4-Local</text>
-<text x="247" y="146" font-size="17" font-weight="600" fill="#152b33">78</text>
+<text x="247" y="146" font-size="17" font-weight="600" fill="#152b33">79</text>
 <rect x="247" y="151" width="107" height="5" rx="2.5" fill="#cdd8db"/>
-<rect x="247" y="151" width="74.63" height="5" rx="2.5" fill="#008675"/>
-<text x="247" y="185" font-size="17" font-weight="600" fill="#152b33">87</text>
+<rect x="247" y="151" width="75.31" height="5" rx="2.5" fill="#008675"/>
+<text x="247" y="185" font-size="17" font-weight="600" fill="#152b33">85</text>
 <rect x="247" y="190" width="107" height="5" rx="2.5" fill="#cdd8db"/>
-<rect x="247" y="190" width="82.62" height="5" rx="2.5" fill="#008675"/>
-<text x="247" y="224" font-size="17" font-weight="600" fill="#152b33">91</text>
+<rect x="247" y="190" width="80.96" height="5" rx="2.5" fill="#008675"/>
+<text x="247" y="224" font-size="17" font-weight="600" fill="#152b33">92</text>
 <rect x="247" y="229" width="107" height="5" rx="2.5" fill="#cdd8db"/>
-<rect x="247" y="229" width="87.17" height="5" rx="2.5" fill="#008675"/>
-<text x="247" y="263" font-size="17" font-weight="600" fill="#152b33">94</text>
+<rect x="247" y="229" width="88.22" height="5" rx="2.5" fill="#008675"/>
+<text x="247" y="263" font-size="17" font-weight="600" fill="#152b33">96</text>
 <rect x="247" y="268" width="107" height="5" rx="2.5" fill="#cdd8db"/>
-<rect x="247" y="268" width="89.85" height="5" rx="2.5" fill="#008675"/>
+<rect x="247" y="268" width="91.52" height="5" rx="2.5" fill="#008675"/>
 <text x="374" y="84" font-size="14" font-weight="600" fill="#22353b">Basalt +</text>
 <text x="374" y="100" font-size="12" font-weight="400" fill="#22353b">Arm64 port</text>
 <text x="374" y="116" font-size="12" font-weight="400" fill="#22353b">UD-IQ3_XXS</text>

@@ -10,18 +10,18 @@ All three engines ran Qwen3.8-Flash-Next on the same RTX Spark N1X laptop with 1
 
 | Group | Engine | Weight pack tested | Weighted single-stream decode (tok/s) | Short-prompt time to first token (ms) | Four-stream mixed throughput (tok/s) |
 | --- | --- | --- | ---: | ---: | ---: |
-| **This project** | Basalt RTX Spark | `UD-IQ3_XXS` | **92.76** | 280 | **112.10** |
-| **This project** | Basalt RTX Spark | `FP4-Local` | 84.41 | 369 | 94.13 |
+| **This project** | Basalt RTX Spark · release ZIP | `UD-IQ3_XXS` | **92.76** | 280 | **112.10** |
+| **This project** | Basalt RTX Spark · source build | `FP4-Local` | 85.28 | 365 | 95.88 |
 | **Reference** | Basalt + Arm64 port | `UD-IQ3_XXS` | 84.05 | 619 | 85.23 |
 | **Reference** | Native vLLM for RTX Spark 0.2.0 | `FP4-Local` (NVFP4 / MXFP8) | 54.19 | **271** | 100.75 |
 
-Basalt used four slots, INT8 KV and MTP 8 in all three runs. The two cooled IQ3 runs averaged 47.5 W GPU during busy decode on the release and 49.2 W on the port. The separate release run with FP4-Local averaged 44.55 W and read the n-gram table through the Windows file cache. The first 21 s of its opening chat phase ran on battery. Native vLLM ran earlier at 35.0 W with FP4-Local, FP8 target KV and MTP 7. Power varied across runs. [IQ3 runs](results/2026-11-24-n1x-cooled-release) · [FP4-Local run](results/2026-11-24-n1x-fp4-local) · [vLLM](results/2026-11-24-n1x-verified-default/vllm)
+The Basalt runs used four slots, INT8 KV and MTP 8. The IQ3 measurements used the v0.4.1-rtx-spark.2 ZIP and the Arm64 port, with busy decode averaging 47.5 and 49.2 W GPU respectively. The FP4-Local row uses a newer native source build and Windows file caching for its n-gram table. The earlier native vLLM run used FP8 target KV and MTP 7. [Measured source](https://github.com/SuperDistance/basalt-rtx-spark/commit/1bc565f277a3fb02c6182ea5ba0e9086b3f637e0) · [IQ3 runs](results/2026-11-24-n1x-cooled-release) · [FP4-Local run](results/2026-11-24-n1x-fp4-resident-ring) · [vLLM](results/2026-11-24-n1x-verified-default/vllm)
 
 **Published SPEED-Bench coding results on Windows Arm64.** For 80 Flash-Next coding conversations, NVIDIA reports **36.58 tok/s** for llama.cpp b11901 with the three-shard UD-IQ4_XS GGUF and MTP. The native vLLM for RTX Spark project reports **70.44 tok/s** using FP4-Local and its own client. The **54.19 tok/s** in the table above is our weighted BetterBench measurement of the Windows Arm64 vLLM port. [NVIDIA measurement](https://github.com/NVIDIA/local-ai-inference-recipes/blob/bb515086841e7a81e7d51925561338e7dee35023/models/qwen/qwen3.8-flash-next/rtx-spark/windows/llama-cpp/78gb/iq4-xs/vision-mtp/performance.yaml) · [Native vLLM benchmark](https://github.com/devjeonghwan/vllm-for-rtx-spark/blob/e9412963ff4619da5f97f8b5e3c2dd274967df87/README.md#nvidia-reference)
 
 **Cold prompt reading on IQ3.** At the 2K target the release reached 1,767 input tok/s versus 967 on the Arm64 port (+82.7%). Median time to first token fell from 1.59 to 0.88 seconds (−44.8%). Each engine processed eight prompts in this group, spanning 1,522–1,593 actual tokens across both runs. At the 64K target, around 47,100 actual tokens, throughput rose from 1,999 to 2,288 tok/s (+14.5%). Across the five tested depths the throughput gain ranged from 7.2% to 82.7%. [Per-depth samples](results/2026-11-24-n1x-cooled-release)
 
-On FP4-Local, Basalt read faster at four of five depths. Native vLLM led at the 32K target (**2,123 vs 1,961 input tok/s**) and in four-stream mixed throughput. Busy decode averaged 44.55 W GPU for Basalt and 35.02 W for vLLM. The engines used different KV formats. [FP4-Local measurements](results/2026-11-24-n1x-fp4-local)
+On FP4-Local, Basalt read prompts faster than native vLLM at four of five depths. At the 32K target, Basalt processed **1,951 input tok/s** versus **2,123** for vLLM. At that depth Basalt still loaded some expert weights from file. vLLM led in four-stream mixed throughput. Busy decode averaged 46.00 W GPU for Basalt and 35.02 W for vLLM. The engines used different KV formats. [FP4-Local measurements](results/2026-11-24-n1x-fp4-resident-ring)
 
 ![Median cold input tokens per second at five target prompt depths. This project has two columns, Basalt IQ3 and FP4-Local. Reference columns are the Arm64 port with IQ3 and native vLLM with FP4-Local.](img/engines-prefill.svg)
 
@@ -56,7 +56,7 @@ From the repository root, regenerate the charts with PowerShell.
 
 ```powershell
 $run = 'benchmarks/results/2026-11-24-n1x-cooled-release'
-$fp4 = 'benchmarks/results/2026-11-24-n1x-fp4-local/results.json'
+$fp4 = 'benchmarks/results/2026-11-24-n1x-fp4-resident-ring/results.json'
 $vllm = 'benchmarks/results/2026-11-24-n1x-verified-default/vllm/results.json'
 python benchmarks/plot.py --out benchmarks/img --prefix engines `
   "$run/release/results.json" 'Basalt RTX Spark (UD-IQ3_XXS)' `
