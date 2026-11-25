@@ -13,7 +13,7 @@ With UD-IQ3_XXS weights, the N1X averaged **51.3 W across CPU and GPU** during b
 
 **SPEED-Bench coding on Windows Arm64** · llama.cpp **36.58 tok/s** (NVIDIA, UD-IQ4_XS) · native vLLM **70.44 tok/s** (FP4-Local). Both teams report 80 Flash-Next coding conversations using their own clients. [NVIDIA result](https://github.com/NVIDIA/local-ai-inference-recipes/blob/bb515086841e7a81e7d51925561338e7dee35023/models/qwen/qwen3.8-flash-next/rtx-spark/windows/llama-cpp/78gb/iq4-xs/vision-mtp/performance.yaml) · [vLLM result](https://github.com/devjeonghwan/vllm-for-rtx-spark/blob/e9412963ff4619da5f97f8b5e3c2dd274967df87/README.md#nvidia-reference)
 
-[Download for Windows Arm64](https://github.com/SuperDistance/basalt-rtx-spark/releases/latest) · [Setup guide](docs/rtx-spark-setup.md) · [Benchmark results](#results) · [Model packs and speeds](#quantization) · [Connect a client](docs/rtx-spark-setup.md#use-it-from-your-tools) · [One-shot showcase](#one-prompt-one-orbital-transfer)
+[Download for Windows Arm64](https://github.com/SuperDistance/basalt-rtx-spark/releases/latest) · [Setup guide](docs/rtx-spark-setup.md) · [Choose by memory size](docs/rtx-spark-setup.md#choose-a-model-and-memory-split) · [Benchmark results](#results) · [Model packs and speeds](#quantization) · [Connect a client](docs/rtx-spark-setup.md#use-it-from-your-tools) · [One-shot showcase](#one-prompt-one-orbital-transfer)
 
 ## Results
 
