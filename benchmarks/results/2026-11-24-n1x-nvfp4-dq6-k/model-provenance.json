@@ -1,0 +1,9 @@
+{
+  "bytes": 131681979197,
+  "sha256": "177f9b70c63ecd7efd17fc705ad85a8c8253d59e4f04dd10a001b556d15fad33",
+  "model_file": "Qwen3.8-FN-NVFP4-DQ6_K.basalt",
+  "repo": "jesdga/Qwen3.8-Flash-Next-Basalt",
+  "revision": "fc721830e519ab52012d372e89b90d9a7df30ff2",
+  "url": "https://huggingface.co/jesdga/Qwen3.8-Flash-Next-Basalt/resolve/fc721830e519ab52012d372e89b90d9a7df30ff2/Qwen3.8-FN-NVFP4-DQ6_K.basalt",
+  "verified": "Full local SHA-256 and byte count matched the pinned Hugging Face LFS object before launch."
+}

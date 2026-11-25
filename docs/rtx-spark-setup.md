@@ -103,6 +103,8 @@ For mixed Windows and inference use, try **80 GiB GPU / 48 GiB host** if your la
 
 On the same earlier IQ3 build, 64 vs 96 GiB for the GPU delivered **74.0 vs 91.9 tok/s** single-stream decode and **697 vs 1,218 input tok/s** at the 2K cold-prefill target. Power varied between the runs. Windows manages dedicated and shared memory as separate budgets even though the CPU and GPU share physical memory. [Split measurements](n1x-vs-vllm.md) · [NVIDIA UMA guide](https://docs.nvidia.com/rtx-spark/rtx-spark-porting-guide/latest/uma/umacuda.html)
 
+DQ6_K reached **75.03 GiB** peak GPU use in its 96 GiB run. Typical use was close to FP4-Local at **72.62 vs 72.77 GiB** median, and both packs held all 24,576 routed experts on the GPU. These peaks include the whole device and vary with prompt scratch and available memory. [DQ6_K comparison](../benchmarks/results/2026-11-24-n1x-nvfp4-dq6-k)
+
 ## Documentation
 
 [Contributing to Basalt RTX Spark](../CONTRIBUTING.md) · [Optional Linux container](docker.md)
