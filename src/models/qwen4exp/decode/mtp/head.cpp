@@ -14,7 +14,7 @@ bool draft_proxy(int head_type) { return head_type == 13 || head_type == 14 || h
 }  // namespace
 
 uint64_t MtpDrafter::bind_bytes(uint64_t head_row_bytes, int head_type, int64_t n_vocab) const {
-    uint64_t bytes = head_logits_ ? 0 : (uint64_t) max_t_ * (uint64_t) n_vocab * sizeof(float);
+    uint64_t bytes = head_logits_ ? 0 : (uint64_t) logit_rows() * (uint64_t) n_vocab * sizeof(float);
     if (dhead_ == nullptr && !rows_mapped_) {
         if (!draft_vocab_.empty() && draft_vocab_.exists()) {
             const long size = (long) draft_vocab_.size();
@@ -30,7 +30,7 @@ uint64_t MtpDrafter::bind_bytes(uint64_t head_row_bytes, int head_type, int64_t 
                     for (int64_t i = 1; i < size / 4; ++i)
                         if (ids[i] < ids[i - 1]) { n_base = i; break; }
                     bytes += basalt::kernels::q5k_proxy_bytes(n_base + (int64_t) xr) +
-                             basalt::kernels::q5k_proxy_scratch_bytes(n_base + (int64_t) xr);
+                             basalt::kernels::q5k_proxy_scratch_bytes(n_base + (int64_t) xr) * (uint64_t) head_rows();
                 }
             }
         }
@@ -84,7 +84,7 @@ bool MtpDrafter::bind(const WeightTable& wt, const NativeHead* head, const float
     n_vocab_ = wo->ne1;
     if (head == nullptr || !head->loaded()) { err = "mtp: the draft layer needs the native head"; return false; }
     if (head_logits_ == nullptr &&
-        cudaMalloc((void**) &head_logits_, (size_t) max_t_ * (size_t) n_vocab_ * sizeof(float)) != cudaSuccess) {
+        cudaMalloc((void**) &head_logits_, (size_t) logit_rows() * (size_t) n_vocab_ * sizeof(float)) != cudaSuccess) {
         err = "mtp: the draft logits do not fit";
         return false;
     }
@@ -122,7 +122,7 @@ bool MtpDrafter::bind(const WeightTable& wt, const NativeHead* head, const float
                 if (!mapped) need += (uint64_t) (n_dvocab_ * row_bytes);
                 if (draft_proxy(head->type()))
                     need += basalt::kernels::q5k_proxy_bytes(n_base + n_xcap_) +
-                            basalt::kernels::q5k_proxy_scratch_bytes(n_base + n_xcap_);
+                            basalt::kernels::q5k_proxy_scratch_bytes(n_base + n_xcap_) * (uint64_t) head_rows();
                 draft_head_hint(n_dvocab_, need);
                 return false;
             }
@@ -149,7 +149,7 @@ bool MtpDrafter::bind(const WeightTable& wt, const NativeHead* head, const float
             n_tier1_ = n_base + n_xcap_;
             if (draft_proxy(head->type())) {   // the 2-bit copy of the leading rows: a fraction of the bytes
                 const size_t pb = basalt::kernels::q5k_proxy_bytes(n_tier1_);
-                const size_t sb = basalt::kernels::q5k_proxy_scratch_bytes(n_tier1_);
+                const size_t sb = basalt::kernels::q5k_proxy_scratch_bytes(n_tier1_) * (size_t) head_rows();   // per head row
                 if (cudaMalloc((void**) &proxy_, pb) == cudaSuccess && cudaMalloc(&proxy_scratch_, sb) == cudaSuccess) {
                     cudaMemset(proxy_, 0, pb);
                     if (head->type() == 13) basalt::kernels::q5k_proxy_pack(dhead_, 0, n_tier1_, proxy_, n_tier1_, nullptr);

@@ -194,7 +194,7 @@ public:
     /// of them, tokens toks[s], at cells p0s[s]..), a[s] accepted; drafts[s] / probs[s] / n_drafts[s] out.  The rows'
     /// kernels round some drafts differently from a draft_seq of the same sequence (about one draft in five on the N1X);
     /// verification is exact, so only which tokens are offered changes.  S <= kDraftRowsMax, sum of Ts <= the window.
-    static constexpr int kDraftRowsMax = 4;
+    static constexpr int kDraftRowsMax = 8;
     bool seg_on() const { return seg_on_; }
     /// The window rows one draft_batch takes in all (its catch-up forward's width).
     int batch_rows_max() const { return std::min(rows_cap_, basalt::kernels::kVerifyMaxT); }
@@ -402,6 +402,10 @@ private:
     bool rows_mode_ = false;                      ///< record_forward: the full layer over one row per sequence
     cudaGraphExec_t rows_exec_[2][kDraftRowsMax + 1] = {};   ///< [tier_][rows]: the full layer over the rows, their drafts out
     bool capture_rows(int S, std::string& err);
+    /// the rows one draft-head pass takes: one, or a batched draft's one row per sequence (with stores)
+    int head_rows() const { return n_stores_ > 0 ? kDraftRowsMax : 1; }
+    /// the draft logits' rows: a chain's, or a head pass's
+    int logit_rows() const { return std::max(max_t_, head_rows()); }
     cudaGraphExec_t catch_exec_[basalt::kernels::kVerifyMaxT + 1] = {};   ///< [rows]: a batched draft's catch-up, as a round records its own
     bool capture_catch(int T, std::string& err);
     std::vector<int32_t> brec_;                   ///< batched draft records staged for upload

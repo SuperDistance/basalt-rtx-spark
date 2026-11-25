@@ -12,6 +12,9 @@ bool prompt_scratch_device() {
     const auto device = basalt::core::device_memory_model();
     return device.integrated && device.commit_bound;
 }
+
+// The smallest chunk a bare `auto` read shrinks to so that it reads no expert from the file.
+constexpr int64_t kShrunkChunkMin = 8192;
 }  // namespace
 
 int64_t QfnRuntime::part_slots(const PfPart& p, int64_t c) {
@@ -35,15 +38,20 @@ int64_t QfnRuntime::prompt_file_slots(int32_t first) const {
     return count;
 }
 
-bool QfnRuntime::prompt_scratch_fits(uint64_t bytes) const {
-    const uint64_t budget = bytes + ((uint64_t) o.vram_reserve_mib << 20);
-    const uint64_t host_reserve = basalt::core::plan_reserve(basalt::platform::ram_reserve());
+// The bytes separate prompt scratch may take now: the smaller of free device memory and free commit above the host
+// reserve, less the VRAM reserve. Negative when nothing fits.
+int64_t QfnRuntime::prompt_scratch_room() const {
+    const int64_t reserve = (int64_t) o.vram_reserve_mib << 20;
+    const int64_t host_reserve = (int64_t) basalt::core::plan_reserve(basalt::platform::ram_reserve());
     basalt::core::DeviceMemoryReading memory;
     uint64_t free_commit = 0, limit = 0;
-    return basalt::core::device_mem_reading(memory) == cudaSuccess && memory.carveout &&
-           memory.device_free >= budget && basalt::platform::commit_headroom(free_commit, limit, false) &&
-           free_commit >= host_reserve + budget;
+    if (basalt::core::device_mem_reading(memory) != cudaSuccess || !memory.carveout ||
+        !basalt::platform::commit_headroom(free_commit, limit, false))
+        return -1;
+    return std::min<int64_t>((int64_t) memory.device_free, (int64_t) free_commit - host_reserve) - reserve;
 }
+
+bool QfnRuntime::prompt_scratch_fits(uint64_t bytes) const { return (int64_t) bytes <= prompt_scratch_room(); }
 
 uint64_t QfnRuntime::prompt_decode_kv() const {
     uint64_t bytes = 0;
@@ -286,16 +294,36 @@ bool QfnRequest::lend(int64_t tokens, std::string& e, int64_t chunk, int64_t hea
                 uint64_t need = basalt::prefill::Prefill::bytes_needed(runtime_.g, *p.ses, want);
                 // Other slots may grow KV during the overlapped read. Leave room for their remaining decode.
                 const uint64_t kv = beside ? runtime_.prompt_decode_kv() : 0;
-                bool fits = need <= loan_bytes && runtime_.prompt_scratch_fits(need + kv);
+                const int64_t room = runtime_.prompt_scratch_room() - (int64_t) kv;
+                bool fits = need <= loan_bytes && (int64_t) need <= room;
                 bool reduced_ring = false;
+                const bool auto_alone = !runtime_.batch_on() && fixed_chunk == 0 && resumed_chunk == 0 &&
+                                        runtime_.o.prefill_auto_fit;
                 // Separate buffers leave every expert resident. A smaller staging ring keeps the same FP4 chunk.
-                if (!fits && need <= loan_bytes && !runtime_.batch_on() && fixed_chunk == 0 && resumed_chunk == 0 &&
-                    runtime_.o.prefill_auto_fit && loan_ring > runtime_.kRingDecoding &&
+                if (!fits && need <= loan_bytes && auto_alone && loan_ring > runtime_.kRingDecoding &&
                     basalt::prefill::detail::fp4_every_layer()) {
                     basalt::prefill::Prefill::set_ring_depth(runtime_.kRingDecoding);
                     need = basalt::prefill::Prefill::bytes_needed(runtime_.g, *p.ses, want);
-                    fits = need <= loan_bytes && runtime_.prompt_scratch_fits(need + kv);
+                    fits = need <= loan_bytes && (int64_t) need <= room;
                     reduced_ring = true;
+                }
+                // Still too large: the largest chunk whose separate buffers fit, in equal parts of the prompt. More
+                // chunks stream the resident experts again; a loan reads its lent slots' experts from the file.
+                if (!fits && auto_alone) {
+                    const int64_t fit = engine_local::biggest_chunk(want - 256, [&](int64_t t) {
+                        const uint64_t b = basalt::prefill::Prefill::bytes_needed(runtime_.g, *p.ses, t);
+                        return b <= loan_bytes && (int64_t) b <= room;
+                    });
+                    if (fit >= kShrunkChunkMin) {
+                        const int64_t from = want;
+                        std::tie(want, head_tok) = serve_loans::one_card_chunks(tokens, fit, runtime_.stages.empty(), true);
+                        runtime_.sp.set_head_chunk(head_tok);
+                        need = basalt::prefill::Prefill::bytes_needed(runtime_.g, *p.ses, want);
+                        fits = true;
+                        basalt::log::info("basalt serve", "prompt chunk %lld -> %lld tokens: its buffers fit outside "
+                                          "the full expert cache (%.2f GiB free)", (long long) from, (long long) want,
+                                          (double) room / 1073741824.0);
+                    }
                 }
                 if (fits) {
                     void* arena = nullptr;
@@ -321,6 +349,29 @@ bool QfnRequest::lend(int64_t tokens, std::string& e, int64_t chunk, int64_t hea
                     basalt::log::warn("basalt serve", "could not allocate prompt buffers outside the cache; using its loan");
                 }
                 if (reduced_ring) basalt::prefill::Prefill::set_ring_depth(1 << 20);
+                // The cache loan, then: the largest chunk whose lent slots all keep a RAM copy reads none from the file.
+                auto loan_first = [&](int64_t t) {
+                    return std::max<int32_t>(p.first, (int32_t) (p.cache->slots() - runtime_.part_slots(p, t)));
+                };
+                int64_t loan_files = runtime_.prompt_file_slots(loan_first(want));
+                if (loan_files > 0 && auto_alone) {
+                    const int64_t fit = engine_local::biggest_chunk(want - 256, [&](int64_t t) {
+                        return runtime_.prompt_file_slots(loan_first(t)) == 0;
+                    });
+                    if (fit >= kShrunkChunkMin) {
+                        const int64_t from = want;
+                        std::tie(want, head_tok) = serve_loans::one_card_chunks(tokens, fit, runtime_.stages.empty(), true);
+                        runtime_.sp.set_head_chunk(head_tok);
+                        loan_files = 0;
+                        basalt::log::info("basalt serve", "prompt chunk %lld -> %lld tokens: every slot its loan takes "
+                                          "keeps a RAM copy", (long long) from, (long long) want);
+                    }
+                }
+                if (loan_files > 0)
+                    basalt::log::warn("basalt serve", "prompt buffers for a %lld-token chunk need %.2f GiB, %.2f GiB "
+                                      "free: borrowing the expert cache (%lld lent slots read from the file)",
+                                      (long long) want, (double) need / 1073741824.0,
+                                      (double) std::max<int64_t>(room, 0) / 1073741824.0, (long long) loan_files);
             }
         }
     }

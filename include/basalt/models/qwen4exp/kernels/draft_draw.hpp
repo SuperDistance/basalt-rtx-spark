@@ -18,6 +18,8 @@ struct DraftDraw {
 /// Where one draft step's draw reads and writes: the draw, the step's cell (the Philox counter), and its proposal
 /// (kDraftDrawQ entries of token ids and probabilities).  All null: the argmax pick.
 constexpr int kDraftDrawQ = 32;
+/// The most activation rows one pass of a two-stage draft head takes (q5k_proxy_top1's n_x).
+constexpr int kProxyMaxRows = 8;
 struct DraftDrawArgs {
     const DraftDraw* draw = nullptr;
     const int32_t* cell = nullptr;

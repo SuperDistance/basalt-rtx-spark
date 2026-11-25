@@ -37,9 +37,12 @@ void q5k_proxy_pack(const void* q5k_rows, int64_t row0, int64_t n, void* proxy, 
 /// by the 2-bit copy: every row is scored approximately, the rows whose approximate score is near the best are scored
 /// exactly from the Q5_K rows (the same arithmetic as q5k_head_top1), and the exact best is the pick.  The probability
 /// replaces those rows' approximate terms by their exact ones.  `scratch`: q5k_proxy_scratch_bytes(n_cap), zeroed once.
+/// n_x activation rows (1..kProxyMaxRows) in one pass, the copy read once for all: row r's input at x_q8_1 + r rows,
+/// its scratch at scratch + r * q5k_proxy_scratch_bytes(n_cap), its pick at out_id[r] / out_prob[r], and its draw
+/// dd->draw + r, cell dd->cell + 4 r, proposal at r * kDraftDrawQ.  Each row's result is the bits of its own pass.
 size_t q5k_proxy_scratch_bytes(int64_t n_cap);
 bool q5k_proxy_top1(const void* proxy, const void* q5k_rows, const void* x_q8_1, int n_rows, int64_t n_cap,
                     const int32_t* map, int* out_id, float* out_prob, void* scratch, void* stream,
-                    const DraftDrawArgs* dd = nullptr);
+                    const DraftDrawArgs* dd = nullptr, int n_x = 1);
 
 }  // namespace basalt::kernels
