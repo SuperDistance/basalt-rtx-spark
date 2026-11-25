@@ -45,7 +45,7 @@ Basalt used four slots, INT8 KV and MTP 8 in all three runs. The two cooled IQ3 
 
 ## One prompt, one orbital transfer
 
-We asked Flash-Next to draw and animate a probe transferring between two Earth orbits, calculate both burns and label the flight time. Two runs reached their output limits. With the same prompt and medium reasoning effort, FP4-Local returned this complete SVG in 123 seconds. [Exact prompt, original SVG and physics checks](docs/showcase/orbital-transfer)
+In **123 seconds**, Flash-Next FP4-Local turned one prompt into this animated SVG of a probe transferring between two Earth orbits, complete with burn values and flight time. [Exact prompt, original SVG and physics checks](docs/showcase/orbital-transfer)
 
 [![The Long Way Up, an animated orbital transfer drawn by Flash-Next on RTX Spark.](docs/showcase/orbital-transfer/preview.webp)](docs/showcase/orbital-transfer)
 

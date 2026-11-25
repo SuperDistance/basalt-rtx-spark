@@ -95,17 +95,23 @@ def overview(runs: list[tuple[str, dict]], path: Path) -> None:
     rows = [(label, run) for label, run in runs if run["weighted"] is not None]
     if not rows:
         return
-    metrics = [("Single-stream decode", "weighted output tok/s", [run["weighted"] for _, run in rows], ".2f")]
+    metrics = [("Decode · 1 stream", "weighted output tok/s", [run["weighted"] for _, run in rows], ".2f")]
     prefill = [run["prefill"].get(2000) for _, run in rows]
     if any(rate is not None for rate in prefill):
         metrics.append(("Cold prefill", "input tok/s · 2K target", prefill, ",.0f"))
 
     title = "BetterBench · decode and cold prefill" if len(metrics) == 2 else "BetterBench · single-stream decode"
     names = [label.rsplit(" (", 1)[0] if label.endswith(")") else label for label, _ in rows]
-    label_width = max(225, 30 + 10 * max(map(len, names)))
-    col_width, row_height = 203, 48
-    width = label_width + col_width * len(metrics) + 24
-    height = 92 + row_height * len(rows)
+    packs = [label[len(name):].strip(" ()") for (label, _), name in zip(rows, names)]
+    # In comparisons, the first engine may have several measured weight packs.
+    peer_start = next((i for i, name in enumerate(names) if name != names[0]), len(rows))
+    grouped = peer_start > 1 and all(packs[:peer_start])
+    label_width = max(224, 36 + 8 * max(map(len, names)))
+    col_width, row_height = 166, 47
+    width = label_width + col_width * len(metrics) + 12
+    row_y = [(122 if grouped else 100) + row_height * i + (26 if grouped and i >= peer_start else 0)
+             for i in range(len(rows))]
+    height = row_y[-1] + 36
     desc = ". ".join(f"{heading}: " + ", ".join(
         f"{label} {rate:{fmt}} tok/s" for (label, _), rate in zip(rows, rates) if rate is not None
     ) for heading, _, rates, fmt in metrics)
@@ -114,6 +120,15 @@ def overview(runs: list[tuple[str, dict]], path: Path) -> None:
            f'<title id="title">{title}</title>', f'<desc id="desc">{escape(desc)}</desc>',
            f'<rect width="{width}" height="{height}" rx="12" fill="#101e26"/>',
            f'<text x="22" y="32" font-size="23" font-weight="700" fill="#f0f6f5">{title}</text>']
+    if grouped:
+        bottom = row_y[peer_start - 1] + 25
+        out.extend([
+            f'<rect x="10" y="84" width="{width - 20}" height="{bottom - 84}" rx="7" fill="#1b382f"/>',
+            f'<rect x="10" y="84" width="4" height="{bottom - 84}" rx="2" fill="#9bd568"/>',
+            f'<text x="23" y="105" font-size="14" font-weight="700" fill="#b9ee92">THIS PROJECT · {escape(names[0].upper())}</text>',
+        ])
+        if peer_start < len(rows):
+            out.append(f'<text x="23" y="{row_y[peer_start] - 18}" font-size="14" font-weight="700" fill="#bfccd1">REFERENCE ENGINES</text>')
     for col, (heading, unit, rates, fmt) in enumerate(metrics):
         x = label_width + col * col_width
         out.append(f'<text x="{x}" y="59" font-size="16" font-weight="600" fill="#f0f6f5">{escape(heading)}</text>')
@@ -122,19 +137,20 @@ def overview(runs: list[tuple[str, dict]], path: Path) -> None:
         for i, rate in enumerate(rates):
             if rate is None:
                 continue
-            y = 100 + row_height * i
+            y = row_y[i]
             color = "#a6ed60" if i == 0 else "#7fdbca" if names[i] == names[0] else "#a8c1d0"
-            span = col_width - 24
-            out.append(f'<text x="{x}" y="{y + 8}" font-size="19" font-weight="700" fill="{color}">{rate:{fmt}}</text>')
+            span = col_width - 19
+            out.append(f'<text x="{x}" y="{y + 8}" font-size="21" font-weight="700" fill="{color}">{rate:{fmt}}</text>')
             out.append(f'<rect x="{x}" y="{y + 14}" width="{span}" height="6" rx="3" fill="#293b46"/>')
             out.append(f'<rect x="{x}" y="{y + 14}" width="{span * rate / maximum:.2f}" height="6" rx="3" fill="{color}"/>')
-    for i, (label, _) in enumerate(rows):
-        y = 100 + row_height * i
-        name = names[i]
-        pack = label[len(name):].strip(" ()")
-        out.append(f'<text x="22" y="{y + 6}" font-size="16" font-weight="600" fill="#f0f6f5">{escape(name)}</text>')
-        if pack:
-            out.append(f'<text x="22" y="{y + 23}" font-size="13" fill="#b7c9d0">{escape(pack)}</text>')
+    for i, (name, pack) in enumerate(zip(names, packs)):
+        y = row_y[i]
+        if grouped and i < peer_start:
+            out.append(f'<text x="28" y="{y + 9}" font-size="18" font-weight="600" fill="#f0f6f5">{escape(pack)}</text>')
+        else:
+            out.append(f'<text x="22" y="{y + 6}" font-size="16" font-weight="600" fill="#f0f6f5">{escape(name)}</text>')
+            if pack:
+                out.append(f'<text x="22" y="{y + 23}" font-size="13" fill="#b7c9d0">{escape(pack)}</text>')
     out.append("</svg>")
     path.write_text("\n".join(out) + "\n", encoding="utf-8")
 
