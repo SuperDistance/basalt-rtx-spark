@@ -2,7 +2,7 @@
 
 The Windows Arm64 release delivered **84.41 tok/s** weighted single-stream decode and **94.13 tok/s** aggregate throughput at four streams on the 128 GiB RTX Spark N1X. Short-prompt median time to first token was **369 ms**. All 392 measured requests completed with zero reported cache hits. [Per-request timing records](results.json) · [BetterBench summary](summary.json)
 
-| Same laptop and BetterBench preset | Basalt FP4-Local | Basalt UD-IQ3_XXS | Native vLLM FP4-Local |
+| Same laptop and BetterBench preset | This project · Basalt FP4-Local | This project · Basalt UD-IQ3_XXS | Reference engine · native vLLM FP4-Local |
 | --- | ---: | ---: | ---: |
 | Weighted single-stream decode (tok/s) | 84.41 | 92.76 | 54.19 |
 | Short-prompt median TTFT (ms) | 369 | 280 | 271 |

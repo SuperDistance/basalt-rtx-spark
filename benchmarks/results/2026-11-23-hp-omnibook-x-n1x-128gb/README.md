@@ -17,7 +17,7 @@ basalt-rtx-spark ran from 11:23 to 11:55, then 2ec7a84 from 12:18 to 12:56, each
 
 ## Results
 
-| | Basalt + Arm64 port `2ec7a84` | basalt-rtx-spark `25551ed` |
+| | Reference · Basalt + Arm64 port `2ec7a84` | This project · Basalt RTX Spark `25551ed` |
 | --- | ---: | ---: |
 | Decode, weighted median (tok/s) | 87.5 | 97.9 |
 | First token, short prompts, p50 (ms) | 622 | 284 |
@@ -30,7 +30,7 @@ basalt-rtx-spark ran from 11:23 to 11:55, then 2ec7a84 from 12:18 to 12:56, each
 
 ![Single-stream decode by scenario](../../img/paired-decode.svg)
 
-| Scenario | Basalt + Arm64 port `2ec7a84` | basalt-rtx-spark `25551ed` |
+| Scenario | Reference · Basalt + Arm64 port `2ec7a84` | This project · Basalt RTX Spark `25551ed` |
 | --- | ---: | ---: |
 | chat | 77.1 | 91.1 |
 | code | 92.0 | 106.8 |

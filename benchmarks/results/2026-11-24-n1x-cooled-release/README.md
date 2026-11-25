@@ -1,8 +1,8 @@
 # Cooled RTX Spark N1X comparison · November 24, 2026
 
-The published Windows Arm64 ZIP reached **92.76 tok/s** single-stream and **112.10 tok/s** across four streams. The original Basalt Arm64 port reached **84.05** and **85.23 tok/s** on the same laptop. Both engines completed all 392 measured BetterBench requests with zero reported cache hits. [Release](https://github.com/SuperDistance/basalt-rtx-spark/releases/tag/v0.4.1-rtx-spark.2) · [Binary hashes and native smoke test](release-package.json)
+This project · Basalt RTX Spark published Windows Arm64 release reached **92.76 tok/s** single-stream and **112.10 tok/s** across four streams. The baseline · original Basalt Arm64 port reached **84.05** and **85.23 tok/s** on the same laptop. Both are Basalt builds; each completed all 392 measured BetterBench requests with zero reported cache hits. [Release](https://github.com/SuperDistance/basalt-rtx-spark/releases/tag/v0.4.1-rtx-spark.2) · [Binary hashes and native smoke test](release-package.json)
 
-| BetterBench metric | Release | Arm64 port | Change versus port |
+| BetterBench metric | This project · Basalt RTX Spark release | Reference · original Basalt Arm64 port | Change versus port |
 | --- | ---: | ---: | ---: |
 | Weighted single-stream decode | 92.76 tok/s | 84.05 tok/s | +10.4% |
 | Short-prompt median time to first token | 280 ms | 619 ms | −54.8% |
@@ -14,7 +14,7 @@ The published Windows Arm64 ZIP reached **92.76 tok/s** single-stream and **112.
 
 Each engine saw the same eight categories in the same order, with 20 measured requests per category. BetterBench weights six category medians. Weights, including the two zeros, come from the [run configuration](release/betterbench-config.json). The release was faster in all eight categories.
 
-| Category | Weight | Release tok/s | Arm64 port tok/s |
+| Category | Weight | This project · Basalt RTX Spark release (tok/s) | Reference · original Basalt Arm64 port (tok/s) |
 | --- | ---: | ---: | ---: |
 | Chat | 0% | 83.80 | 71.84 |
 | Code | 30% | 96.18 | 88.05 |
@@ -31,7 +31,7 @@ JSON, math and summarization exceeded 100 tok/s on the release. Both engines alr
 
 An HP OmniBook X with 128 GiB of unified memory and a 96 GiB GPU allocation ran the release first, then the port. It used Windows 11 Arm64, NVIDIA driver 621.24, AC power and the HP Performance thermal profile. The owner’s physical cooling setup was in place before either full run. A 60-second idle window preceded each test. The GPU median was 47.5°C for the release and 46°C for the port. Both engines used UD-IQ3_XXS, INT8 KV, four 262,144-token slots and MTP 8. Both allocated all 24,576 GPU expert slots. Automatic host expert backing differed (about 3.0 GB and 4.0 GB respectively).
 
-| Busy measurements | Release | Arm64 port |
+| Busy measurements | This project · Basalt RTX Spark release | Reference · original Basalt Arm64 port |
 | --- | ---: | ---: |
 | Decode GPU / CPU draw | 47.50 / 3.84 W | 49.20 / 4.89 W |
 | Decode CPU + GPU draw | 51.34 W | 54.09 W |

@@ -1,61 +1,70 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="920" height="442" viewBox="0 0 920 442" font-family="Segoe UI, Helvetica, Arial, sans-serif">
-<rect width="920" height="442" fill="#ffffff"/>
-<text x="64" y="28" font-size="18" font-weight="600" fill="#1f2328">Aggregate output by concurrency</text>
-<line x1="64" y1="350.0" x2="900" y2="350.0" stroke="#e5e7eb"/>
-<text x="56" y="354.0" font-size="11" text-anchor="end" fill="#57606a">0</text>
-<line x1="64" y1="292.8" x2="900" y2="292.8" stroke="#e5e7eb"/>
-<text x="56" y="296.8" font-size="11" text-anchor="end" fill="#57606a">28</text>
-<line x1="64" y1="235.6" x2="900" y2="235.6" stroke="#e5e7eb"/>
-<text x="56" y="239.6" font-size="11" text-anchor="end" fill="#57606a">56</text>
-<line x1="64" y1="178.4" x2="900" y2="178.4" stroke="#e5e7eb"/>
-<text x="56" y="182.4" font-size="11" text-anchor="end" fill="#57606a">84</text>
-<line x1="64" y1="121.2" x2="900" y2="121.2" stroke="#e5e7eb"/>
-<text x="56" y="125.2" font-size="11" text-anchor="end" fill="#57606a">112</text>
-<line x1="64" y1="64.0" x2="900" y2="64.0" stroke="#e5e7eb"/>
-<text x="56" y="68.0" font-size="11" text-anchor="end" fill="#57606a">140</text>
-<text x="16" y="207" font-size="12" fill="#57606a" transform="rotate(-90 16 207)" text-anchor="middle">tok/s</text>
-<rect x="100.5" y="174.2" width="31.0" height="175.8" rx="2" fill="#76B900"/>
-<text x="116.0" y="170.2" font-size="10" text-anchor="middle" fill="#1f2328">86</text>
-<rect x="134.5" y="190.3" width="31.0" height="159.7" rx="2" fill="#008675"/>
-<text x="150.0" y="186.3" font-size="10" text-anchor="middle" fill="#1f2328">78</text>
-<rect x="168.5" y="198.3" width="31.0" height="151.7" rx="2" fill="#7A8794"/>
-<text x="184.0" y="194.3" font-size="10" text-anchor="middle" fill="#1f2328">74</text>
-<rect x="202.5" y="241.0" width="31.0" height="109.0" rx="2" fill="#3B82C4"/>
-<text x="218.0" y="237.0" font-size="10" text-anchor="middle" fill="#1f2328">53</text>
-<text x="168.5" y="368" font-size="12" text-anchor="middle" fill="#1f2328">1 stream</text>
-<rect x="309.5" y="147.4" width="31.0" height="202.6" rx="2" fill="#76B900"/>
-<text x="325.0" y="143.4" font-size="10" text-anchor="middle" fill="#1f2328">99</text>
-<rect x="343.5" y="173.2" width="31.0" height="176.8" rx="2" fill="#008675"/>
-<text x="359.0" y="169.2" font-size="10" text-anchor="middle" fill="#1f2328">87</text>
-<rect x="377.5" y="184.5" width="31.0" height="165.5" rx="2" fill="#7A8794"/>
-<text x="393.0" y="180.5" font-size="10" text-anchor="middle" fill="#1f2328">81</text>
-<rect x="411.5" y="189.2" width="31.0" height="160.8" rx="2" fill="#3B82C4"/>
-<text x="427.0" y="185.2" font-size="10" text-anchor="middle" fill="#1f2328">79</text>
-<text x="377.5" y="368" font-size="12" text-anchor="middle" fill="#1f2328">2 streams</text>
-<rect x="518.5" y="126.2" width="31.0" height="223.8" rx="2" fill="#76B900"/>
-<text x="534.0" y="122.2" font-size="10" text-anchor="middle" fill="#1f2328">110</text>
-<rect x="552.5" y="163.4" width="31.0" height="186.6" rx="2" fill="#008675"/>
-<text x="568.0" y="159.4" font-size="10" text-anchor="middle" fill="#1f2328">91</text>
-<rect x="586.5" y="175.9" width="31.0" height="174.1" rx="2" fill="#7A8794"/>
-<text x="602.0" y="171.9" font-size="10" text-anchor="middle" fill="#1f2328">85</text>
-<rect x="620.5" y="159.6" width="31.0" height="190.4" rx="2" fill="#3B82C4"/>
-<text x="636.0" y="155.6" font-size="10" text-anchor="middle" fill="#1f2328">93</text>
-<text x="586.5" y="368" font-size="12" text-anchor="middle" fill="#1f2328">3 streams</text>
-<rect x="727.5" y="121.0" width="31.0" height="229.0" rx="2" fill="#76B900"/>
-<text x="743.0" y="117.0" font-size="10" text-anchor="middle" fill="#1f2328">112</text>
-<rect x="761.5" y="157.7" width="31.0" height="192.3" rx="2" fill="#008675"/>
-<text x="777.0" y="153.7" font-size="10" text-anchor="middle" fill="#1f2328">94</text>
-<rect x="795.5" y="175.9" width="31.0" height="174.1" rx="2" fill="#7A8794"/>
-<text x="811.0" y="171.9" font-size="10" text-anchor="middle" fill="#1f2328">85</text>
-<rect x="829.5" y="144.2" width="31.0" height="205.8" rx="2" fill="#3B82C4"/>
-<text x="845.0" y="140.2" font-size="10" text-anchor="middle" fill="#1f2328">101</text>
-<text x="795.5" y="368" font-size="12" text-anchor="middle" fill="#1f2328">4 streams</text>
-<rect x="64" y="394" width="12" height="12" rx="2" fill="#76B900"/>
-<text x="82" y="404" font-size="12" fill="#1f2328">Basalt RTX Spark (UD-IQ3_XXS)</text>
-<rect x="297" y="394" width="12" height="12" rx="2" fill="#008675"/>
-<text x="315" y="404" font-size="12" fill="#1f2328">Basalt RTX Spark (FP4-Local)</text>
-<rect x="523" y="394" width="12" height="12" rx="2" fill="#7A8794"/>
-<text x="541" y="404" font-size="12" fill="#1f2328">Basalt + Arm64 port (UD-IQ3_XXS)</text>
-<rect x="64" y="416" width="12" height="12" rx="2" fill="#3B82C4"/>
-<text x="82" y="426" font-size="12" fill="#1f2328">Native vLLM for RTX Spark (FP4-Local)</text>
+<svg xmlns="http://www.w3.org/2000/svg" width="636" height="298" viewBox="0 0 636 298" role="img" aria-labelledby="title desc" font-family="Segoe UI, Helvetica, Arial, sans-serif">
+<title id="title">Aggregate output by concurrency</title><desc id="desc">tok/s. 1 stream: Basalt RTX Spark (UD-IQ3_XXS) 86, Basalt RTX Spark (FP4-Local) 78, Basalt + Arm64 port (UD-IQ3_XXS) 74, Native vLLM for RTX Spark (FP4-Local) 53. 2 streams: Basalt RTX Spark (UD-IQ3_XXS) 99, Basalt RTX Spark (FP4-Local) 87, Basalt + Arm64 port (UD-IQ3_XXS) 81, Native vLLM for RTX Spark (FP4-Local) 79. 3 streams: Basalt RTX Spark (UD-IQ3_XXS) 110, Basalt RTX Spark (FP4-Local) 91, Basalt + Arm64 port (UD-IQ3_XXS) 85, Native vLLM for RTX Spark (FP4-Local) 93. 4 streams: Basalt RTX Spark (UD-IQ3_XXS) 112, Basalt RTX Spark (FP4-Local) 94, Basalt + Arm64 port (UD-IQ3_XXS) 85, Native vLLM for RTX Spark (FP4-Local) 101</desc>
+<rect width="636" height="298" rx="10" fill="#fbfcfc"/>
+<text x="16" y="28" font-size="20" font-weight="700" fill="#182c33">Aggregate output by concurrency</text>
+<text x="620" y="28" font-size="14" text-anchor="end" fill="#435760">tok/s</text>
+<rect x="112" y="42" width="251" height="249" rx="7" fill="#e8f4e9"/>
+<text x="119" y="63" font-size="13" font-weight="700" fill="#245239">THIS PROJECT · BASALT RTX SPARK</text>
+<rect x="366" y="42" width="251" height="249" rx="7" fill="#edf1f4"/>
+<text x="373" y="63" font-size="13" font-weight="700" fill="#3d5363">REFERENCE ENGINES</text>
+<text x="120" y="84" font-size="14" font-weight="600" fill="#22353b">UD-IQ3_XXS</text>
+<text x="120" y="146" font-size="17" font-weight="600" fill="#152b33">86</text>
+<rect x="120" y="151" width="107" height="5" rx="2.5" fill="#cdd8db"/>
+<rect x="120" y="151" width="82.17" height="5" rx="2.5" fill="#76B900"/>
+<text x="120" y="185" font-size="17" font-weight="600" fill="#152b33">99</text>
+<rect x="120" y="190" width="107" height="5" rx="2.5" fill="#cdd8db"/>
+<rect x="120" y="190" width="94.66" height="5" rx="2.5" fill="#76B900"/>
+<text x="120" y="224" font-size="17" font-weight="600" fill="#152b33">110</text>
+<rect x="120" y="229" width="107" height="5" rx="2.5" fill="#cdd8db"/>
+<rect x="120" y="229" width="104.59" height="5" rx="2.5" fill="#76B900"/>
+<text x="120" y="263" font-size="17" font-weight="600" fill="#152b33">112</text>
+<rect x="120" y="268" width="107" height="5" rx="2.5" fill="#cdd8db"/>
+<rect x="120" y="268" width="107.00" height="5" rx="2.5" fill="#76B900"/>
+<text x="247" y="84" font-size="14" font-weight="600" fill="#22353b">FP4-Local</text>
+<text x="247" y="146" font-size="17" font-weight="600" fill="#152b33">78</text>
+<rect x="247" y="151" width="107" height="5" rx="2.5" fill="#cdd8db"/>
+<rect x="247" y="151" width="74.63" height="5" rx="2.5" fill="#008675"/>
+<text x="247" y="185" font-size="17" font-weight="600" fill="#152b33">87</text>
+<rect x="247" y="190" width="107" height="5" rx="2.5" fill="#cdd8db"/>
+<rect x="247" y="190" width="82.62" height="5" rx="2.5" fill="#008675"/>
+<text x="247" y="224" font-size="17" font-weight="600" fill="#152b33">91</text>
+<rect x="247" y="229" width="107" height="5" rx="2.5" fill="#cdd8db"/>
+<rect x="247" y="229" width="87.17" height="5" rx="2.5" fill="#008675"/>
+<text x="247" y="263" font-size="17" font-weight="600" fill="#152b33">94</text>
+<rect x="247" y="268" width="107" height="5" rx="2.5" fill="#cdd8db"/>
+<rect x="247" y="268" width="89.85" height="5" rx="2.5" fill="#008675"/>
+<text x="374" y="84" font-size="14" font-weight="600" fill="#22353b">Basalt +</text>
+<text x="374" y="100" font-size="12" font-weight="400" fill="#22353b">Arm64 port</text>
+<text x="374" y="116" font-size="12" font-weight="400" fill="#22353b">UD-IQ3_XXS</text>
+<text x="374" y="146" font-size="17" font-weight="600" fill="#152b33">74</text>
+<rect x="374" y="151" width="107" height="5" rx="2.5" fill="#cdd8db"/>
+<rect x="374" y="151" width="70.86" height="5" rx="2.5" fill="#7A8794"/>
+<text x="374" y="185" font-size="17" font-weight="600" fill="#152b33">81</text>
+<rect x="374" y="190" width="107" height="5" rx="2.5" fill="#cdd8db"/>
+<rect x="374" y="190" width="77.32" height="5" rx="2.5" fill="#7A8794"/>
+<text x="374" y="224" font-size="17" font-weight="600" fill="#152b33">85</text>
+<rect x="374" y="229" width="107" height="5" rx="2.5" fill="#cdd8db"/>
+<rect x="374" y="229" width="81.33" height="5" rx="2.5" fill="#7A8794"/>
+<text x="374" y="263" font-size="17" font-weight="600" fill="#152b33">85</text>
+<rect x="374" y="268" width="107" height="5" rx="2.5" fill="#cdd8db"/>
+<rect x="374" y="268" width="81.35" height="5" rx="2.5" fill="#7A8794"/>
+<text x="501" y="84" font-size="14" font-weight="600" fill="#22353b">Native vLLM</text>
+<text x="501" y="100" font-size="12" font-weight="400" fill="#22353b">for RTX Spark</text>
+<text x="501" y="116" font-size="12" font-weight="400" fill="#22353b">FP4-Local</text>
+<text x="501" y="146" font-size="17" font-weight="600" fill="#152b33">53</text>
+<rect x="501" y="151" width="107" height="5" rx="2.5" fill="#cdd8db"/>
+<rect x="501" y="151" width="50.95" height="5" rx="2.5" fill="#3B82C4"/>
+<text x="501" y="185" font-size="17" font-weight="600" fill="#152b33">79</text>
+<rect x="501" y="190" width="107" height="5" rx="2.5" fill="#cdd8db"/>
+<rect x="501" y="190" width="75.12" height="5" rx="2.5" fill="#3B82C4"/>
+<text x="501" y="224" font-size="17" font-weight="600" fill="#152b33">93</text>
+<rect x="501" y="229" width="107" height="5" rx="2.5" fill="#cdd8db"/>
+<rect x="501" y="229" width="88.97" height="5" rx="2.5" fill="#3B82C4"/>
+<text x="501" y="263" font-size="17" font-weight="600" fill="#152b33">101</text>
+<rect x="501" y="268" width="107" height="5" rx="2.5" fill="#cdd8db"/>
+<rect x="501" y="268" width="96.17" height="5" rx="2.5" fill="#3B82C4"/>
+<text x="16" y="146" font-size="14" font-weight="600" fill="#243840">1 stream</text>
+<text x="16" y="185" font-size="14" font-weight="600" fill="#243840">2 streams</text>
+<text x="16" y="224" font-size="14" font-weight="600" fill="#243840">3 streams</text>
+<text x="16" y="263" font-size="14" font-weight="600" fill="#243840">4 streams</text>
 </svg>
