@@ -24,7 +24,7 @@ with no frozen chat: a new long prompt is read alongside the chats already decod
 
 *Left: [one chat in real time](docs/showcase/realtime-chat), 106 tok/s. Right: an [animated orbital transfer](docs/showcase/orbital-transfer) Flash-Next wrote from one prompt in 123 s.*
 
-![This project’s weighted single-stream decode is 98.92 output tok/s on IQ3, 91.85 on NVIDIA FP4-Local and 87.94 on NVFP4-DQ6_K. The reference Arm64 port and native vLLM, measured on November 24, reach 84.05 and 54.19, and native llama.cpp with UD-IQ4_XS reaches 45.08. The second column shows cold prefill at the 2K target.](benchmarks/img/engines-overview.svg)
+![This project’s weighted single-stream decode is 98.92 output tok/s on IQ3, 91.85 on NVIDIA FP4-Local and 87.94 on NVFP4-DQ6_K. The reference Arm64 port and native vLLM, measured on November 24, reach 84.05 and 54.19, and native llama.cpp with UD-IQ4_XS reaches 45.08. The second column shows four-stream aggregate output: 120.6, 101.0 and 100.3 for this project against 85.2, 100.7 and 67.2. The third shows cold prefill at the 2K target.](benchmarks/img/engines-overview.svg)
 
 - **2.2× native llama.cpp, 1.6× native vLLM** on the same laptop. [Results](#results)
 - **A native Windows app.** No Linux, no WSL, no Docker: unzip, run `setup.cmd`, run `start.cmd`.
