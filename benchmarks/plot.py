@@ -45,7 +45,7 @@ def engine_labels(labels: list[str]) -> tuple[list[str], list[str], int]:
 
 def grouped_rates(title, unit, groups, series, path, names, packs, project_count):
     """Label every value by row and column so both the engine and its pack are readable without color."""
-    left, col, row = 116, (114 if len(series) > 4 else 127), 39
+    left, col, row = 116, {5: 114}.get(len(series), 127 if len(series) < 5 else 128), 39
     width, height = left + col * len(series) + 12, 142 + row * len(groups)
     title = escape(title)
     desc = ". ".join(f"{group}: " + ", ".join(

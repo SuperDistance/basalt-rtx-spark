@@ -1,11 +1,11 @@
 # Basalt RTX Spark
 
-### A 120B-class model at 93 tokens/s on your RTX Spark laptop. Native Windows on Arm, no WSL.
+### A 120B-class model at 99 tokens/s on your RTX Spark laptop. Native Windows on Arm, no WSL.
 
 Run **Qwen3.8-Flash-Next**, a ~120B-parameter mixture-of-experts model, entirely on an NVIDIA RTX Spark N1X laptop:
-**92.8 tok/s** single-stream decode, **112 tok/s** across four chats, a **0.28 s** first token, with the GPU drawing
-about **47 W**. That is desktop RTX 4080 SUPER speed for this model (90.2 tok/s with Strata) from a laptop, with
-nothing leaving the machine.
+**98.9 tok/s** single-stream decode, **121 tok/s** across four chats, a **0.27 s** first token, with the GPU drawing
+about **55 W**. That is faster than a desktop RTX 4080 SUPER runs this model (90.2 tok/s with Strata), from a laptop,
+with nothing leaving the machine. (98.9 is the best of five runs; the median is 97.3.)
 
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 ![Windows on Arm64](https://img.shields.io/badge/Windows-Arm64-0078D4)
@@ -17,17 +17,17 @@ nothing leaving the machine.
 [Choose by memory size](docs/rtx-spark-setup.md#choose-a-model-and-memory-split) ·
 [Connect your tools](docs/rtx-spark-setup.md#use-it-from-your-tools)
 
-![This project’s weighted single-stream decode is 92.76 output tok/s on IQ3, 85.28 on NVIDIA FP4-Local and 85.22 on NVFP4-DQ6_K. The reference Arm64 port and native vLLM reach 84.05 and 54.19. The second column shows cold prefill at the 2K target.](benchmarks/img/engines-overview.svg)
+![This project’s weighted single-stream decode is 98.92 output tok/s on IQ3, 91.85 on NVIDIA FP4-Local and 87.94 on NVFP4-DQ6_K. The reference Arm64 port and native vLLM, measured on November 24, reach 84.05 and 54.19, and native llama.cpp with UD-IQ4_XS reaches 45.08. The second column shows cold prefill at the 2K target.](benchmarks/img/engines-overview.svg)
 
-- **Faster than the alternatives on this laptop.** On NVIDIA's own FP4-Local weights it decodes **57% faster** than
-  native vLLM for RTX Spark (85.3 vs 54.2 tok/s); with the default pack it is **10% faster** than the Basalt Arm64
-  port it builds on, with a **2.2× faster** first token.
+- **Faster than the alternatives on this laptop.** It decodes **2.2×** as fast as native llama.cpp (98.9 vs 45.1
+  tok/s; llama.cpp ran UD-IQ4_XS, the pack in NVIDIA's recipe). On NVIDIA's own FP4-Local weights it was **57% faster**
+  than native vLLM for RTX Spark in same-day runs (85.3 vs 54.2 tok/s), and with the default pack **10% faster** than
+  the Basalt Arm64 port it builds on, with a **2.2× faster** first token (November 24).
 - **A native Windows app.** No Linux, no WSL, no Docker: unzip, run `setup.cmd`, run `start.cmd`.
 - **Made for unified memory.** It places the model across the GPU's share and system RAM by itself, at whatever
   memory split your laptop uses, and reads RAM-resident experts in place.
 - **Speedups that keep the output.** Each engine change is checked to produce the same greedy text as before it, one
-  request at a time (batched identity: [#2](https://github.com/SuperDistance/basalt-rtx-spark/issues/2)); each model
-  pack's quality is measured separately and published below.
+  request at a time and four at once. Each model pack's quality is measured separately and published below.
 - **Drop-in API.** OpenAI- and Anthropic-compatible endpoints, so chat apps and coding agents connect unchanged.
 
 ## Quick start
@@ -51,34 +51,41 @@ One 128 GB RTX Spark N1X with a 96 GB GPU allocation, physical cooling, the same
 
 | | Engine | Model pack | Decode, 1 chat (tok/s) | Decode, 4 chats (tok/s) | First token, short prompt | Prompt read, 2K / 64K (tok/s) |
 | --- | --- | --- | ---: | ---: | ---: | ---: |
-| **This project** | **Basalt RTX Spark** · release ZIP | `UD-IQ3_XXS` | **92.76** | **112.10** | 280 ms | **1,767** / 2,288 |
-| **This project** | **Basalt RTX Spark** · source build | `NVIDIA FP4-Local` | 85.28 | 95.88 | 365 ms | 1,583 / 2,353 |
-| **This project** | **Basalt RTX Spark** · source build | `NVFP4-DQ6_K` | 85.22 | 95.84 | 365 ms | 1,599 / **2,439** |
-| Reference | Basalt + Arm64 port | `UD-IQ3_XXS` | 84.05 | 85.23 | 619 ms | 967 / 1,999 |
-| Reference | Native vLLM for RTX Spark 0.2.0 | `NVIDIA FP4-Local` | 54.19 | 100.75 | **271 ms** | 1,511 / 2,035 |
+| **This project** | **Basalt RTX Spark** · source build | `UD-IQ3_XXS` | **98.92** | **120.6** | **266 ms** | **1,929** / 2,431 |
+| **This project** | **Basalt RTX Spark** · release ZIP | `UD-IQ3_XXS` | 97.10 | 119.9 | 270 ms | 1,883 / 2,429 |
+| **This project** | **Basalt RTX Spark** · source build | `NVIDIA FP4-Local` | 91.85 | 101.0 | 346 ms | 1,741 / 2,655 |
+| **This project** | **Basalt RTX Spark** · source build | `NVFP4-DQ6_K` | 87.94 | 100.3 | 352 ms | 1,716 / **2,657** |
+| Reference · Nov 24 | Basalt + Arm64 port | `UD-IQ3_XXS` | 84.05 | 85.2 | 619 ms | 967 / 1,999 |
+| Reference · Nov 24 | Native vLLM for RTX Spark 0.2.0 | `NVIDIA FP4-Local` | 54.19 | 100.8 | 271 ms | 1,511 / 2,035 |
+| Reference | Native llama.cpp b12359 | `UD-IQ4_XS` | 45.08 | 67.2 | 437 ms | 828 / 778 |
 
-Decode is BetterBench's weighted median over eight scenarios; prompt reads are cold, at the 2K and 64K targets (about
-1,550 and 47,100 actual tokens). Where vLLM leads: short-prompt first token, four chats against Basalt on the same
-FP4-Local weights, and prompt reading at the 32K target (2,123 vs 1,951 tok/s).
-[IQ3 raw samples and power](benchmarks/results/2026-11-24-n1x-cooled-release) ·
-[FP4-Local measurements](benchmarks/results/2026-11-24-n1x-fp4-resident-ring)
+Decode is BetterBench's weighted median over eight scenarios. Prompt reads are cold, at the 2K and 64K targets (about
+1,550 and 47,100 actual tokens). The Basalt and llama.cpp rows ran on November 25 with the GPU in P0 at about 54 W.
+The source build's 98.92 is the best of five decode runs, which ranged from 93.99 to 98.92 (median 97.29). The two
+November 24 rows were not rerun; that day's runs drew less GPU power in busy decode (49 W for the port, 35 W for vLLM,
+46–48 W for Basalt). On that day the release ZIP
+scored 92.76, 10% ahead of the port, and Basalt on FP4-Local scored 85.28, 57% ahead of vLLM.
+[November 25 runs](benchmarks/results/2026-11-25-n1x-rerun) ·
+[llama.cpp run](benchmarks/results/2026-11-25-n1x-llama-cpp) ·
+[November 24 runs](benchmarks/results/2026-11-24-n1x-cooled-release)
 
 <details>
 <summary>Charts by scenario, number of chats and prompt depth; power and test settings</summary>
 
-![Median cold input tokens per second at five target prompt depths. This project has three columns, IQ3, NVIDIA FP4-Local and NVFP4-DQ6_K. Reference columns are the Arm64 port with IQ3 and native vLLM with FP4-Local.](benchmarks/img/engines-prefill.svg)
+![Median cold input tokens per second at five target prompt depths. This project has three columns, IQ3, NVIDIA FP4-Local and NVFP4-DQ6_K. Reference columns are the Arm64 port with IQ3 and native vLLM with FP4-Local, both from November 24, and native llama.cpp with UD-IQ4_XS.](benchmarks/img/engines-prefill.svg)
 
-![Median output tokens per second in eight decode scenarios. This project has three columns, IQ3, NVIDIA FP4-Local and NVFP4-DQ6_K. Reference columns are the Arm64 port with IQ3 and native vLLM with FP4-Local.](benchmarks/img/engines-decode.svg)
+![Median output tokens per second in eight decode scenarios. This project has three columns, IQ3, NVIDIA FP4-Local and NVFP4-DQ6_K. Reference columns are the Arm64 port with IQ3 and native vLLM with FP4-Local, both from November 24, and native llama.cpp with UD-IQ4_XS.](benchmarks/img/engines-decode.svg)
 
-![Aggregate output tokens per second at one through four streams. This project has three columns, IQ3, NVIDIA FP4-Local and NVFP4-DQ6_K. Reference columns are the Arm64 port with IQ3 and native vLLM with FP4-Local.](benchmarks/img/engines-concurrency.svg)
+![Aggregate output tokens per second at one through four streams. This project has three columns, IQ3, NVIDIA FP4-Local and NVFP4-DQ6_K. Reference columns are the Arm64 port with IQ3 and native vLLM with FP4-Local, both from November 24, and native llama.cpp with UD-IQ4_XS.](benchmarks/img/engines-concurrency.svg)
 
-- **Settings.** Basalt used four slots, INT8 KV and MTP 8. Native vLLM ran with FP8 target KV and MTP 7. The IQ3 rows
-  used the v0.4.1-rtx-spark.2 ZIP and the Arm64 port.
-- **Power.** Busy decode averaged 47.5 W GPU for the ZIP (51.3 W CPU and GPU together) and 49.2 W for the Arm64 port;
-  46.0 W for Basalt on FP4-Local, 48.4 W on NVFP4-DQ6_K and 35.0 W for vLLM.
-  [Power measurements](benchmarks/results/2026-11-24-n1x-cooled-release/release/power.json)
-- **Memory.** Both FP4 packs kept all 24,576 GPU expert slots. Whole-GPU memory had nearly identical medians (72.62 GiB
-  DQ6_K, 72.77 GiB FP4-Local) and peaks of 75.03 and 78.23 GiB.
+- **Settings.** Basalt used four 262,144-token slots, INT8 KV and MTP 8. Native vLLM ran with FP8 target KV and MTP 7.
+  llama.cpp used four slots over a 262,144-token context, flash attention and MTP 3. The release ZIP row is
+  v0.4.1-rtx-spark.2. The source build is `main`.
+- **Power.** Busy decode averaged 54.6 W GPU for the source build on IQ3, 54.3 W for the ZIP, 53.2 W on FP4-Local,
+  53.7 W on NVFP4-DQ6_K and 45.4 W for llama.cpp. Each piece of each run started on a cool GPU and was kept only if the
+  GPU stayed in P0. [How the runs were assembled](benchmarks/results/2026-11-25-n1x-rerun#how-the-runs-were-assembled)
+- **Memory (November 24).** Both FP4 packs kept all 24,576 GPU expert slots. Whole-GPU memory had nearly identical
+  medians (72.62 GiB DQ6_K, 72.77 GiB FP4-Local) and peaks of 75.03 and 78.23 GiB.
   [Measured source](https://github.com/SuperDistance/basalt-rtx-spark/commit/1bc565f277a3fb02c6182ea5ba0e9086b3f637e0) ·
   [DQ6_K telemetry](benchmarks/results/2026-11-24-n1x-nvfp4-dq6-k) · [vLLM run](benchmarks/results/2026-11-24-n1x-verified-default/vllm)
 - **Desktop comparison.** The Strata figure (90.2 tok/s, IQ3_S) is from a desktop RTX 4080 SUPER.
@@ -106,7 +113,7 @@ moving between two Earth orbits, with burn values and flight time.
 | Pack | Made by | Pick it for | Top-token agreement with BF16 |
 | --- | --- | --- | ---: |
 | `UD-IQ3_XXS` | Unsloth | **speed**: the default, fastest decode in the [results](#results) | 88.67% |
-| `NVFP4-DQ6_K` | Basalt | closest to BF16, ~8% slower decode | **91.65%** |
+| `NVFP4-DQ6_K` | Basalt | closest to BF16, ~11% slower decode | **91.65%** |
 | `NVIDIA FP4-Local` | NVIDIA (NVFP4, quantization-aware distilled) | NVIDIA's own weights, as native vLLM serves them | not measured on the same test |
 
 Agreement is the pack publisher's measurement on the same 100 WikiText-2 chunks.
