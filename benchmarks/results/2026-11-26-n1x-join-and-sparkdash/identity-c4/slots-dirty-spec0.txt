@@ -1,0 +1,10 @@
+command: %LOCALAPPDATA%\RTX-Spark-Benchmark\basalt-python\Scripts\python.exe <repo>\tools\greedy_identity.py --slots-dirty %LOCALAPPDATA%\RTX-Spark-Benchmark\basalt-n1x-live-merged-209a14bb\bin\basalt.exe --model %LOCALAPPDATA%\RTX-Spark-Benchmark\models\Qwen3.8-FN-UD-IQ3_XXS.basalt --tokens 300 -- --expert-cache 24576 --kv int8 --spec 0
+exit 1 after 209 s
+
+solo: 1200 tokens; 32 batch runs; 4 of 4 rotations had all 4 slots decoding at once
+GREEDY DIFFERS: prose together (conv@0 struct@1 prose@2 code@3), token 0: solo [332, 760, 5546, 11801, 5211] batch [2, 561, 5546, 11801, 5211]
+GREEDY DIFFERS: prose together (conv@1 struct@2 prose@3 code@0), token 0: solo [332, 760, 5546, 11801, 5211] batch [2, 561, 5546, 11801, 5211]
+GREEDY DIFFERS: code together (conv@2 struct@3 prose@0 code@1), token 225: solo [14419, 198, 285, 638, 19474] batch [7465, 198, 285, 638, 19474]
+GREEDY DIFFERS: prose together (conv@3 struct@0 prose@1 code@2), token 0: solo [332, 760, 5546, 11801, 5211] batch [2, 561, 5546, 11801, 5211]
+GREEDY DIFFERS: code together (conv@3 struct@0 prose@1 code@2), token 225: solo [14419, 198, 285, 638, 19474] batch [7465, 198, 285, 638, 19474]
+5 of 32 batch runs differ from solo (logs: %TEMP%\greedy-identity-8lww48x6)

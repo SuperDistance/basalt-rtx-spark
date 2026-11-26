@@ -27,11 +27,16 @@ with no frozen chat: a new long prompt is read alongside the chats already decod
 ![This project’s weighted single-stream decode is 98.92 output tok/s on IQ3, 91.85 on NVIDIA FP4-Local and 87.94 on NVFP4-DQ6_K. The reference Arm64 port and native vLLM, measured on November 24, reach 84.05 and 54.19, and native llama.cpp with UD-IQ4_XS reaches 45.08. The second column shows four-stream aggregate output: 120.6, 101.0 and 100.3 for this project against 85.2, 100.7 and 67.2. The third shows cold prefill at the 2K target.](benchmarks/img/engines-overview.svg)
 
 - **2.2× native llama.cpp, 1.6× native vLLM** on the same laptop. [Results](#results)
+- **No frozen chats.** A 35K-token prompt arriving while three chats decode starts answering in 17 s, and no
+  chat pauses for more than 0.8 s. On the same laptop llama.cpp paused the chats 2.9 s and took 46 s, and the Arm64
+  port either froze them (3.5 s on a 4K prompt) or made the new prompt wait 132 s.
+  [Join test](benchmarks/results/2026-11-26-n1x-join-and-sparkdash)
 - **A native Windows app.** No Linux, no WSL, no Docker: unzip, run `setup.cmd`, run `start.cmd`.
 - **Made for unified memory.** It places the model across the GPU's share and system RAM by itself, at whatever
   memory split your laptop uses, and reads RAM-resident experts in place.
 - **Speedups that keep the output.** Each engine change is checked to produce the same greedy text as before it, one
-  request at a time and four at once. Each model pack's quality is measured separately and published below.
+  request at a time, and batched requests are checked against solo ones. Each model pack's quality is measured
+  separately and published below.
 - **Drop-in API.** OpenAI- and Anthropic-compatible endpoints, so chat apps and coding agents connect unchanged.
 
 ## Quick start

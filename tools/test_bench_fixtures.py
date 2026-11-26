@@ -19,7 +19,7 @@ def ids(path: Path) -> list[int]:
 class Fixtures(unittest.TestCase):
     def test_every_decode_fixture_is_one_prompt_of_token_ids(self):
         for d in [BENCH, *sorted(p for p in BENCH.iterdir() if p.is_dir())]:
-            for name in ("conv", "struct", "prose"):
+            for name in ("conv", "struct", "prose") + (("code",) if d == BENCH else ()):
                 with self.subTest(dir=d.name, fixture=name):
                     self.assertTrue(all(i >= 0 for i in ids(d / f"{name}.ids")))
 
