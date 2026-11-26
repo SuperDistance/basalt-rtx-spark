@@ -3,9 +3,8 @@
 ### A 120B-class model at 99 tokens/s on your RTX Spark laptop. Native Windows on Arm, no WSL.
 
 Run **Qwen3.8-Flash-Next**, a ~120B-parameter mixture-of-experts model, entirely on an NVIDIA RTX Spark N1X laptop:
-**98.9 tok/s** single-stream decode, **121 tok/s** across four chats, a **0.27 s** first token, with the GPU drawing
-about **55 W**. That is faster than a desktop RTX 4080 SUPER runs this model (90.2 tok/s with Strata), from a laptop,
-with nothing leaving the machine.
+**98.9 tok/s** for one chat, **121 tok/s** across four, a **0.27 s** first token, at about **55 W** of GPU power.
+That beats a desktop RTX 4080 SUPER on this model (90.2 tok/s with Strata), and nothing leaves the machine.
 
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 ![Windows on Arm64](https://img.shields.io/badge/Windows-Arm64-0078D4)
@@ -17,12 +16,16 @@ with nothing leaving the machine.
 [Choose by memory size](docs/rtx-spark-setup.md#choose-a-model-and-memory-split) ·
 [Connect your tools](docs/rtx-spark-setup.md#use-it-from-your-tools)
 
+[![The Long Way Up, an animated orbital transfer drawn by Flash-Next on RTX Spark.](docs/showcase/orbital-transfer/preview.webp)](docs/showcase/orbital-transfer)
+
+*One prompt, 123 seconds on the laptop: Flash-Next wrote this animated SVG of a probe moving between two Earth orbits,
+with burn values and flight time.* [Prompt, original SVG and physics checks](docs/showcase/orbital-transfer)
+
 ![This project’s weighted single-stream decode is 98.92 output tok/s on IQ3, 91.85 on NVIDIA FP4-Local and 87.94 on NVFP4-DQ6_K. The reference Arm64 port and native vLLM, measured on November 24, reach 84.05 and 54.19, and native llama.cpp with UD-IQ4_XS reaches 45.08. The second column shows cold prefill at the 2K target.](benchmarks/img/engines-overview.svg)
 
-- **Faster than the alternatives on this laptop.** It decodes **2.2×** as fast as native llama.cpp (98.9 vs 45.1
-  tok/s; llama.cpp ran UD-IQ4_XS, the pack in NVIDIA's recipe). On NVIDIA's own FP4-Local weights it was **57% faster**
-  than native vLLM for RTX Spark in same-day runs (85.3 vs 54.2 tok/s), and with the default pack **10% faster** than
-  the Basalt Arm64 port it builds on, with a **2.2× faster** first token (November 24).
+- **2.2× llama.cpp, 1.6× vLLM.** The fastest way to run Flash-Next on this laptop that we have measured: 98.9 tok/s
+  against 45.1 for native llama.cpp, and 1.6× native vLLM for RTX Spark on NVIDIA's own FP4-Local weights in same-day
+  runs. [Results](#results)
 - **A native Windows app.** No Linux, no WSL, no Docker: unzip, run `setup.cmd`, run `start.cmd`.
 - **Made for unified memory.** It places the model across the GPU's share and system RAM by itself, at whatever
   memory split your laptop uses, and reads RAM-resident experts in place.
@@ -98,14 +101,6 @@ ahead of vLLM.
 </details>
 
 **Have an RTX Spark (or a DGX Spark)?** Run the [benchmark](benchmarks) and send your numbers.
-
-## One prompt, one orbital transfer
-
-In **123 seconds** on the laptop, Flash-Next (NVIDIA FP4-Local) turned one prompt into this animated SVG of a probe
-moving between two Earth orbits, with burn values and flight time.
-[Exact prompt, original SVG and physics checks](docs/showcase/orbital-transfer)
-
-[![The Long Way Up, an animated orbital transfer drawn by Flash-Next on RTX Spark.](docs/showcase/orbital-transfer/preview.webp)](docs/showcase/orbital-transfer)
 
 ## Which model pack?
 
