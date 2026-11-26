@@ -3,7 +3,7 @@
 ### A 120B-class model at 99 tokens/s on your RTX Spark laptop. Native Windows on Arm, no WSL.
 
 Run **Qwen3.8-Flash-Next**, a ~120B-parameter mixture-of-experts model, entirely on an NVIDIA RTX Spark N1X laptop:
-**98.9 tok/s** for one chat, **121 tok/s** across four, a **0.27 s** first token, at about **55 W** of GPU power.
+**98.9 tok/s** for one chat, **121 tok/s** across four, a **0.27 s** first token, at about **58 W** for CPU and GPU together.
 That beats a desktop RTX 4080 SUPER on this model (90.2 tok/s with Strata), and nothing leaves the machine.
 
 **The goal:** the fastest single-stream decode for Qwen3.8-Flash-Next and Qwen 4 Flash, and solid throughput for up to
@@ -20,10 +20,14 @@ decoding instead of stopping them.
 [Choose by memory size](docs/rtx-spark-setup.md#choose-a-model-and-memory-split) ·
 [Connect your tools](docs/rtx-spark-setup.md#use-it-from-your-tools)
 
-[![The Long Way Up, an animated orbital transfer drawn by Flash-Next on RTX Spark.](docs/showcase/orbital-transfer/preview.webp)](docs/showcase/orbital-transfer)
+<p>
+  <a href="docs/showcase/realtime-chat"><img src="docs/showcase/realtime-chat/chat.webp" width="49%" alt="One chat streaming in real time on the laptop: 970 tokens in 9.29 s, 106 tok/s decode, first token 0.12 s."></a>
+  <a href="docs/showcase/orbital-transfer"><img src="docs/showcase/orbital-transfer/preview.webp" width="49%" alt="The Long Way Up, an animated orbital transfer drawn by Flash-Next on RTX Spark."></a>
+</p>
 
-*One prompt, 123 seconds on the laptop: Flash-Next wrote this animated SVG of a probe moving between two Earth orbits,
-with burn values and flight time.* [Prompt, original SVG and physics checks](docs/showcase/orbital-transfer)
+*Left: one chat on the laptop, replayed at its recorded speed (106 tok/s).* [Recording and tools](docs/showcase/realtime-chat)
+*Right: from one prompt in 123 seconds, Flash-Next wrote this animated SVG of a probe moving between two Earth orbits.*
+[Prompt, original SVG and physics checks](docs/showcase/orbital-transfer)
 
 ![This project’s weighted single-stream decode is 98.92 output tok/s on IQ3, 91.85 on NVIDIA FP4-Local and 87.94 on NVFP4-DQ6_K. The reference Arm64 port and native vLLM, measured on November 24, reach 84.05 and 54.19, and native llama.cpp with UD-IQ4_XS reaches 45.08. The second column shows cold prefill at the 2K target.](benchmarks/img/engines-overview.svg)
 
@@ -88,7 +92,8 @@ ahead of vLLM.
   llama.cpp used four slots over a 262,144-token context, flash attention and MTP 3. The release ZIP row is
   v0.4.1-rtx-spark.2. The source build is `main`.
 - **Power.** Busy decode averaged 54.6 W GPU for the source build on IQ3, 54.3 W for the ZIP, 53.2 W on FP4-Local,
-  53.7 W on NVFP4-DQ6_K and 45.4 W for llama.cpp. Each piece of each run started on a cool GPU and was kept only if the
+  53.7 W on NVFP4-DQ6_K and 45.4 W for llama.cpp. These runs logged the GPU only. The headline's 58 W CPU+GPU adds the
+  CPU cores' 3.8 W from the November 24 IQ3 decode, which logged both rails (47.5 W GPU, 51.3 W together). Each piece of each run started on a cool GPU and was kept only if the
   GPU stayed in P0. [How the runs were assembled](benchmarks/results/2026-11-25-n1x-rerun#how-the-runs-were-assembled)
 - **Memory (November 24).** Both FP4 packs kept all 24,576 GPU expert slots. Whole-GPU memory had nearly identical
   medians (72.62 GiB DQ6_K, 72.77 GiB FP4-Local) and peaks of 75.03 and 78.23 GiB.
