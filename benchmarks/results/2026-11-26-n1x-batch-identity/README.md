@@ -127,9 +127,10 @@ and once beside three decoding chats, each on a fresh server, and the two replie
   [a different computation](../../../docs/precision/qwen38-flash-next.md#prefill), which is why the gate runs with
   `--short-read 0`.
 - **A long prompt's chunk size follows free memory.** Solo, the 13,005-token prompt was read in one 22,016-token
-  chunk. Beside three decoding chats, with less memory free, it was read in two. Different chunk boundaries round differently. Fixing them for every read would
-  cost solo long-prompt reads about 2% (sparkDash read 2,350 tok/s at 8K against 2,406 at 16K), so this run leaves
-  it as it is.
+  chunk. Beside three decoding chats, with less memory free, it was read in two. Different chunk boundaries round differently. Fixing them for every read costs
+  solo long reads: with `--prefill 8192` the first token of a fresh 12K prompt took 5.60 s against 5.40 s (+3.7%),
+  and of a 24K prompt 11.16 s against 10.60 s (+5.3%), over four alternating servers. This run leaves it as it is.
+  [Chunk-size runs](chunk-size)
 - **These replies are a weak test.** Each depth is one prompt with a fresh lead nonce, so each arm saw different text.
   A reply changes only where the prompt meets a near tie, as the old-rule `--short-read 0` row shows. The gate above,
   with 32 runs over prompts that reach near ties, is the measurement.
@@ -143,4 +144,5 @@ and once beside three decoding chats, each on a fresh server, and the two replie
 - [`four-chats/`](four-chats): per-round rates, GPU samples and the four replies of each run.
 - [`betterbench/`](betterbench): the concurrency pieces and each arm's server command.
 - [`long-prompts/`](long-prompts): the solo and joined replies at each depth.
+- [`chunk-size/`](chunk-size): solo first tokens with the automatic chunk and with `--prefill 8192`.
 - [`solo-first-token/`](solo-first-token): the solo first-token check, `N-new` this build and `N-old` `209a14bb`.
