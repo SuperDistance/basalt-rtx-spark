@@ -152,29 +152,18 @@ bool QfnRuntime::batch_step() {
             // (the draft-length rule's bin table, scaled by how the slot's drafts have run against it).  Within a
             // slot that chance only falls, so taking the best next row each time is the best split of the budget.
             // Only which drafts are verified changes: every slot's tokens stay its solo tokens.
+            const auto acc = [&](int sg, int j) -> float {
+                const BSlot& sl = bs[(size_t) rows[sg]];
+                return sl.from_sfx ? (float) bpolicy->lookup_rate(sl.smatch)
+                       : j < sl.n_dr ? basalt::core::draft_cum_acc(sl.dprob[j]) : 0.0f;
+            };
             int give[MR];
-            float chain[MR];
+            float scale[MR];
             for (int sg = 0; sg < S; ++sg) {
                 const BSlot& sl = bs[(size_t) rows[sg]];
-                give[sg] = 1;
-                chain[sg] = sl.cum.exp >= 0.5 ? (float) std::clamp(sl.cum.obs / sl.cum.exp, 0.5, 1.5) : 1.0f;
+                scale[sg] = sl.cum.exp >= 0.5 ? (float) std::clamp(sl.cum.obs / sl.cum.exp, 0.5, 1.5) : 1.0f;
             }
-            for (int left_rows = MB - S; left_rows > 0; --left_rows) {
-                int best = -1;
-                float best_v = -1.0f;
-                for (int sg = 0; sg < S; ++sg) {
-                    if (give[sg] >= Tw[sg]) continue;
-                    const BSlot& sl = bs[(size_t) rows[sg]];
-                    const int j = give[sg] - 1;   // the draft this row would verify
-                    const float acc = sl.from_sfx ? (float) bpolicy->lookup_rate(sl.smatch)
-                                      : j < sl.n_dr ? basalt::core::draft_cum_acc(sl.dprob[j]) : 0.0f;
-                    const float v = chain[sg] * acc;
-                    if (v > best_v) { best_v = v; best = sg; }
-                }
-                if (best < 0) break;
-                chain[best] = best_v;
-                ++give[best];
-            }
+            split_rows_by_value(Tw, scale, S, MB, acc, give);
             if (batch_rows_value_trace) {
                 // what the even split would have expected, for the same windows
                 int even[MR], ord[MR];
@@ -187,11 +176,9 @@ bool QfnRuntime::batch_step() {
                 auto expected = [&](const int* t) {
                     double e = 0.0;
                     for (int sg = 0; sg < S; ++sg) {
-                        const BSlot& sl = bs[(size_t) rows[sg]];
                         double c = 1.0;
                         for (int j = 0; j + 1 < t[sg]; ++j) {
-                            c *= sl.from_sfx ? bpolicy->lookup_rate(sl.smatch)
-                               : j < sl.n_dr ? basalt::core::draft_cum_acc(sl.dprob[j]) : 0.0;
+                            c *= acc(sg, j);
                             e += c;
                         }
                     }

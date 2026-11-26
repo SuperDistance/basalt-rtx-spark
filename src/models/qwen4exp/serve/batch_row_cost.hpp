@@ -58,4 +58,32 @@ private:
     unsigned narrow_since_wide_{};
 };
 
+// A window over its row budget: S slots want want[s] >= 1 rows each, `budget` >= S rows to give.  Every slot keeps its
+// own row; each further row goes to the slot whose next draft adds the most expected accepted tokens: scale[s] times
+// the product of acc(s, j) over the drafts j it would then verify.  A product of chances only falls as a slot takes
+// more drafts, so taking the best next row each time maximizes the expected accepted drafts of the window, and each
+// slot gets a prefix of its drafts.  Ties go to the lower slot.  give[s] <= want[s], and sum(give) is
+// min(budget, sum(want)).
+template <class Acc>
+inline void split_rows_by_value(const int* want, const float* scale, int S, int budget, Acc acc, int* give) {
+    constexpr int kMaxSlots = 64;
+    float chain[kMaxSlots];
+    for (int s = 0; s < S; ++s) {
+        give[s] = 1;
+        chain[s] = scale[s];
+    }
+    for (int left = budget - S; left > 0; --left) {
+        int best = -1;
+        float best_v = -1.0f;
+        for (int s = 0; s < S; ++s) {
+            if (give[s] >= want[s]) continue;
+            const float v = chain[s] * acc(s, give[s] - 1);   // the draft this row would verify
+            if (v > best_v) { best_v = v; best = s; }
+        }
+        if (best < 0) break;
+        chain[best] = best_v;
+        ++give[best];
+    }
+}
+
 }  // namespace basalt::models::qwen4exp::serve
