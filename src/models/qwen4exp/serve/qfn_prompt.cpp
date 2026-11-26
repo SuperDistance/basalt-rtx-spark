@@ -74,7 +74,12 @@ void QfnRequest::limit_parts() {
     // side-thread costs again, and a checkpoint stalls the windows.  One that runs alone stops at its root,
     // and at its turn boundary only past --prompt-cache-root tokens since the root: a short history is
     // cheaper to read again than the extra part costs.  The rest of a read that gave way keeps its parts.
-    if (in_slot && runtime_.batch_on() && resumed_chunk <= 0 && n - 1 - read_from <= std::max<int64_t>(runtime_.sp.chunk(), 1)) {
+    // --exp slot_solo_split=1: such a read stops where the same read stops solo (its root, picture and turn
+    // boundaries).  Where a read stops changes its rounding (the GDN chunks, the K/V a later part reads back), so a
+    // request beside other slots then reads exactly as it would alone, and its next turn finds the checkpoint.
+    const bool solo_split = basalt::core::exp_flag("slot_solo_split", 0) != 0;
+    if (!solo_split && in_slot && runtime_.batch_on() && resumed_chunk <= 0 &&
+        n - 1 - read_from <= std::max<int64_t>(runtime_.sp.chunk(), 1)) {
         if (n - 1 - read_from > runtime_.kReadAlone) {
             turn_at = -1;
             root_at = -1;
