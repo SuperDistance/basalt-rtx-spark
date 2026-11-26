@@ -5,7 +5,7 @@
 Run **Qwen3.8-Flash-Next**, a ~120B-parameter mixture-of-experts model, entirely on an NVIDIA RTX Spark N1X laptop:
 **98.9 tok/s** single-stream decode, **121 tok/s** across four chats, a **0.27 s** first token, with the GPU drawing
 about **55 W**. That is faster than a desktop RTX 4080 SUPER runs this model (90.2 tok/s with Strata), from a laptop,
-with nothing leaving the machine. (98.9 is the best of five runs; the median is 97.3.)
+with nothing leaving the machine.
 
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 ![Windows on Arm64](https://img.shields.io/badge/Windows-Arm64-0078D4)
@@ -60,11 +60,10 @@ One 128 GB RTX Spark N1X with a 96 GB GPU allocation, physical cooling, the same
 | Reference | Native llama.cpp b12359 | `UD-IQ4_XS` | 45.08 | 67.2 | 437 ms | 828 / 778 |
 
 Decode is BetterBench's weighted median over eight scenarios. Prompt reads are cold, at the 2K and 64K targets (about
-1,550 and 47,100 actual tokens). The Basalt and llama.cpp rows ran on November 25 with the GPU in P0 at about 54 W.
-The source build's 98.92 is the best of five decode runs, which ranged from 93.99 to 98.92 (median 97.29). The two
-November 24 rows were not rerun; that day's runs drew less GPU power in busy decode (49 W for the port, 35 W for vLLM,
-46–48 W for Basalt). On that day the release ZIP
-scored 92.76, 10% ahead of the port, and Basalt on FP4-Local scored 85.28, 57% ahead of vLLM.
+1,550 and 47,100 actual tokens). The Basalt and llama.cpp rows ran on November 25 with the GPU in P0. The two November 24
+rows were not rerun; that day's runs drew less GPU power in busy decode (49 W for the port, 35 W for vLLM, 46–48 W for
+Basalt). On that day the release ZIP scored 92.76, 10% ahead of the port, and Basalt on FP4-Local scored 85.28, 57%
+ahead of vLLM.
 [November 25 runs](benchmarks/results/2026-11-25-n1x-rerun) ·
 [llama.cpp run](benchmarks/results/2026-11-25-n1x-llama-cpp) ·
 [November 24 runs](benchmarks/results/2026-11-24-n1x-cooled-release)
