@@ -6,6 +6,10 @@ Run **Qwen3.8-Flash-Next**, a ~120B-parameter mixture-of-experts model, entirely
 **98.9 tok/s** for one chat, **121 tok/s** across four, a **0.27 s** first token, at about **55 W** of GPU power.
 That beats a desktop RTX 4080 SUPER on this model (90.2 tok/s with Strata), and nothing leaves the machine.
 
+**The goal:** the fastest single-stream decode for Qwen3.8-Flash-Next and Qwen 4 Flash, and solid throughput for up to
+four chats at once without a long wait or a frozen chat: a new long prompt is read alongside the chats already
+decoding instead of stopping them.
+
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 ![Windows on Arm64](https://img.shields.io/badge/Windows-Arm64-0078D4)
 ![RTX Spark N1X](https://img.shields.io/badge/NVIDIA-RTX%20Spark%20N1X-76B900)
