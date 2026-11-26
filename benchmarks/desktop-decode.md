@@ -1,10 +1,10 @@
 # Qwen3.8-Flash-Next on discrete GPUs
 
-This project · Basalt RTX Spark on the RTX Spark N1X recorded 92.76 tok/s weighted single-stream decode on BetterBench with UD-IQ3_XXS. CPU and GPU draw averaged 51.34 W combined during busy decode samples. The external reference-engine results below used the same model family with different weights, prompts, GPUs and measurement intervals; they are context, not matched tests. [N1X run and power method](results/2026-11-24-n1x-cooled-release/release/power.json)
+This project · Basalt RTX Spark on the RTX Spark N1X recorded 98.92 tok/s weighted single-stream decode on BetterBench with UD-IQ3_XXS (the best of five runs; the median was 97.29). The GPU averaged 54.6 W during busy decode. The external reference-engine results below used the same model family with different weights, prompts, GPUs and measurement intervals; they are context, not matched tests. [N1X runs and power method](results/2026-11-25-n1x-rerun)
 
 | GPU | Engine | Weights | Reported single-stream decode |
 | --- | --- | --- | ---: |
-| RTX Spark N1X laptop | This project · Basalt RTX Spark | UD-IQ3_XXS | 92.76 tok/s |
+| RTX Spark N1X laptop | This project · Basalt RTX Spark | UD-IQ3_XXS | 98.92 tok/s |
 | GeForce RTX 4080 SUPER desktop, Ryzen 9 5950X | Reference engine · Strata | IQ3_S | 90.2 tok/s |
 | Same RTX 4080 SUPER and CPU | Reference engine · Strata | IQ3_XXS | 115.8 tok/s |
 | Radeon AI PRO R9700 desktop, Ryzen 9 9950X | Reference engine · Radiance | Q4 | 90–100 tok/s |
