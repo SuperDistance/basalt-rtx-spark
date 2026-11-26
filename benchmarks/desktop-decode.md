@@ -1,6 +1,6 @@
 # Qwen3.8-Flash-Next on discrete GPUs
 
-This project · Basalt RTX Spark on the RTX Spark N1X recorded 98.92 tok/s weighted single-stream decode on BetterBench with UD-IQ3_XXS (the best of five runs; the median was 97.29). The GPU averaged 54.6 W during busy decode. The external reference-engine results below used the same model family with different weights, prompts, GPUs and measurement intervals; they are context, not matched tests. [N1X runs and power method](results/2026-11-25-n1x-rerun)
+This project · Basalt RTX Spark on the RTX Spark N1X recorded 98.92 tok/s weighted single-stream decode on BetterBench with UD-IQ3_XXS. The GPU averaged 54.6 W during busy decode. The external reference-engine results below used the same model family with different weights, prompts, GPUs and measurement intervals; they are context, not matched tests. [N1X runs and power method](results/2026-11-25-n1x-rerun)
 
 | GPU | Engine | Weights | Reported single-stream decode |
 | --- | --- | --- | ---: |
