@@ -25,7 +25,7 @@ decoding instead of stopping them.
   <a href="docs/showcase/orbital-transfer"><img src="docs/showcase/orbital-transfer/preview.webp" width="49%" alt="The Long Way Up, an animated orbital transfer drawn by Flash-Next on RTX Spark."></a>
 </p>
 
-*Left: one chat on the laptop, replayed at its recorded speed (106 tok/s).* [Recording and tools](docs/showcase/realtime-chat)
+*Left: one chat on the laptop, replayed at its recorded speed (106 tok/s).* [Recording and tools](docs/showcase/realtime-chat)<br>
 *Right: from one prompt in 123 seconds, Flash-Next wrote this animated SVG of a probe moving between two Earth orbits.*
 [Prompt, original SVG and physics checks](docs/showcase/orbital-transfer)
 
