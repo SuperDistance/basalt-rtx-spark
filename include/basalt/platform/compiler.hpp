@@ -132,7 +132,9 @@ inline void load_fence() {
 /// A read prefetch of the line at `p` into every cache level (`to_l1`) or into L2 and beyond.
 inline void prefetch(const void* p, bool to_l1 = true) {
 #if defined(BASALT_ARCH_X86)
-    _mm_prefetch((const char*) p, to_l1 ? _MM_HINT_T0 : _MM_HINT_T1);
+    // the hint is an immediate of the instruction (MSVC takes only a constant expression)
+    if (to_l1) _mm_prefetch((const char*) p, _MM_HINT_T0);
+    else _mm_prefetch((const char*) p, _MM_HINT_T1);
 #elif defined(_MSC_VER)
     // the operation is an immediate of the instruction: 0 is PLDL1KEEP, 2 is PLDL2KEEP
     if (to_l1) __prefetch2(p, 0);
@@ -150,7 +152,7 @@ inline float f16_round(float x) {
     // fcvt to half and back, in the FPCR's rounding mode (nearest even, which nothing in the engine changes)
     return vgetq_lane_f32(vcvt_f32_f16(vcvt_f16_f32(vdupq_n_f32(x))), 0);
 #elif defined(_MSC_VER)
-    return _mm_cvtss_f32(_mm_cvtph_ps(_mm_cvtps_ph(_mm_set_ss(x), _MM_FROUND_TO_NEAREST_INT | _MM_FROUND_NO_EXC)));
+    return _mm_cvtss_f32(_mm_cvtph_ps(_mm_cvtps_ph(_mm_set_ss(x), _MM_FROUND_TO_NEAREST_INT)));
 #else
     return (float) (_Float16) x;
 #endif
