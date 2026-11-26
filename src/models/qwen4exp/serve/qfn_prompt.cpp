@@ -70,15 +70,15 @@ Flow QfnRequest::set_sampling() {
 }
 
 void QfnRequest::limit_parts() {
-    // A read into a slot beside decoding slots stops where the same read stops solo: at its root, picture and turn
-    // boundaries.  Where a read stops changes its rounding (the GDN chunks, the K/V a later part reads back), so a
-    // request beside other slots reads exactly as it would alone (greedy_identity --slots-dirty), and its next turn
-    // finds the turn checkpoint.  Beside three chats this cost under 0.1 s of first-token time from 300 to 6,000
-    // tokens and left the longest pause in the chats unchanged.
-    // --exp slot_solo_split=0, the earlier rule: a short read beside decoding slots is not split, since each part pays
-    // the lend, refill and side-thread costs again; one that runs alone stops at its root, and at its turn boundary
-    // only past --prompt-cache-root tokens since the root.  The rest of a read that gave way keeps its parts.
-    const bool solo_split = basalt::core::exp_flag("slot_solo_split", 1) != 0;
+    // A short read into a slot beside decoding slots is not split: each part pays the lend, refill and
+    // side-thread costs again, and a checkpoint stalls the windows.  One that runs alone stops at its root,
+    // and at its turn boundary only past --prompt-cache-root tokens since the root: a short history is
+    // cheaper to read again than the extra part costs.  The rest of a read that gave way keeps its parts.
+    // --exp slot_solo_split=1: such a read stops where the same read stops solo (its root, picture and turn
+    // boundaries).  Where a read stops changes its rounding (the GDN chunks, the K/V a later part reads back), so a
+    // request beside other slots then reads exactly as it would alone (greedy_identity --slots-dirty).  It is off by
+    // default: in BetterBench C4 the extra part raised the median first token from 387 to 488 ms.
+    const bool solo_split = basalt::core::exp_flag("slot_solo_split", 0) != 0;
     if (!solo_split && in_slot && runtime_.batch_on() && resumed_chunk <= 0 &&
         n - 1 - read_from <= std::max<int64_t>(runtime_.sp.chunk(), 1)) {
         if (n - 1 - read_from > runtime_.kReadAlone) {
