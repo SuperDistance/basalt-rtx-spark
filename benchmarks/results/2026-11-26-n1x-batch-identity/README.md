@@ -1,8 +1,8 @@
-# Batched requests match solo ones with the caches on · November 26, 2026
+# Batched and solo requests with the caches on · November 26, 2026
 
 The [four-slot identity gate](../2026-11-26-n1x-join-and-sparkdash/identity-c4) found 5 of 32 batch runs differing from
-their solo runs once the prompt and conversation caches were on. This run finds the cause, fixes it, fixes an engine
-stop the fix exposed, and measures what both cost. It also tests a change to how a four-chat window shares its draft
+their solo runs once the prompt and conversation caches were on. This run finds the cause and a switch that removes it,
+fixes an engine stop that the switch exposed, and measures what the switch costs. It stays off by default. It also tests a change to how a four-chat window shares its draft
 rows.
 
 Same RTX Spark N1X laptop (128 GB, 96 GB GPU split, physical cooling) as the
@@ -27,8 +27,8 @@ prompt read in one piece beside decode, where the solo run read it in two:
 | conv (38 tokens) | 31 + 6 rows | resumed at 31 from a checkpoint | never |
 
 Keeping the solo read's stops for a read beside other slots makes the gate pass. This first used
-`--prompt-cache-root 0` with no code change, then the engine change. It is now the default; `--exp slot_solo_split=0`
-gives the old rule.
+`--prompt-cache-root 0` with no code change, then the engine switch `--exp slot_solo_split=1`. The switch costs
+first-token time at four chats (below), so it is off by default.
 
 | Gate run (`tools/greedy_identity.py`, 32 batch runs each) | Result |
 | --- | --- |
@@ -37,9 +37,11 @@ gives the old rule.
 | `--slots-dirty` with the solo split | **identical** |
 | `--slots-dirty` with the solo split and value rows (below) | **identical** |
 | `--slots --spec 8` with value rows | **identical** |
-| Final build, defaults: `--slots`, `--slots --spec 8`, `--slots-dirty` | **identical**, all three |
+| Final build, defaults: `--slots` and `--slots --spec 8` | **identical**, both |
+| Final build, defaults: `--slots-dirty` | 5 of 32 differ (the same near-tie tokens) |
+| Final build, `--slots-dirty --exp slot_solo_split=1` | **identical** |
 
-## An engine stop the fix exposed
+## An engine stop the switch exposed
 
 With the solo split, a 4,270-token prompt joining three chats now takes a turn checkpoint while the chats decode. In
 the second of two server runs with the solo split, the first such join stopped the engine with
@@ -47,8 +49,9 @@ the second of two server runs with the solo split, the first such join stopped t
 
 The read's own thread saved the checkpoint, beside the decode windows. The save synchronizes the whole device. When the
 main thread was capturing a window graph at that moment, the device-wide sync invalidated the capture. That window
-needed a row count not captured yet, after the read had moved experts out of VRAM. Before the fix the same save ran
-only for prompts longer than one 8,192-token chunk, which may be why it never showed in earlier runs.
+needed a row count not captured yet, after the read had moved experts out of VRAM. Without the switch the same save runs
+only for prompts longer than one 8,192-token chunk, which may be why it never showed in earlier runs. The fix applies
+with or without the switch.
 
 The checkpoint is now taken on the main thread after the read, which is the thread that captures. The read's thread
 still returns the lent experts beside the windows. After the fix, 30 joins of 300 to 6,000 tokens with the solo split
@@ -60,8 +63,23 @@ alternating servers (this build, `209a14bb`, this build, `209a14bb`), three of e
 
 ## What the solo split costs
 
-`benchmarks/join_bench.py`: three chats stream, then a fresh prompt arrives. Four alternating server runs (split, old, split, old),
-three joins per depth each, so six per cell; the table gives medians. Both arms include the checkpoint fix above.
+**BetterBench 0.6.1 C4** (temperature 0.7, 48 requests, four servers in the order split, old, old, split, each piece
+after a cool-down with the GPU in P0, 51.6–52.7 W busy):
+
+| | Old rule (default) | Solo split |
+| --- | ---: | ---: |
+| Median first token | 381, 393 ms | 488, 488 ms |
+| 90th-percentile first token | 502, 560 ms | 793, 852 ms |
+| Aggregate | 118.1, 118.3 tok/s | 117.4, 116.5 tok/s |
+| Median per-chat decode | 31.7, 32.1 tok/s | 31.7, 31.7 tok/s |
+
+A request admitted beside three chats reads its new turn's header as a second part through the prompt path, which costs
+about 100 ms for a few rows. A solo request reads a part that short through the decode windows instead
+(`--short-read`). That 100 ms is a quarter of the median first token at four chats, so the switch is
+off by default and kept for identity checks. [Runs](betterbench-c4-split)
+
+**`benchmarks/join_bench.py`**, a fresh prompt joining three streaming chats, did not show the cost; why it differs
+from BetterBench was not established. Four alternating server runs (split, old, split, old), three joins per depth each, so six per cell; the table gives medians. Both arms include the checkpoint fix above.
 
 | New prompt (actual tokens) | First token, old rule | First token, solo split | Longest pause in a chat, old | solo split |
 | ---: | ---: | ---: | ---: | ---: |
@@ -71,9 +89,9 @@ three joins per depth each, so six per cell; the table gives medians. Both arms 
 | 4,271 | 2.71 s | 2.73 s | 0.47 s | 0.44 s |
 | 6,436 | 3.67 s | 3.77 s | 0.61 s | 0.58 s |
 
-At most 0.1 s more to the first token, and the longest pause in a chat did not grow. The new prompt's next turn also
-finds a turn checkpoint,
-which the old rule did not save for a read beside other slots under 8,192 tokens.
+Here the first token moved by at most 0.1 s, and the longest pause in a chat did not grow. With the switch, the new
+prompt's next turn also finds a turn checkpoint, which the old rule does not save for a read beside other slots under
+8,192 tokens.
 
 ## Draft rows by expected value (`--exp batch_rows_value=1`, off by default)
 
@@ -137,12 +155,13 @@ and once beside three decoding chats, each on a fresh server, and the two replie
 
 ## Files
 
-- [`gate/`](gate): the identity gate runs. `final-*` are the final build with its defaults, `dirty-pcr0` is the
+- [`gate/`](gate): the identity gate runs. `rev-*` are the final build (`rev-slots-dirty-solosplit` with the switch), `final-*` an earlier build that had the switch on by default, `dirty-pcr0` is the
   earlier build `209a14bb` with `--prompt-cache-root 0`, and the rest are the flag runs. The run that found the 5
   differences is [`slots-dirty.txt`](../2026-11-26-n1x-join-and-sparkdash/identity-c4/slots-dirty.txt).
 - [`join/`](join): `join_bench.py` output, one file per server run.
 - [`four-chats/`](four-chats): per-round rates, GPU samples and the four replies of each run.
-- [`betterbench/`](betterbench): the concurrency pieces and each arm's server command.
+- [`betterbench/`](betterbench): the value-rows concurrency pieces and each arm's server command.
+- [`betterbench-c4-split/`](betterbench-c4-split): C4 with and without the solo split.
 - [`long-prompts/`](long-prompts): the solo and joined replies at each depth.
 - [`chunk-size/`](chunk-size): solo first tokens with the automatic chunk and with `--prefill 8192`.
 - [`solo-first-token/`](solo-first-token): the solo first-token check, `N-new` this build and `N-old` `209a14bb`.

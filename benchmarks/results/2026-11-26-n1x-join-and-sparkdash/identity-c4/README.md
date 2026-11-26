@@ -29,6 +29,7 @@ That is 32 batch runs compared token by token with the solo ones.
 - **Why it looks like rounding, not corruption:** each difference is one token at a near tie, after which the text
   continues identically. The first guess here was a resume from another slot's prefix checkpoint. The engine logs
   showed otherwise: the prompt was read in one piece instead of two.
-- **Cause found and fixed the same day:** the differing prompts were read in one piece beside decode, where the
-  solo read stopped at the turn boundary. A read beside other slots now keeps the solo read's stops, and all 32 runs
-  match. [Cause, fix and costs](../../2026-11-26-n1x-batch-identity)
+- **Cause found the same day:** the differing prompts were read in one piece beside decode, where the solo read
+  stopped at the turn boundary. With `--exp slot_solo_split=1` a read beside other slots keeps the solo read's stops,
+  and all 32 runs match. It stays off by default because it costs first-token time at four chats.
+  [Cause, switch and costs](../../2026-11-26-n1x-batch-identity)
