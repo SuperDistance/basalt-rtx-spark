@@ -1,0 +1,28 @@
+[sparkdash-run] decode prose
+[sparkdash-run]   c=1 agg=93.28 per=93.28 ttft=72.81 ok=1/1 
+[sparkdash-run]   c=2 agg=109.81 per=56.86 ttft=861.97 ok=2/2 
+[sparkdash-run]   c=3 agg=116.93 per=42.9 ttft=490.79 ok=3/3 
+[sparkdash-run]   c=4 agg=112.49 per=29.96 ttft=856.26 ok=4/4 
+[sparkdash-run]   c=5 agg=130.44 per=48.41 ttft=2781.75 ok=5/5 
+[sparkdash-run] decode prose-think
+[sparkdash-run]   c=1 agg=87.3 per=87.3 ttft=59.31 ok=1/1 
+[sparkdash-run]   c=2 agg=107.77 per=56.17 ttft=543.2 ok=2/2 
+[sparkdash-run]   c=3 agg=134.07 per=47.52 ttft=413.08 ok=3/3 
+[sparkdash-run]   c=4 agg=134.8 per=36.08 ttft=507.32 ok=4/4 
+[sparkdash-run]   c=5 agg=124.77 per=45.23 ttft=2591.19 ok=5/5 
+[sparkdash-run] decode code
+[sparkdash-run]   c=1 agg=147.98 per=147.98 ttft=345.19 ok=1/1 
+[sparkdash-run]   c=2 agg=134.91 per=93.99 ttft=287.77 ok=2/2 
+[sparkdash-run]   c=3 agg=146.52 per=64.65 ttft=351.75 ok=3/3 
+[sparkdash-run]   c=4 agg=148.48 per=49.32 ttft=832.41 ok=4/4 
+[sparkdash-run]   c=5 agg=142.46 per=41.2 ttft=968.49 ok=5/5 
+[sparkdash-run] prefill 1024,2048,4096,8192,16384,32768,65536,131072
+[sparkdash-run]   1024: tokens=1064 ttft=581.28 tps=1967.82 
+[sparkdash-run]   2048: tokens=2087 ttft=1013.2 tps=2153.54 
+[sparkdash-run]   4096: tokens=4134 ttft=1872.12 tps=2258.89 
+[sparkdash-run]   8192: tokens=8231 ttft=3548.8 tps=2349.5 
+[sparkdash-run]   16384: tokens=16420 ttft=6872.5 tps=2406.14 
+[sparkdash-run]   32768: tokens=32806 ttft=13675.75 tps=2408.31 
+[sparkdash-run]   65536: tokens=65572 ttft=28056.19 tps=2342.79 
+[sparkdash-run]   131072: tokens=131111 ttft=60303.32 tps=2178.2 
+[sparkdash-run] wrote <repo>\benchmarks\results\2026-11-26-n1x-join-and-sparkdash\basalt-rtx-spark-source\sparkdash.json

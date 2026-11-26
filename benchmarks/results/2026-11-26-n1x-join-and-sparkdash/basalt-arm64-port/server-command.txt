@@ -1,0 +1,1 @@
+%LOCALAPPDATA%\RTX-Spark-Benchmark\basalt-python\Scripts\python.exe -u -m serve.server --config config.json --engine-bin %LOCALAPPDATA%\RTX-Spark-Benchmark\basalt-upstream-2ec7a84\bin\basalt.exe

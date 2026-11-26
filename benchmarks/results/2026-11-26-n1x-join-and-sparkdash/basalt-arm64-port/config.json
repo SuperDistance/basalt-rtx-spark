@@ -1,0 +1,23 @@
+{
+  "version": 2,
+  "models": [
+    {
+      "model": "%LOCALAPPDATA%\\RTX-Spark-Benchmark\\models\\Qwen3.8-FN-UD-IQ3_XXS.basalt",
+      "kv": "int8",
+      "parallel": 4,
+      "gpu": "0",
+      "alias": "flash-next",
+      "max-context": 262144,
+      "slot-full-context": true
+    }
+  ],
+  "engine": {
+    "expert-cache": 24576,
+    "resident-budget-gib": 1,
+    "spec": 8
+  },
+  "server": {
+    "host": "127.0.0.1",
+    "port": 8090
+  }
+}

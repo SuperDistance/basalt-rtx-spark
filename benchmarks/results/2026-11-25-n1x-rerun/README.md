@@ -52,5 +52,7 @@ lists them, and each piece's own result and output are in `pieces`.
 ## Greedy identity
 
 Speed changes in this build are kept only when they produce the same greedy output as the build before them. The source
-build here matched the previous engine for 768 single-request tokens. With `--slots --kv int8`, it also matched in 24
-batched runs, four requests at once. Every check reported `GREEDY IDENTICAL`.
+build here matched the previous engine for 768 single-request tokens. With `--slots --kv int8`, it also matched its
+solo output in 24 batched runs: each of three prompts alone in each of four slots, and the three together under four
+slot rotations, with drafting off. That gate had three prompts for four slots, so no run filled all four; it now has
+a fourth prompt and refuses to run with fewer. Every check reported `GREEDY IDENTICAL`.
