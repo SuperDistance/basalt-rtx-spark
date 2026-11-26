@@ -163,11 +163,17 @@ def overview(runs: list[tuple[str, dict]], path: Path) -> None:
     if not rows:
         return
     metrics = [("Decode · 1 stream", "weighted output tok/s", [run["weighted"] for _, run in rows], ".2f")]
+    four = [run["conc"].get(4) for _, run in rows]
+    if any(rate is not None for rate in four):
+        metrics.append(("Decode · 4 streams", "aggregate output tok/s", four, ".1f"))
     prefill = [run["prefill"].get(2000) for _, run in rows]
     if any(rate is not None for rate in prefill):
         metrics.append(("Cold prefill", "input tok/s · 2K target", prefill, ",.0f"))
 
-    title = "BetterBench · decode and cold prefill" if len(metrics) == 2 else "BetterBench · single-stream decode"
+    title = ("BetterBench · single-stream decode" if len(metrics) == 1 else
+             "BetterBench · decode and cold prefill" if len(metrics) == 2 and prefill[0] is not None else
+             "BetterBench · decode, four streams and cold prefill" if len(metrics) == 3 else
+             "BetterBench · decode at one and four streams")
     names, packs, peer_start = engine_labels([label for label, _ in rows])
     grouped = peer_start > 0
     label_width = max(224, 36 + 8 * max(map(len, names)))
