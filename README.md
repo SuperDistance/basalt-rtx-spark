@@ -6,9 +6,8 @@ Run **Qwen3.8-Flash-Next**, a ~120B-parameter mixture-of-experts model, entirely
 **98.9 tok/s** for one chat, **121 tok/s** across four, a **0.27 s** first token, at about **58 W** for CPU and GPU together.
 That beats a desktop RTX 4080 SUPER on this model (90.2 tok/s with Strata), and nothing leaves the machine.
 
-**The goal:** the fastest single-stream decode for Qwen3.8-Flash-Next and Qwen 4 Flash, and solid throughput for up to
-four chats at once without a long wait or a frozen chat: a new long prompt is read alongside the chats already
-decoding instead of stopping them.
+**The goal:** the fastest single-chat decode for Qwen3.8-Flash-Next and Qwen 4 Flash, plus up to four chats at once
+with no frozen chat: a new long prompt is read alongside the chats already decoding.
 
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 ![Windows on Arm64](https://img.shields.io/badge/Windows-Arm64-0078D4)
@@ -16,24 +15,18 @@ decoding instead of stopping them.
 ![CUDA sm_121](https://img.shields.io/badge/CUDA-sm__121-426417)
 
 **[⬇ Download for Windows Arm64](https://github.com/SuperDistance/basalt-rtx-spark/releases/latest)** ·
-[Quick start](#quick-start) · [Results](#results) · [Which model pack?](#which-model-pack) ·
-[Choose by memory size](docs/rtx-spark-setup.md#choose-a-model-and-memory-split) ·
-[Connect your tools](docs/rtx-spark-setup.md#use-it-from-your-tools)
+[Quick start](#quick-start) · [Results](#results) · [Which model pack?](#which-model-pack)
 
 <p>
   <a href="docs/showcase/realtime-chat"><img src="docs/showcase/realtime-chat/chat.webp" width="49%" alt="One chat streaming in real time on the laptop: 970 tokens in 9.29 s, 106 tok/s decode, first token 0.12 s."></a>
   <a href="docs/showcase/orbital-transfer"><img src="docs/showcase/orbital-transfer/preview.webp" width="49%" alt="The Long Way Up, an animated orbital transfer drawn by Flash-Next on RTX Spark."></a>
 </p>
 
-*Left: one chat on the laptop, replayed at its recorded speed (106 tok/s).* [Recording and tools](docs/showcase/realtime-chat)<br>
-*Right: from one prompt in 123 seconds, Flash-Next wrote this animated SVG of a probe moving between two Earth orbits.*
-[Prompt, original SVG and physics checks](docs/showcase/orbital-transfer)
+*Left: [one chat in real time](docs/showcase/realtime-chat), 106 tok/s. Right: an [animated orbital transfer](docs/showcase/orbital-transfer) Flash-Next wrote from one prompt in 123 s.*
 
 ![This project’s weighted single-stream decode is 98.92 output tok/s on IQ3, 91.85 on NVIDIA FP4-Local and 87.94 on NVFP4-DQ6_K. The reference Arm64 port and native vLLM, measured on November 24, reach 84.05 and 54.19, and native llama.cpp with UD-IQ4_XS reaches 45.08. The second column shows cold prefill at the 2K target.](benchmarks/img/engines-overview.svg)
 
-- **2.2× llama.cpp, 1.6× vLLM.** The fastest way to run Flash-Next on this laptop that we have measured: 98.9 tok/s
-  against 45.1 for native llama.cpp, and 1.6× native vLLM for RTX Spark on NVIDIA's own FP4-Local weights in same-day
-  runs. [Results](#results)
+- **2.2× native llama.cpp, 1.6× native vLLM** on the same laptop. [Results](#results)
 - **A native Windows app.** No Linux, no WSL, no Docker: unzip, run `setup.cmd`, run `start.cmd`.
 - **Made for unified memory.** It places the model across the GPU's share and system RAM by itself, at whatever
   memory split your laptop uses, and reads RAM-resident experts in place.
