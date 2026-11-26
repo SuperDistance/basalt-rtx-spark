@@ -1,0 +1,98 @@
+[
+ {
+  "piece": "decode-chat",
+  "try": 1,
+  "exit": 0,
+  "start": 1795669223.017209,
+  "end": 1795669291.8466237,
+  "busy_samples": 67,
+  "p0_share": 1.0,
+  "busy_w": 55.6,
+  "file": "decode-chat.try1.json",
+  "kept": true
+ },
+ {
+  "piece": "decode-code",
+  "try": 1,
+  "exit": 0,
+  "start": 1795669423.4675763,
+  "end": 1795669539.2456727,
+  "busy_samples": 113,
+  "p0_share": 1.0,
+  "busy_w": 54.5,
+  "file": "decode-code.try1.json",
+  "kept": true
+ },
+ {
+  "piece": "decode-file_edit",
+  "try": 1,
+  "exit": 0,
+  "start": 1795669675.919749,
+  "end": 1795669753.3172252,
+  "busy_samples": 76,
+  "p0_share": 1.0,
+  "busy_w": 55.1,
+  "file": "decode-file_edit.try1.json",
+  "kept": true
+ },
+ {
+  "piece": "decode-json",
+  "try": 1,
+  "exit": 0,
+  "start": 1795669890.1763048,
+  "end": 1795669944.0794103,
+  "busy_samples": 52,
+  "p0_share": 1.0,
+  "busy_w": 56.8,
+  "file": "decode-json.try1.json",
+  "kept": true
+ },
+ {
+  "piece": "decode-math",
+  "try": 1,
+  "exit": 0,
+  "start": 1795670075.8942018,
+  "end": 1795670174.8386455,
+  "busy_samples": 97,
+  "p0_share": 0.99,
+  "busy_w": 54.5,
+  "file": "decode-math.try1.json",
+  "kept": true
+ },
+ {
+  "piece": "decode-prose",
+  "try": 1,
+  "exit": 0,
+  "start": 1795670311.8698425,
+  "end": 1795670450.131364,
+  "busy_samples": 136,
+  "p0_share": 1.0,
+  "busy_w": 53.3,
+  "file": "decode-prose.try1.json",
+  "kept": true
+ },
+ {
+  "piece": "decode-reasoning",
+  "try": 1,
+  "exit": 0,
+  "start": 1795670587.121475,
+  "end": 1795670744.8755784,
+  "busy_samples": 156,
+  "p0_share": 1.0,
+  "busy_w": 54.0,
+  "file": "decode-reasoning.try1.json",
+  "kept": true
+ },
+ {
+  "piece": "decode-summarization",
+  "try": 1,
+  "exit": 0,
+  "start": 1795670881.8371074,
+  "end": 1795670922.7467253,
+  "busy_samples": 39,
+  "p0_share": 1.0,
+  "busy_w": 57.0,
+  "file": "decode-summarization.try1.json",
+  "kept": true
+ }
+]

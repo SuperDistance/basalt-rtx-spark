@@ -1,51 +1,59 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="580" height="372" viewBox="0 0 580 372" role="img" aria-labelledby="title desc" font-family="Segoe UI, Helvetica, Arial, sans-serif">
+<svg xmlns="http://www.w3.org/2000/svg" width="644" height="419" viewBox="0 0 644 419" role="img" aria-labelledby="title desc" font-family="Segoe UI, Helvetica, Arial, sans-serif">
 <title id="title">BetterBench · decode and cold prefill</title>
-<desc id="desc">Decode · 1 stream: Basalt RTX Spark (UD-IQ3_XXS) 92.76 tok/s, Basalt RTX Spark (NVIDIA FP4-Local) 85.28 tok/s, Basalt RTX Spark (NVFP4-DQ6_K) 85.22 tok/s, Basalt + Arm64 port (UD-IQ3_XXS) 84.05 tok/s, Native vLLM for RTX Spark (NVIDIA FP4-Local) 54.19 tok/s. Cold prefill: Basalt RTX Spark (UD-IQ3_XXS) 1,767 tok/s, Basalt RTX Spark (NVIDIA FP4-Local) 1,583 tok/s, Basalt RTX Spark (NVFP4-DQ6_K) 1,599 tok/s, Basalt + Arm64 port (UD-IQ3_XXS) 967 tok/s, Native vLLM for RTX Spark (NVIDIA FP4-Local) 1,511 tok/s</desc>
-<rect width="580" height="372" rx="12" fill="#101e26"/>
+<desc id="desc">Decode · 1 stream: Basalt RTX Spark (UD-IQ3_XXS) 98.92 tok/s, Basalt RTX Spark (NVIDIA FP4-Local) 91.85 tok/s, Basalt RTX Spark (NVFP4-DQ6_K) 87.94 tok/s, Basalt + Arm64 port, Nov 24 (UD-IQ3_XXS) 84.05 tok/s, Native vLLM for RTX Spark, Nov 24 (NVIDIA FP4-Local) 54.19 tok/s, Native llama.cpp (UD-IQ4_XS) 45.08 tok/s. Cold prefill: Basalt RTX Spark (UD-IQ3_XXS) 1,929 tok/s, Basalt RTX Spark (NVIDIA FP4-Local) 1,741 tok/s, Basalt RTX Spark (NVFP4-DQ6_K) 1,716 tok/s, Basalt + Arm64 port, Nov 24 (UD-IQ3_XXS) 967 tok/s, Native vLLM for RTX Spark, Nov 24 (NVIDIA FP4-Local) 1,511 tok/s, Native llama.cpp (UD-IQ4_XS) 828 tok/s</desc>
+<rect width="644" height="419" rx="12" fill="#101e26"/>
 <text x="22" y="32" font-size="23" font-weight="700" fill="#f0f6f5">BetterBench · decode and cold prefill</text>
-<rect x="10" y="84" width="560" height="157" rx="7" fill="#1b382f"/>
+<rect x="10" y="84" width="624" height="157" rx="7" fill="#1b382f"/>
 <rect x="10" y="84" width="4" height="157" rx="2" fill="#9bd568"/>
 <text x="23" y="105" font-size="14" font-weight="700" fill="#b9ee92">THIS PROJECT · BASALT RTX SPARK</text>
 <text x="23" y="271" font-size="14" font-weight="700" fill="#bfccd1">REFERENCE ENGINES</text>
-<text x="236" y="59" font-size="16" font-weight="600" fill="#f0f6f5">Decode · 1 stream</text>
-<text x="236" y="76" font-size="12" fill="#b7c9d0">weighted output tok/s</text>
-<text x="236" y="130" font-size="21" font-weight="700" fill="#a6ed60">92.76</text>
-<rect x="236" y="136" width="147" height="6" rx="3" fill="#293b46"/>
-<rect x="236" y="136" width="147.00" height="6" rx="3" fill="#a6ed60"/>
-<text x="236" y="177" font-size="21" font-weight="700" fill="#7fdbca">85.28</text>
-<rect x="236" y="183" width="147" height="6" rx="3" fill="#293b46"/>
-<rect x="236" y="183" width="135.14" height="6" rx="3" fill="#7fdbca"/>
-<text x="236" y="224" font-size="21" font-weight="700" fill="#acd9aa">85.22</text>
-<rect x="236" y="230" width="147" height="6" rx="3" fill="#293b46"/>
-<rect x="236" y="230" width="135.05" height="6" rx="3" fill="#acd9aa"/>
-<text x="236" y="297" font-size="21" font-weight="700" fill="#a8c1d0">84.05</text>
-<rect x="236" y="303" width="147" height="6" rx="3" fill="#293b46"/>
-<rect x="236" y="303" width="133.19" height="6" rx="3" fill="#a8c1d0"/>
-<text x="236" y="344" font-size="21" font-weight="700" fill="#a8c1d0">54.19</text>
-<rect x="236" y="350" width="147" height="6" rx="3" fill="#293b46"/>
-<rect x="236" y="350" width="85.87" height="6" rx="3" fill="#a8c1d0"/>
-<text x="402" y="59" font-size="16" font-weight="600" fill="#f0f6f5">Cold prefill</text>
-<text x="402" y="76" font-size="12" fill="#b7c9d0">input tok/s · 2K target</text>
-<text x="402" y="130" font-size="21" font-weight="700" fill="#a6ed60">1,767</text>
-<rect x="402" y="136" width="147" height="6" rx="3" fill="#293b46"/>
-<rect x="402" y="136" width="147.00" height="6" rx="3" fill="#a6ed60"/>
-<text x="402" y="177" font-size="21" font-weight="700" fill="#7fdbca">1,583</text>
-<rect x="402" y="183" width="147" height="6" rx="3" fill="#293b46"/>
-<rect x="402" y="183" width="131.67" height="6" rx="3" fill="#7fdbca"/>
-<text x="402" y="224" font-size="21" font-weight="700" fill="#acd9aa">1,599</text>
-<rect x="402" y="230" width="147" height="6" rx="3" fill="#293b46"/>
-<rect x="402" y="230" width="132.95" height="6" rx="3" fill="#acd9aa"/>
-<text x="402" y="297" font-size="21" font-weight="700" fill="#a8c1d0">967</text>
-<rect x="402" y="303" width="147" height="6" rx="3" fill="#293b46"/>
-<rect x="402" y="303" width="80.46" height="6" rx="3" fill="#a8c1d0"/>
-<text x="402" y="344" font-size="21" font-weight="700" fill="#a8c1d0">1,511</text>
-<rect x="402" y="350" width="147" height="6" rx="3" fill="#293b46"/>
-<rect x="402" y="350" width="125.70" height="6" rx="3" fill="#a8c1d0"/>
+<text x="300" y="59" font-size="16" font-weight="600" fill="#f0f6f5">Decode · 1 stream</text>
+<text x="300" y="76" font-size="12" fill="#b7c9d0">weighted output tok/s</text>
+<text x="300" y="130" font-size="21" font-weight="700" fill="#a6ed60">98.92</text>
+<rect x="300" y="136" width="147" height="6" rx="3" fill="#293b46"/>
+<rect x="300" y="136" width="147.00" height="6" rx="3" fill="#a6ed60"/>
+<text x="300" y="177" font-size="21" font-weight="700" fill="#7fdbca">91.85</text>
+<rect x="300" y="183" width="147" height="6" rx="3" fill="#293b46"/>
+<rect x="300" y="183" width="136.50" height="6" rx="3" fill="#7fdbca"/>
+<text x="300" y="224" font-size="21" font-weight="700" fill="#acd9aa">87.94</text>
+<rect x="300" y="230" width="147" height="6" rx="3" fill="#293b46"/>
+<rect x="300" y="230" width="130.70" height="6" rx="3" fill="#acd9aa"/>
+<text x="300" y="297" font-size="21" font-weight="700" fill="#a8c1d0">84.05</text>
+<rect x="300" y="303" width="147" height="6" rx="3" fill="#293b46"/>
+<rect x="300" y="303" width="124.91" height="6" rx="3" fill="#a8c1d0"/>
+<text x="300" y="344" font-size="21" font-weight="700" fill="#a8c1d0">54.19</text>
+<rect x="300" y="350" width="147" height="6" rx="3" fill="#293b46"/>
+<rect x="300" y="350" width="80.53" height="6" rx="3" fill="#a8c1d0"/>
+<text x="300" y="391" font-size="21" font-weight="700" fill="#a8c1d0">45.08</text>
+<rect x="300" y="397" width="147" height="6" rx="3" fill="#293b46"/>
+<rect x="300" y="397" width="66.99" height="6" rx="3" fill="#a8c1d0"/>
+<text x="466" y="59" font-size="16" font-weight="600" fill="#f0f6f5">Cold prefill</text>
+<text x="466" y="76" font-size="12" fill="#b7c9d0">input tok/s · 2K target</text>
+<text x="466" y="130" font-size="21" font-weight="700" fill="#a6ed60">1,929</text>
+<rect x="466" y="136" width="147" height="6" rx="3" fill="#293b46"/>
+<rect x="466" y="136" width="147.00" height="6" rx="3" fill="#a6ed60"/>
+<text x="466" y="177" font-size="21" font-weight="700" fill="#7fdbca">1,741</text>
+<rect x="466" y="183" width="147" height="6" rx="3" fill="#293b46"/>
+<rect x="466" y="183" width="132.68" height="6" rx="3" fill="#7fdbca"/>
+<text x="466" y="224" font-size="21" font-weight="700" fill="#acd9aa">1,716</text>
+<rect x="466" y="230" width="147" height="6" rx="3" fill="#293b46"/>
+<rect x="466" y="230" width="130.79" height="6" rx="3" fill="#acd9aa"/>
+<text x="466" y="297" font-size="21" font-weight="700" fill="#a8c1d0">967</text>
+<rect x="466" y="303" width="147" height="6" rx="3" fill="#293b46"/>
+<rect x="466" y="303" width="73.72" height="6" rx="3" fill="#a8c1d0"/>
+<text x="466" y="344" font-size="21" font-weight="700" fill="#a8c1d0">1,511</text>
+<rect x="466" y="350" width="147" height="6" rx="3" fill="#293b46"/>
+<rect x="466" y="350" width="115.18" height="6" rx="3" fill="#a8c1d0"/>
+<text x="466" y="391" font-size="21" font-weight="700" fill="#a8c1d0">828</text>
+<rect x="466" y="397" width="147" height="6" rx="3" fill="#293b46"/>
+<rect x="466" y="397" width="63.09" height="6" rx="3" fill="#a8c1d0"/>
 <text x="28" y="131" font-size="18" font-weight="600" fill="#f0f6f5">UD-IQ3_XXS</text>
 <text x="28" y="178" font-size="18" font-weight="600" fill="#f0f6f5">NVIDIA FP4-Local</text>
 <text x="28" y="225" font-size="18" font-weight="600" fill="#f0f6f5">NVFP4-DQ6_K</text>
-<text x="22" y="295" font-size="16" font-weight="600" fill="#f0f6f5">Basalt + Arm64 port</text>
+<text x="22" y="295" font-size="16" font-weight="600" fill="#f0f6f5">Basalt + Arm64 port, Nov 24</text>
 <text x="22" y="312" font-size="13" fill="#b7c9d0">UD-IQ3_XXS</text>
-<text x="22" y="342" font-size="16" font-weight="600" fill="#f0f6f5">Native vLLM for RTX Spark</text>
+<text x="22" y="342" font-size="16" font-weight="600" fill="#f0f6f5">Native vLLM for RTX Spark, Nov 24</text>
 <text x="22" y="359" font-size="13" fill="#b7c9d0">NVIDIA FP4-Local</text>
+<text x="22" y="389" font-size="16" font-weight="600" fill="#f0f6f5">Native llama.cpp</text>
+<text x="22" y="406" font-size="13" fill="#b7c9d0">UD-IQ4_XS</text>
 </svg>

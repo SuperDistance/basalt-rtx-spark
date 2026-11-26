@@ -1,0 +1,145 @@
+{
+ "pieces": [
+  {
+   "piece": "decode-chat",
+   "try": 1,
+   "exit": 0,
+   "p0_share": 1.0,
+   "busy_w": 45.5,
+   "busy_samples": 152
+  },
+  {
+   "piece": "decode-code",
+   "try": 1,
+   "exit": 0,
+   "p0_share": 1.0,
+   "busy_w": 45.5,
+   "busy_samples": 283
+  },
+  {
+   "piece": "decode-file_edit",
+   "try": 1,
+   "exit": 0,
+   "p0_share": 0.915,
+   "busy_w": 43.6,
+   "busy_samples": 201
+  },
+  {
+   "piece": "decode-json",
+   "try": 1,
+   "exit": 0,
+   "p0_share": 1.0,
+   "busy_w": 42.0,
+   "busy_samples": 111
+  },
+  {
+   "piece": "decode-math",
+   "try": 1,
+   "exit": 0,
+   "p0_share": 1.0,
+   "busy_w": 45.8,
+   "busy_samples": 201
+  },
+  {
+   "piece": "decode-prose",
+   "try": 1,
+   "exit": 0,
+   "p0_share": 0.996,
+   "busy_w": 45.9,
+   "busy_samples": 285
+  },
+  {
+   "piece": "decode-reasoning",
+   "try": 1,
+   "exit": 0,
+   "p0_share": 0.997,
+   "busy_w": 47.0,
+   "busy_samples": 343
+  },
+  {
+   "piece": "decode-summarization",
+   "try": 1,
+   "exit": 0,
+   "p0_share": 0.987,
+   "busy_w": 44.7,
+   "busy_samples": 77
+  },
+  {
+   "piece": "prefill-2000",
+   "try": 1,
+   "exit": 0,
+   "p0_share": 1.0,
+   "busy_w": 52.3,
+   "busy_samples": 21
+  },
+  {
+   "piece": "prefill-8000",
+   "try": 1,
+   "exit": 0,
+   "p0_share": 0.985,
+   "busy_w": 56.0,
+   "busy_samples": 68
+  },
+  {
+   "piece": "prefill-16000",
+   "try": 1,
+   "exit": 0,
+   "p0_share": 0.992,
+   "busy_w": 58.9,
+   "busy_samples": 129
+  },
+  {
+   "piece": "prefill-32000",
+   "try": 1,
+   "exit": 0,
+   "p0_share": 1.0,
+   "busy_w": 58.9,
+   "busy_samples": 267
+  },
+  {
+   "piece": "prefill-64000",
+   "try": 1,
+   "exit": 0,
+   "p0_share": 1.0,
+   "busy_w": 54.8,
+   "busy_samples": 592
+  },
+  {
+   "piece": "concurrency-1",
+   "try": 1,
+   "exit": 0,
+   "p0_share": 0.998,
+   "busy_w": 46.5,
+   "busy_samples": 458
+  },
+  {
+   "piece": "concurrency-2",
+   "try": 1,
+   "exit": 0,
+   "p0_share": 1.0,
+   "busy_w": 45.5,
+   "busy_samples": 415
+  },
+  {
+   "piece": "concurrency-3",
+   "try": 1,
+   "exit": 0,
+   "p0_share": 1.0,
+   "busy_w": 48.5,
+   "busy_samples": 313
+  },
+  {
+   "piece": "concurrency-4",
+   "try": 1,
+   "exit": 0,
+   "p0_share": 0.989,
+   "busy_w": 37.2,
+   "busy_samples": 279
+  }
+ ],
+ "kept_min_p0_share": 0.915,
+ "kept_busy_w_range": [
+  37.2,
+  58.9
+ ]
+}
