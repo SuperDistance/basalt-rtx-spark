@@ -12,7 +12,7 @@ import re
 
 from PIL import Image, ImageDraw, ImageFont
 
-W, H, FPS = 960, 600, 25
+W, H, FPS = 1000, 600, 25
 BG, PANEL, INK, DIM, ACCENT, USER_BG, CODE_BG = "#0f1719", "#16232a", "#e8eef0", "#8fa3ab", "#76b900", "#24414d", "#0b1214"
 FONTS = os.path.join(os.environ.get("WINDIR", "C:/Windows"), "Fonts")
 
@@ -21,8 +21,8 @@ def font(name, size):
     return ImageFont.truetype(os.path.join(FONTS, name), size)
 
 
-SANS, SANS_B, MONO = font("segoeui.ttf", 17), font("segoeuib.ttf", 17), font("consola.ttf", 15)
-SMALL, SMALL_B, TITLE = font("segoeui.ttf", 14), font("segoeuib.ttf", 14), font("segoeuib.ttf", 19)
+SANS, SANS_B, MONO = font("segoeui.ttf", 21), font("segoeuib.ttf", 21), font("consola.ttf", 18)
+SMALL, SMALL_B, TITLE = font("segoeui.ttf", 16), font("segoeuib.ttf", 18), font("segoeuib.ttf", 22)
 
 
 def wrap(text, fnt, width):
@@ -52,7 +52,7 @@ def layout(text, width):
             continue
         if code:
             for part in wrap(raw.replace("\t", "    "), MONO, width - 24):
-                rows.append(("code", part, 20))
+                rows.append(("code", part, 23))
             continue
         line = raw.replace("**", "").replace("`", "")
         bold = raw.lstrip().startswith("#")
@@ -61,7 +61,7 @@ def layout(text, width):
             rows.append(("gap", "", 10))
             continue
         for part in wrap(line, SANS_B if bold else SANS, width):
-            rows.append(("bold" if bold else "text", part, 25))
+            rows.append(("bold" if bold else "text", part, 30))
     return rows
 
 
@@ -70,14 +70,14 @@ def frame(prompt_rows, rows, header, status, cursor):
     d = ImageDraw.Draw(img)
     d.rectangle([0, 0, W, 56], fill=PANEL)
     d.text((24, 16), "Basalt RTX Spark", font=TITLE, fill=ACCENT)
-    d.text((196, 19), header, font=SMALL, fill=DIM)
+    d.text((222, 20), header, font=SMALL, fill=DIM)
     # user bubble, right-aligned
     bw = max(SANS.getlength(r) for r in prompt_rows) + 32
     by = 76
-    bh = 25 * len(prompt_rows) + 20
+    bh = 30 * len(prompt_rows) + 20
     d.rounded_rectangle([W - 24 - bw, by, W - 24, by + bh], 12, fill=USER_BG)
     for i, r in enumerate(prompt_rows):
-        d.text((W - 24 - bw + 16, by + 10 + 25 * i), r, font=SANS, fill=INK)
+        d.text((W - 24 - bw + 16, by + 10 + 30 * i), r, font=SANS, fill=INK)
     # assistant text, scrolled so the newest line stays visible
     top, bottom = by + bh + 22, H - 52
     total = sum(h for _, _, h in rows)
@@ -95,15 +95,15 @@ def frame(prompt_rows, rows, header, status, cursor):
                 last = (24 + f.getlength(text), y)
         y += h
     if cursor:
-        d.rectangle([last[0] + 3, last[1] + 3, last[0] + 12, last[1] + 21], fill=ACCENT)
+        d.rectangle([last[0] + 3, last[1] + 4, last[0] + 13, last[1] + 25], fill=ACCENT)
     # once the answer scrolls, keep the prompt bubble on top of it
     if total > bottom - top:
         d.rectangle([0, 56, W, top - 6], fill=BG)
         d.rounded_rectangle([W - 24 - bw, by, W - 24, by + bh], 12, fill=USER_BG)
         for i, r in enumerate(prompt_rows):
-            d.text((W - 24 - bw + 16, by + 10 + 25 * i), r, font=SANS, fill=INK)
+            d.text((W - 24 - bw + 16, by + 10 + 30 * i), r, font=SANS, fill=INK)
     d.rectangle([0, H - 44, W, H], fill=PANEL)
-    d.text((24, H - 32), status, font=SMALL_B, fill=INK)
+    d.text((24, H - 34), status, font=SMALL_B, fill=INK)
     return img
 
 
@@ -117,7 +117,7 @@ def main() -> int:
     rec = json.load(open(a.stream, encoding="utf-8"))
     ev, s = rec["events"], rec["summary"]
     header = f"Qwen3.8-Flash-Next · {a.pack} · RTX Spark N1X laptop · real time"
-    prompt_rows = [r for line in rec["prompt"].split("\n") for r in wrap(line, SANS, 560)]
+    prompt_rows = [r for line in rec["prompt"].split("\n") for r in wrap(line, SANS, 640)]
     end = ev[-1]["t"]
     frames, i, text = [], 0, ""
     n = int((end + a.hold) * FPS) + 1
