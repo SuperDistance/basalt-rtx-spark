@@ -146,7 +146,66 @@ bool QfnRuntime::batch_step() {
         }
         int sum = 0;
         for (int sg = 0; sg < S; ++sg) sum += Tw[sg];
-        if (sum > MB) {
+        if (sum > MB && batch_rows_value) {
+            // Rows by expected accepted tokens: every slot keeps its own row, and each further row goes to the slot
+            // whose next draft adds the most - the chance that it and all the slot's drafts before it are accepted
+            // (the draft-length rule's bin table, scaled by how the slot's drafts have run against it).  Within a
+            // slot that chance only falls, so taking the best next row each time is the best split of the budget.
+            // Only which drafts are verified changes: every slot's tokens stay its solo tokens.
+            int give[MR];
+            float chain[MR];
+            for (int sg = 0; sg < S; ++sg) {
+                const BSlot& sl = bs[(size_t) rows[sg]];
+                give[sg] = 1;
+                chain[sg] = sl.cum.exp >= 0.5 ? (float) std::clamp(sl.cum.obs / sl.cum.exp, 0.5, 1.5) : 1.0f;
+            }
+            for (int left_rows = MB - S; left_rows > 0; --left_rows) {
+                int best = -1;
+                float best_v = -1.0f;
+                for (int sg = 0; sg < S; ++sg) {
+                    if (give[sg] >= Tw[sg]) continue;
+                    const BSlot& sl = bs[(size_t) rows[sg]];
+                    const int j = give[sg] - 1;   // the draft this row would verify
+                    const float acc = sl.from_sfx ? (float) bpolicy->lookup_rate(sl.smatch)
+                                      : j < sl.n_dr ? basalt::core::draft_cum_acc(sl.dprob[j]) : 0.0f;
+                    const float v = chain[sg] * acc;
+                    if (v > best_v) { best_v = v; best = sg; }
+                }
+                if (best < 0) break;
+                chain[best] = best_v;
+                ++give[best];
+            }
+            if (batch_rows_value_trace) {
+                // what the even split would have expected, for the same windows
+                int even[MR], ord[MR];
+                for (int sg = 0; sg < S; ++sg) { ord[sg] = sg; even[sg] = Tw[sg]; }
+                sort_small(ord, S, [&](int x1, int x2) { return Tw[x1] < Tw[x2]; });
+                for (int i = 0, left = MB; i < S; ++i) {
+                    even[ord[i]] = std::min(even[ord[i]], (left + (S - i) - 1) / (S - i));
+                    left -= even[ord[i]];
+                }
+                auto expected = [&](const int* t) {
+                    double e = 0.0;
+                    for (int sg = 0; sg < S; ++sg) {
+                        const BSlot& sl = bs[(size_t) rows[sg]];
+                        double c = 1.0;
+                        for (int j = 0; j + 1 < t[sg]; ++j) {
+                            c *= sl.from_sfx ? bpolicy->lookup_rate(sl.smatch)
+                               : j < sl.n_dr ? basalt::core::draft_cum_acc(sl.dprob[j]) : 0.0;
+                            e += c;
+                        }
+                    }
+                    return e;
+                };
+                brv_even += expected(even);
+                brv_value += expected(give);
+                if (++brv_windows % 256 == 0)
+                    basalt::log::info("basalt batch rows", "value split: %llu windows over budget, expected drafts "
+                                      "accepted per window %.3f (even split %.3f)", (unsigned long long) brv_windows,
+                                      brv_value / (double) brv_windows, brv_even / (double) brv_windows);
+            }
+            for (int sg = 0; sg < S; ++sg) Tw[sg] = give[sg];
+        } else if (sum > MB) {
             // Serve the slots wanting the fewest rows first. Each share leaves a row for every remaining slot.
             int ord[MR];
             for (int sg = 0; sg < S; ++sg) ord[sg] = sg;
@@ -610,6 +669,10 @@ int QfnRuntime::init_batch() {
                              xpeers.empty() && basalt::core::exp_flag("batch_rows", 0) < 1.0 &&
                              basalt::core::device_memory_model().integrated;
     batch_row_cost_trace = batch_row_cost_enabled && basalt::core::exp_flag("batch_row_cost_trace") != 0;
+    batch_rows_value = batch_spec && basalt::core::exp_flag("batch_rows_value", 0) != 0;
+    batch_rows_value_trace = batch_rows_value && basalt::core::exp_flag("batch_rows_value_trace", 0) != 0;
+    brv_windows = 0;
+    brv_even = brv_value = 0.0;
     S_all = S;
     bpolicy.emplace(S, 0.03, false);   // the lookup-or-MTP choice, costs per row
     bt_draft = 0;
