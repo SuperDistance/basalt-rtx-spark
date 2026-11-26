@@ -1,0 +1,5 @@
+command: %LOCALAPPDATA%\RTX-Spark-Benchmark\basalt-python\Scripts\python.exe <repo>\tools\greedy_identity.py --slots %LOCALAPPDATA%/RTX-Spark-Benchmark/basalt-n1x-dev-build\bin\basalt.exe --model %LOCALAPPDATA%\RTX-Spark-Benchmark\models\Qwen3.8-FN-UD-IQ3_XXS.basalt --tokens 300 -- --expert-cache 24576 --kv int8 --spec 8
+exit 0 after 125 s
+
+solo: 1200 tokens; 32 batch runs; 4 of 4 rotations had all 4 slots decoding at once
+GREEDY IDENTICAL

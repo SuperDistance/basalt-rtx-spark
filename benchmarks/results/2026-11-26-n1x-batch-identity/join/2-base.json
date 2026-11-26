@@ -1,0 +1,568 @@
+{
+ "label": "",
+ "endpoint": "http://127.0.0.1:8094/v1",
+ "summary": {
+  "300": {
+   "joiner_ttft_s": 0.587,
+   "max_stall_s": 0.503
+  },
+  "1500": {
+   "joiner_ttft_s": 1.093,
+   "max_stall_s": 1.007
+  },
+  "2500": {
+   "joiner_ttft_s": 1.799,
+   "max_stall_s": 0.379
+  },
+  "4000": {
+   "joiner_ttft_s": 2.676,
+   "max_stall_s": 0.478
+  },
+  "6000": {
+   "joiner_ttft_s": 3.671,
+   "max_stall_s": 0.626
+  }
+ },
+ "trials": [
+  {
+   "target_depth": 300,
+   "joiner_prompt_tokens": 365,
+   "joiner_ttft_s": 0.587,
+   "incumbents": [
+    {
+     "updates_before": 17,
+     "updates_during_read": 4,
+     "max_stall_s": 0.513,
+     "updates_per_s_before": 55.2,
+     "updates_per_s_during": 6.8,
+     "still_running_after_join": true,
+     "completion_tokens": 1500
+    },
+    {
+     "updates_before": 16,
+     "updates_during_read": 6,
+     "max_stall_s": 0.512,
+     "updates_per_s_before": 23.5,
+     "updates_per_s_during": 10.2,
+     "still_running_after_join": true,
+     "completion_tokens": 1201
+    },
+    {
+     "updates_before": 26,
+     "updates_during_read": 6,
+     "max_stall_s": 0.512,
+     "updates_per_s_before": 21.5,
+     "updates_per_s_during": 10.2,
+     "still_running_after_join": true,
+     "completion_tokens": 1355
+    }
+   ],
+   "max_stall_s": 0.513,
+   "repeat": 1
+  },
+  {
+   "target_depth": 300,
+   "joiner_prompt_tokens": 362,
+   "joiner_ttft_s": 0.601,
+   "incumbents": [
+    {
+     "updates_before": 17,
+     "updates_during_read": 5,
+     "max_stall_s": 0.503,
+     "updates_per_s_before": 41.6,
+     "updates_per_s_during": 8.3,
+     "still_running_after_join": true,
+     "completion_tokens": 1500
+    },
+    {
+     "updates_before": 32,
+     "updates_during_read": 5,
+     "max_stall_s": 0.503,
+     "updates_per_s_before": 31.7,
+     "updates_per_s_during": 8.3,
+     "still_running_after_join": true,
+     "completion_tokens": 1215
+    },
+    {
+     "updates_before": 28,
+     "updates_during_read": 9,
+     "max_stall_s": 0.502,
+     "updates_per_s_before": 35.9,
+     "updates_per_s_during": 15.0,
+     "still_running_after_join": true,
+     "completion_tokens": 1401
+    }
+   ],
+   "max_stall_s": 0.503,
+   "repeat": 2
+  },
+  {
+   "target_depth": 300,
+   "joiner_prompt_tokens": 368,
+   "joiner_ttft_s": 0.54,
+   "incumbents": [
+    {
+     "updates_before": 35,
+     "updates_during_read": 9,
+     "max_stall_s": 0.361,
+     "updates_per_s_before": 39.1,
+     "updates_per_s_during": 16.7,
+     "still_running_after_join": true,
+     "completion_tokens": 1500
+    },
+    {
+     "updates_before": 24,
+     "updates_during_read": 8,
+     "max_stall_s": 0.362,
+     "updates_per_s_before": 35.9,
+     "updates_per_s_during": 14.8,
+     "still_running_after_join": true,
+     "completion_tokens": 1215
+    },
+    {
+     "updates_before": 20,
+     "updates_during_read": 11,
+     "max_stall_s": 0.361,
+     "updates_per_s_before": 45.7,
+     "updates_per_s_during": 20.4,
+     "still_running_after_join": true,
+     "completion_tokens": 1401
+    }
+   ],
+   "max_stall_s": 0.362,
+   "repeat": 3
+  },
+  {
+   "target_depth": 1500,
+   "joiner_prompt_tokens": 1615,
+   "joiner_ttft_s": 1.093,
+   "incumbents": [
+    {
+     "updates_before": 17,
+     "updates_during_read": 4,
+     "max_stall_s": 1.007,
+     "updates_per_s_before": 58.3,
+     "updates_per_s_during": 3.7,
+     "still_running_after_join": true,
+     "completion_tokens": 1500
+    },
+    {
+     "updates_before": 24,
+     "updates_during_read": 6,
+     "max_stall_s": 1.007,
+     "updates_per_s_before": 29.0,
+     "updates_per_s_during": 5.5,
+     "still_running_after_join": true,
+     "completion_tokens": 1349
+    },
+    {
+     "updates_before": 17,
+     "updates_during_read": 6,
+     "max_stall_s": 1.007,
+     "updates_per_s_before": 30.9,
+     "updates_per_s_during": 5.5,
+     "still_running_after_join": true,
+     "completion_tokens": 1401
+    }
+   ],
+   "max_stall_s": 1.007,
+   "repeat": 1
+  },
+  {
+   "target_depth": 1500,
+   "joiner_prompt_tokens": 1621,
+   "joiner_ttft_s": 1.076,
+   "incumbents": [
+    {
+     "updates_before": 37,
+     "updates_during_read": 4,
+     "max_stall_s": 1.002,
+     "updates_per_s_before": 45.3,
+     "updates_per_s_during": 3.7,
+     "still_running_after_join": true,
+     "completion_tokens": 1500
+    },
+    {
+     "updates_before": 24,
+     "updates_during_read": 6,
+     "max_stall_s": 1.001,
+     "updates_per_s_before": 35.1,
+     "updates_per_s_during": 5.6,
+     "still_running_after_join": true,
+     "completion_tokens": 1349
+    },
+    {
+     "updates_before": 17,
+     "updates_during_read": 8,
+     "max_stall_s": 1.001,
+     "updates_per_s_before": 42.6,
+     "updates_per_s_during": 7.4,
+     "still_running_after_join": true,
+     "completion_tokens": 1401
+    }
+   ],
+   "max_stall_s": 1.002,
+   "repeat": 2
+  },
+  {
+   "target_depth": 1500,
+   "joiner_prompt_tokens": 1619,
+   "joiner_ttft_s": 1.113,
+   "incumbents": [
+    {
+     "updates_before": 36,
+     "updates_during_read": 5,
+     "max_stall_s": 1.015,
+     "updates_per_s_before": 38.5,
+     "updates_per_s_during": 4.5,
+     "still_running_after_join": true,
+     "completion_tokens": 1500
+    },
+    {
+     "updates_before": 16,
+     "updates_during_read": 10,
+     "max_stall_s": 1.015,
+     "updates_per_s_before": 39.7,
+     "updates_per_s_during": 9.0,
+     "still_running_after_join": true,
+     "completion_tokens": 1201
+    },
+    {
+     "updates_before": 23,
+     "updates_during_read": 9,
+     "max_stall_s": 1.015,
+     "updates_per_s_before": 28.9,
+     "updates_per_s_during": 8.1,
+     "still_running_after_join": true,
+     "completion_tokens": 1355
+    }
+   ],
+   "max_stall_s": 1.015,
+   "repeat": 3
+  },
+  {
+   "target_depth": 2500,
+   "joiner_prompt_tokens": 2686,
+   "joiner_ttft_s": 1.929,
+   "incumbents": [
+    {
+     "updates_before": 40,
+     "updates_during_read": 18,
+     "max_stall_s": 0.379,
+     "updates_per_s_before": 39.2,
+     "updates_per_s_during": 9.3,
+     "still_running_after_join": true,
+     "completion_tokens": 1500
+    },
+    {
+     "updates_before": 16,
+     "updates_during_read": 19,
+     "max_stall_s": 0.379,
+     "updates_per_s_before": 38.7,
+     "updates_per_s_during": 9.8,
+     "still_running_after_join": true,
+     "completion_tokens": 1390
+    },
+    {
+     "updates_before": 32,
+     "updates_during_read": 20,
+     "max_stall_s": 0.379,
+     "updates_per_s_before": 40.9,
+     "updates_per_s_during": 10.4,
+     "still_running_after_join": true,
+     "completion_tokens": 1401
+    }
+   ],
+   "max_stall_s": 0.379,
+   "repeat": 1
+  },
+  {
+   "target_depth": 2500,
+   "joiner_prompt_tokens": 2690,
+   "joiner_ttft_s": 1.772,
+   "incumbents": [
+    {
+     "updates_before": 32,
+     "updates_during_read": 16,
+     "max_stall_s": 0.379,
+     "updates_per_s_before": 39.7,
+     "updates_per_s_during": 9.0,
+     "still_running_after_join": true,
+     "completion_tokens": 1500
+    },
+    {
+     "updates_before": 16,
+     "updates_during_read": 18,
+     "max_stall_s": 0.379,
+     "updates_per_s_before": 38.8,
+     "updates_per_s_during": 10.2,
+     "still_running_after_join": true,
+     "completion_tokens": 1390
+    },
+    {
+     "updates_before": 27,
+     "updates_during_read": 18,
+     "max_stall_s": 0.379,
+     "updates_per_s_before": 47.1,
+     "updates_per_s_during": 10.2,
+     "still_running_after_join": true,
+     "completion_tokens": 1401
+    }
+   ],
+   "max_stall_s": 0.379,
+   "repeat": 2
+  },
+  {
+   "target_depth": 2500,
+   "joiner_prompt_tokens": 2691,
+   "joiner_ttft_s": 1.799,
+   "incumbents": [
+    {
+     "updates_before": 17,
+     "updates_during_read": 16,
+     "max_stall_s": 0.393,
+     "updates_per_s_before": 36.6,
+     "updates_per_s_during": 8.9,
+     "still_running_after_join": true,
+     "completion_tokens": 1500
+    },
+    {
+     "updates_before": 31,
+     "updates_during_read": 13,
+     "max_stall_s": 0.393,
+     "updates_per_s_before": 36.5,
+     "updates_per_s_during": 7.2,
+     "still_running_after_join": true,
+     "completion_tokens": 1269
+    },
+    {
+     "updates_before": 28,
+     "updates_during_read": 20,
+     "max_stall_s": 0.393,
+     "updates_per_s_before": 45.0,
+     "updates_per_s_during": 11.1,
+     "still_running_after_join": true,
+     "completion_tokens": 1401
+    }
+   ],
+   "max_stall_s": 0.393,
+   "repeat": 3
+  },
+  {
+   "target_depth": 4000,
+   "joiner_prompt_tokens": 4275,
+   "joiner_ttft_s": 2.676,
+   "incumbents": [
+    {
+     "updates_before": 41,
+     "updates_during_read": 20,
+     "max_stall_s": 0.637,
+     "updates_per_s_before": 37.5,
+     "updates_per_s_during": 7.5,
+     "still_running_after_join": true,
+     "completion_tokens": 1500
+    },
+    {
+     "updates_before": 31,
+     "updates_during_read": 20,
+     "max_stall_s": 0.638,
+     "updates_per_s_before": 35.5,
+     "updates_per_s_during": 7.5,
+     "still_running_after_join": true,
+     "completion_tokens": 1269
+    },
+    {
+     "updates_before": 17,
+     "updates_during_read": 27,
+     "max_stall_s": 0.637,
+     "updates_per_s_before": 36.0,
+     "updates_per_s_during": 10.1,
+     "still_running_after_join": true,
+     "completion_tokens": 1355
+    }
+   ],
+   "max_stall_s": 0.638,
+   "repeat": 1
+  },
+  {
+   "target_depth": 4000,
+   "joiner_prompt_tokens": 4271,
+   "joiner_ttft_s": 2.771,
+   "incumbents": [
+    {
+     "updates_before": 27,
+     "updates_during_read": 25,
+     "max_stall_s": 0.478,
+     "updates_per_s_before": 42.8,
+     "updates_per_s_during": 9.0,
+     "still_running_after_join": true,
+     "completion_tokens": 1500
+    },
+    {
+     "updates_before": 31,
+     "updates_during_read": 22,
+     "max_stall_s": 0.478,
+     "updates_per_s_before": 35.8,
+     "updates_per_s_during": 7.9,
+     "still_running_after_join": true,
+     "completion_tokens": 1269
+    },
+    {
+     "updates_before": 17,
+     "updates_during_read": 31,
+     "max_stall_s": 0.478,
+     "updates_per_s_before": 35.6,
+     "updates_per_s_during": 11.2,
+     "still_running_after_join": true,
+     "completion_tokens": 1355
+    }
+   ],
+   "max_stall_s": 0.478,
+   "repeat": 2
+  },
+  {
+   "target_depth": 4000,
+   "joiner_prompt_tokens": 4271,
+   "joiner_ttft_s": 2.608,
+   "incumbents": [
+    {
+     "updates_before": 37,
+     "updates_during_read": 23,
+     "max_stall_s": 0.442,
+     "updates_per_s_before": 37.6,
+     "updates_per_s_during": 8.8,
+     "still_running_after_join": true,
+     "completion_tokens": 1500
+    },
+    {
+     "updates_before": 24,
+     "updates_during_read": 18,
+     "max_stall_s": 0.442,
+     "updates_per_s_before": 28.2,
+     "updates_per_s_during": 6.9,
+     "still_running_after_join": true,
+     "completion_tokens": 1390
+    },
+    {
+     "updates_before": 17,
+     "updates_during_read": 23,
+     "max_stall_s": 0.442,
+     "updates_per_s_before": 41.5,
+     "updates_per_s_during": 8.8,
+     "still_running_after_join": true,
+     "completion_tokens": 1198
+    }
+   ],
+   "max_stall_s": 0.442,
+   "repeat": 3
+  },
+  {
+   "target_depth": 6000,
+   "joiner_prompt_tokens": 6435,
+   "joiner_ttft_s": 3.799,
+   "incumbents": [
+    {
+     "updates_before": 26,
+     "updates_during_read": 26,
+     "max_stall_s": 0.626,
+     "updates_per_s_before": 41.6,
+     "updates_per_s_during": 6.8,
+     "still_running_after_join": true,
+     "completion_tokens": 1500
+    },
+    {
+     "updates_before": 16,
+     "updates_during_read": 26,
+     "max_stall_s": 0.626,
+     "updates_per_s_before": 34.2,
+     "updates_per_s_during": 6.8,
+     "still_running_after_join": true,
+     "completion_tokens": 1390
+    },
+    {
+     "updates_before": 32,
+     "updates_during_read": 29,
+     "max_stall_s": 0.626,
+     "updates_per_s_before": 37.3,
+     "updates_per_s_during": 7.6,
+     "still_running_after_join": true,
+     "completion_tokens": 1326
+    }
+   ],
+   "max_stall_s": 0.626,
+   "repeat": 1
+  },
+  {
+   "target_depth": 6000,
+   "joiner_prompt_tokens": 6434,
+   "joiner_ttft_s": 3.671,
+   "incumbents": [
+    {
+     "updates_before": 17,
+     "updates_during_read": 26,
+     "max_stall_s": 0.64,
+     "updates_per_s_before": 36.5,
+     "updates_per_s_during": 7.1,
+     "still_running_after_join": true,
+     "completion_tokens": 1500
+    },
+    {
+     "updates_before": 26,
+     "updates_during_read": 24,
+     "max_stall_s": 0.641,
+     "updates_per_s_before": 41.4,
+     "updates_per_s_during": 6.5,
+     "still_running_after_join": true,
+     "completion_tokens": 1269
+    },
+    {
+     "updates_before": 36,
+     "updates_during_read": 28,
+     "max_stall_s": 0.64,
+     "updates_per_s_before": 38.6,
+     "updates_per_s_during": 7.6,
+     "still_running_after_join": true,
+     "completion_tokens": 1284
+    }
+   ],
+   "max_stall_s": 0.641,
+   "repeat": 2
+  },
+  {
+   "target_depth": 6000,
+   "joiner_prompt_tokens": 6436,
+   "joiner_ttft_s": 3.507,
+   "incumbents": [
+    {
+     "updates_before": 33,
+     "updates_during_read": 30,
+     "max_stall_s": 0.562,
+     "updates_per_s_before": 37.0,
+     "updates_per_s_during": 8.6,
+     "still_running_after_join": true,
+     "completion_tokens": 1500
+    },
+    {
+     "updates_before": 21,
+     "updates_during_read": 24,
+     "max_stall_s": 0.561,
+     "updates_per_s_before": 31.7,
+     "updates_per_s_during": 6.8,
+     "still_running_after_join": true,
+     "completion_tokens": 1269
+    },
+    {
+     "updates_before": 17,
+     "updates_during_read": 31,
+     "max_stall_s": 0.561,
+     "updates_per_s_before": 39.1,
+     "updates_per_s_during": 8.8,
+     "still_running_after_join": true,
+     "completion_tokens": 1326
+    }
+   ],
+   "max_stall_s": 0.562,
+   "repeat": 3
+  }
+ ]
+}

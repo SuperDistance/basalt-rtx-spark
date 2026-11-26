@@ -27,7 +27,8 @@ That is 32 batch runs compared token by token with the solo ones.
 - **Prose:** in 3 of 4 rotations the first token differs (solo `332`, batch `2`), and the next tokens match again.
 - **Code:** in 2 rotations one token at position 225 differs.
 - **Why it looks like rounding, not corruption:** each difference is one token at a near tie, after which the text
-  continues identically. All four prompts share the chat template's opening tokens, so a prompt admitted beside the
-  others can resume from another slot's prefix checkpoint and read only its remainder. That splits the prompt read
-  differently from the cold solo read.
-- **Still to do:** confirm that cause, and measure the logit difference (KLD) between the cold and restored reads.
+  continues identically. The first guess here was a resume from another slot's prefix checkpoint. The engine logs
+  showed otherwise: the prompt was read in one piece instead of two.
+- **Cause found and fixed the same day:** the differing prompts were read in one piece beside decode, where the
+  solo read stopped at the turn boundary. A read beside other slots now keeps the solo read's stops, and all 32 runs
+  match. [Cause, fix and costs](../../2026-11-26-n1x-batch-identity)

@@ -1,0 +1,128 @@
+{
+ "extra": [],
+ "rounds": [
+  {
+   "tokens": 2800,
+   "agg_tok_s": 130.33099411452255,
+   "per_stream": [
+    32.58274852863064,
+    35.328303251442335,
+    36.50106630264222,
+    36.591142180544395
+   ],
+   "together_s": 18.7275607585907,
+   "gpu": [
+    "14.57, P0, 728, 64.68",
+    "44.15, P0, 2379, 74.10",
+    "55.07, P0, 2463, 77.01",
+    "38.40, P0, 2151, 72.80",
+    "42.25, P0, 2216, 73.25",
+    "42.11, P0, 2216, 73.21",
+    "41.32, P0, 2203, 73.33",
+    "41.51, P0, 2197, 73.25",
+    "41.05, P0, 2190, 73.39",
+    "42.09, P0, 2216, 73.39",
+    "41.73, P0, 2197, 73.27",
+    "41.88, P0, 2197, 73.54",
+    "42.31, P0, 2216, 73.69",
+    "41.77, P0, 2164, 73.77",
+    "41.97, P0, 2184, 73.66",
+    "41.53, P0, 2203, 73.71",
+    "41.56, P0, 2197, 73.83",
+    "41.43, P0, 2190, 73.48",
+    "41.01, P0, 2184, 73.66",
+    "40.99, P0, 2249, 73.54"
+   ],
+   "text_hash": [
+    2321963248,
+    3554710586,
+    1863034856,
+    1140092086
+   ]
+  },
+  {
+   "tokens": 2800,
+   "agg_tok_s": 129.63035564116254,
+   "per_stream": [
+    32.407588910290634,
+    34.76376814159638,
+    36.64478972272896,
+    36.38944192708522
+   ],
+   "together_s": 18.650213479995728,
+   "gpu": [
+    "31.80, P0, 1677, 68.60",
+    "43.15, P0, 2301, 75.27",
+    "37.88, P0, 2086, 73.07",
+    "38.39, P0, 2164, 73.33",
+    "40.82, P0, 2177, 73.77",
+    "40.85, P0, 2190, 73.77",
+    "40.37, P0, 2171, 73.71",
+    "39.70, P0, 2164, 73.75",
+    "40.11, P0, 2190, 73.60",
+    "41.12, P0, 2190, 74.07",
+    "40.92, P0, 2184, 74.10",
+    "40.59, P0, 2177, 73.95",
+    "40.67, P0, 2164, 73.95",
+    "40.50, P0, 2164, 73.86",
+    "40.80, P0, 2171, 73.98",
+    "40.29, P0, 2171, 73.98",
+    "39.75, P0, 2158, 73.77",
+    "39.01, P0, 2151, 73.63",
+    "38.76, P0, 2132, 73.71",
+    "38.78, P0, 2197, 73.71"
+   ],
+   "text_hash": [
+    2321963248,
+    3554710586,
+    1863034856,
+    470884322
+   ]
+  },
+  {
+   "tokens": 2800,
+   "agg_tok_s": 128.80416547169995,
+   "per_stream": [
+    32.20104136792499,
+    34.685870426132375,
+    36.23117953607732,
+    35.7977519231728
+   ],
+   "together_s": 18.930800914764404,
+   "gpu": [
+    "29.40, P0, 1462, 68.51",
+    "41.01, P0, 2476, 73.89",
+    "24.45, P0, 1586, 70.48",
+    "35.15, P0, 2054, 72.66",
+    "37.18, P0, 2112, 73.16",
+    "38.02, P0, 2125, 73.57",
+    "38.88, P0, 2132, 73.63",
+    "38.93, P0, 2151, 73.66",
+    "38.95, P0, 2138, 73.69",
+    "38.69, P0, 2138, 73.60",
+    "38.47, P0, 2125, 73.57",
+    "38.57, P0, 2138, 73.57",
+    "38.31, P0, 2106, 73.45",
+    "38.25, P0, 2125, 73.30",
+    "37.99, P0, 2119, 73.30",
+    "38.05, P0, 2119, 73.39",
+    "38.18, P0, 2125, 73.42",
+    "38.21, P0, 2125, 73.39",
+    "37.77, P0, 2112, 73.27",
+    "37.67, P0, 2119, 73.16"
+   ],
+   "text_hash": [
+    2321963248,
+    3554710586,
+    1863034856,
+    470884322
+   ]
+  }
+ ],
+ "texts": [
+  "The salt had long since claimed Elias Thorne\u2019s skin, turning it into a topography of weathered leather and deep creases, much like the cliffs that guarded the jagged coast of Blackwood Point. For thirty-two years, Elias had been the solitary guardian of the Blackwood Lighthouse, a towering sentinel of white stone that pierced the grey veil of the North Atlantic. He was a man composed of silence and routine, his life measured not in hours, but in the rhythmic sweep of the Fresnel lens and the relentless, crashing percussion of the tide.\n\nThe storm had been brewing for three days, a bruised purple sky that pressed down on the ocean until the water seemed to hold its breath. When it finally broke, it did so with a violence that shook the foundations of the lighthouse. Elias spent the night in the lantern room, his hands steady on the brass railing, watching the waves rise like mountains of black glass, shattering against the rocks below. He was not afraid; fear was a luxury for those who had something to lose, and Elias had lost everything long ago. His wife, Martha, had passed in the winter of \u201992, and his son, Julian, had vanished into the fog of the sea two years later, his fishing boat never to be seen again. Since then, Elias had become part of the structure itself, a ghost haunting his own life.\n\nBy morning, the storm had exhausted itself, leaving behind a world washed clean and terrifyingly still. The air smelled of ozone and crushed kelp. Elias descended the one hundred and twelve spiral steps, his knees popping in protest, and stepped out onto the gallery. The sea was a churning cauldron of foam, but the horizon was clear, a sharp line dividing the grey sky from the darker grey water.\n\nIt was then that he saw it.\n\nCaught in the tangled wreckage of driftwood and seaweed near the base of the cliff, half-buried in the sand, was a glint of green. Elias frowned, adjusting his wool cap against the biting wind. He descended the steep, muddy path to the beach, his boots sinking into the wet sand. As he approached, the object resolved itself into a bottle. It was not the common, clear glass of modern commerce, but a thick, emerald-green vessel, sealed with wax that had hardened into a dark, irregular lump.\n\nElias picked it up. It was heavy, filled with something other than air. He turned it over in his calloused hands. The glass was cold, slick with seawater, and etched with faint, swirling patterns that looked almost like frost. There was no label, no stamp, no indication of origin. It felt ancient, yet the seal was fresh.\n\nHe carried it back to the lighthouse, the weight of it strange in his pocket. Inside the keeper\u2019s cottage, the fire had died down to embers. Elias placed the bottle on the rough-hewn oak table and sat back, staring at it. The silence of the house, usually a comfort, now felt oppressive. He lit a kerosene lamp, the flame flickering to life, casting long, dancing shadows against the walls lined with nautical charts and dried herbs.\n\nWith a small knife, he carefully chipped away the wax seal. It crumbled like dry earth, revealing a cork stopper that had swollen with moisture. He twisted it,",
+  "```python\n\"\"\"\nThread-safe LRU Cache with TTL (Time-To-Live) expiry.\n\nThis module provides a generic, thread-safe LRU (Least Recently Used) cache\nthat supports optional TTL-based expiration of cached items.\n\"\"\"\n\nimport threading\nimport time\nfrom collections import OrderedDict\nfrom typing import Any, Callable, Hashable, Optional, TypeVar, Generic\n\nK = TypeVar(\"K\", bound=Hashable)\nV = TypeVar(\"V\")\n\n\nclass LRUCache(Generic[K, V]):\n    \"\"\"\n    A thread-safe LRU cache with optional TTL expiry.\n\n    This cache stores key-value pairs with a maximum size. When the cache is\n    full, the least recently used item is evicted. Optionally, items can expire\n    after a specified time-to-live (TTL) in seconds.\n\n    Thread safety is ensured via a reentrant lock.\n\n    Attributes:\n        maxsize: Maximum number of items the cache can hold.\n        ttl: Time-to-live in seconds for cached items. None means no expiry.\n    \"\"\"\n\n    def __init__(self, maxsize: int = 128, ttl: Optional[float] = None) -> None:\n        \"\"\"\n        Initialize the LRU cache.\n\n        Args:\n            maxsize: Maximum number of items the cache can hold. Must be positive.\n            ttl: Time-to-live in seconds for cached items. If None, items do not expire.\n\n        Raises:\n            ValueError: If maxsize is not a positive integer.\n            ValueError: If ttl is not None and is not a positive number.\n        \"\"\"\n        if not isinstance(maxsize, int) or maxsize <= 0:\n            raise ValueError(\"maxsize must be a positive integer\")\n        if ttl is not None and (not isinstance(ttl, (int, float)) or ttl <= 0):\n            raise ValueError(\"ttl must be a positive number or None\")\n\n        self._maxsize = maxsize\n        self._ttl = ttl\n        self._cache: OrderedDict[K, tuple[V, float]] = OrderedDict()\n        self._lock = threading.RLock()\n\n    @property\n    def maxsize(self) -> int:\n        \"\"\"Return the maximum size of the cache.\"\"\"\n        return self._maxsize\n\n    @property\n    def ttl(self) -> Optional[float]:\n        \"\"\"Return the TTL in seconds, or None if no expiry.\"\"\"\n        return self._ttl\n\n    def _is_expired(self, timestamp: float) -> bool:\n        \"\"\"\n        Check if an item with the given timestamp has expired.\n\n        Args:\n            timestamp: The time when the item was inserted/updated.\n\n        Returns:\n            True if the item has expired, False otherwise.\n        \"\"\"\n        if self._ttl is None:\n            return False\n        return (time.monotonic() - timestamp) > self._ttl\n\n    def get(self, key: K, default: Any = None) -> Any:\n        \"\"\"\n        Retrieve an item from the cache.\n\n        If the key exists and has not expired, the item is returned and marked\n        as recently used. If the key does not exist or has expired, the default\n        value is returned.\n\n        Args:\n           ",
+  "```json\n[\n  {\n    \"id\": 1,\n    \"name\": \"Alice Johnson\",\n    \"department\": \"Engineering\",\n    \"title\": \"Senior Software Engineer\",\n    \"salary\": 120000,\n    \"start_date\": \"2019-03-15\",\n    \"skills\": [\"Python\", \"Java\", \"AWS\", \"Docker\"]\n  },\n  {\n    \"id\": 2,\n    \"name\": \"Bob Smith\",\n    \"department\": \"Marketing\",\n    \"title\": \"Marketing Manager\",\n    \"salary\": 95000,\n    \"start_date\": \"2020-07-01\",\n    \"skills\": [\"SEO\", \"Content Strategy\", \"Google Analytics\"]\n  },\n  {\n    \"id\": 3,\n    \"name\": \"Carol Williams\",\n    \"department\": \"Human Resources\",\n    \"title\": \"HR Specialist\",\n    \"salary\": 75000,\n    \"start_date\": \"2018-11-20\",\n    \"skills\": [\"Recruitment\", \"Employee Relations\", \"Payroll\"]\n  },\n  {\n    \"id\": 4,\n    \"name\": \"David Brown\",\n    \"department\": \"Finance\",\n    \"title\": \"Financial Analyst\",\n    \"salary\": 85000,\n    \"start_date\": \"2021-01-10\",\n    \"skills\": [\"Excel\", \"Financial Modeling\", \"SAP\"]\n  },\n  {\n    \"id\": 5,\n    \"name\": \"Eva Davis\",\n    \"department\": \"Engineering\",\n    \"title\": \"DevOps Engineer\",\n    \"salary\": 115000,\n    \"start_date\": \"2020-05-15\",\n    \"skills\": [\"Kubernetes\", \"Terraform\", \"CI/CD\", \"Linux\"]\n  },\n  {\n    \"id\": 6,\n    \"name\": \"Frank Miller\",\n    \"department\": \"Sales\",\n    \"title\": \"Sales Representative\",\n    \"salary\": 65000,\n    \"start_date\": \"2022-03-01\",\n    \"skills\": [\"CRM\", \"Negotiation\", \"Lead Generation\"]\n  },\n  {\n    \"id\": 7,\n    \"name\": \"Grace Wilson\",\n    \"department\": \"Design\",\n    \"title\": \"UX Designer\",\n    \"salary\": 90000,\n    \"start_date\": \"2019-09-12\",\n    \"skills\": [\"Figma\", \"User Research\", \"Prototyping\"]\n  },\n  {\n    \"id\": 8,\n    \"name\": \"Henry Moore\",\n    \"department\": \"Engineering\",\n    \"title\": \"Frontend Developer\",\n    \"salary\": 105000,\n    \"start_date\": \"2021-06-20\",\n    \"skills\": [\"React\",",
+  "Here is a step-by-step explanation of RSA public-key cryptography, moving from the mathematical foundations to digital signatures, using small, manageable numbers for clarity.\n\n> **Note:** In real-world applications, RSA uses prime numbers with hundreds of digits. The numbers below are intentionally small to demonstrate the logic.\n\n---\n\n### Step 1: Key Generation\n\nRSA relies on the difficulty of factoring large composite numbers. We start by choosing two large prime numbers.\n\n#### 1.1 Choose two distinct prime numbers, $p$ and $q$\nLet:\n*   $p = 61$\n*   $q = 53$\n\n#### 1.2 Compute the modulus $n$\n$$n = p \\times q$$\n$$n = 61 \\times 53 = 3233$$\n\n$n$ is part of both the public and private keys.\n\n#### 1.3 Compute Euler\u2019s Totient Function $\\phi(n)$\nFor two primes, $\\phi(n) = (p-1)(q-1)$.\n$$\\phi(n) = (61-1)(53-1) = 60 \\times 52 = 3120$$\n\n$\\phi(n)$ is kept secret.\n\n#### 1.4 Choose the public exponent $e$\n$e$ must satisfy:\n1.  $1 < e < \\phi(n)$\n2.  $\\gcd(e, \\phi(n)) = 1$ (i.e., $e$ and $\\phi(n)$ are coprime)\n\nLet\u2019s choose:\n$$e = 17$$\n\nCheck: $\\gcd(17, 3120) = 1$. (17 is prime and does not divide 3120).\n\n#### 1.5 Compute the private exponent $d$\n$d$ is the modular multiplicative inverse of $e$ modulo $\\phi(n)$. That is:\n$$d \\cdot e \\equiv 1 \\pmod{\\phi(n)}$$\n$$17 \\cdot d \\equiv 1 \\pmod{3120}$$\n\nWe use the **Extended Euclidean Algorithm** to find $d$.\n\n**Euclidean Algorithm:**\n1.  $3120 = 183 \\times 17 + 9$\n2.  $17 = 1 \\times 9 + 8$\n3.  $9 = 1 \\times 8 + 1$\n4.  $8 = 8 \\times 1 + 0$\n\n**Back-substitution to express 1 as a combination of 17 and 3120:**\nFrom step 3: $1 = 9 - 1 \\times 8$\nFrom step 2: $8 = 17 - 1 \\times 9$\nSubstitute 8:\n$$1 = 9 - 1 \\times (17 - 1 \\times 9) = 2 \\times 9 - 1 \\times 17$$\nFrom step 1: $9 = 3120 - 183 \\times 17$\nSubstitute 9:\n$$1 = 2 \\times (3120 - "
+ ]
+}
