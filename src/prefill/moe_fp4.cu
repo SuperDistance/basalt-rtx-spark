@@ -412,8 +412,31 @@ __device__ __forceinline__ unsigned ue4m3_scale2(unsigned s) {
 // A B fragment of a 16-value NVFP4 sub-block: the two code bytes at 2 tig (c, low byte first) hold values 2 tig and
 // 2 tig + 8 (byte 2 tig, low and high nibble) and 2 tig + 1 and 2 tig + 9 (byte 2 tig + 1); the mma wants
 // {2 tig, 2 tig + 1} and {2 tig + 8, 2 tig + 9}, each times the sub-block's scale (exact products)
+// cvt.rn.bf16x2.e2m1x2 is newer than the PTX of CUDA 13.0, which cannot assemble it.  An older toolkit widens through
+// f16x2 instead: every E2M1 value is exact in FP16, FP32 and BF16, so both routes give the same bits.
+#if !defined(BASALT_FP4_BF16_VIA_F16) && (__CUDACC_VER_MAJOR__ > 13 || (__CUDACC_VER_MAJOR__ == 13 && __CUDACC_VER_MINOR__ >= 5))
+#define BASALT_FP4_BF16_NATIVE 1
+#endif
+#ifndef BASALT_FP4_BF16_NATIVE
+__device__ __forceinline__ unsigned f16x2_to_bf16x2(unsigned h) {
+    unsigned b;
+    asm("{\n"
+        ".reg .b16 l, u;\n"
+        ".reg .f32 fl, fu;\n"
+        "mov.b32 {l, u}, %1;\n"
+        "cvt.f32.f16 fl, l;\n"
+        "cvt.f32.f16 fu, u;\n"
+        "cvt.rn.bf16x2.f32 %0, fu, fl;\n"
+        "}\n"
+        : "=r"(b)
+        : "r"(h));
+    return b;
+}
+#endif
+
 __device__ __forceinline__ void nvfp4_b_frag(unsigned c, unsigned sc2, unsigned& b0, unsigned& b1) {
     unsigned t0, t1;
+#ifdef BASALT_FP4_BF16_NATIVE
     asm("{\n"
         ".reg .b8 x0, x1, x2, x3;\n"
         "mov.b32 {x0, x1, x2, x3}, %2;\n"
@@ -422,6 +445,19 @@ __device__ __forceinline__ void nvfp4_b_frag(unsigned c, unsigned sc2, unsigned&
         "}\n"
         : "=r"(t0), "=r"(t1)
         : "r"(c));
+#else
+    unsigned h0, h1;
+    asm("{\n"
+        ".reg .b8 x0, x1, x2, x3;\n"
+        "mov.b32 {x0, x1, x2, x3}, %2;\n"
+        "cvt.rn.f16x2.e2m1x2 %0, x0;\n"
+        "cvt.rn.f16x2.e2m1x2 %1, x1;\n"
+        "}\n"
+        : "=r"(h0), "=r"(h1)
+        : "r"(c));
+    t0 = f16x2_to_bf16x2(h0);
+    t1 = f16x2_to_bf16x2(h1);
+#endif
     const unsigned lo = __byte_perm(t0, t1, 0x5410), hi = __byte_perm(t0, t1, 0x7632);
     asm("mul.rn.bf16x2 %0, %1, %2;" : "=r"(b0) : "r"(lo), "r"(sc2));
     asm("mul.rn.bf16x2 %0, %1, %2;" : "=r"(b1) : "r"(hi), "r"(sc2));
