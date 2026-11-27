@@ -1135,7 +1135,8 @@ class ProcessEngine:
             return (sum(1 for b in self.slot_busy if not b) >= free and
                     any(e[0] * 2 <= plen for e in self.wait_lens))
 
-    def generate_batched(self, ids, max_new, sampling, cancel, embeddings=None, session=None, stop_soon=None):
+    def generate_batched(self, ids, max_new, sampling, cancel, embeddings=None, session=None, stop_soon=None,
+                         settle=None):
         """--batch: run solo (GEN) while alone, move to a batch slot (BGEN) when others arrive, and return to solo
         when left alone. Prompt reads and admissions take the control lines one at a time; a long read may give way
         to a much shorter waiting one (BYIELD). An early-leaving consumer is STOPped/BSTOPped and drained. The prompt
@@ -1149,7 +1150,10 @@ class ProcessEngine:
         held = {"handle": handle, "gen": self.gen}      # the prompt on this engine process (a restart loses it)
         try:
             if isinstance(ids, PromptText):     # counted: an over-long prompt is refused here, before the stream starts
-                max_new = ids.settle(n, int(max_new), self.max_context)
+                # `settle`: the reply's whole cap, when this run is a pass capped below it (a thinking budget): the
+                # prompt is checked and clipped against the whole cap, and the run stops at its own
+                full = ids.settle(n, int(settle if settle is not None and settle > max_new else max_new), self.max_context)
+                max_new = min(int(max_new), full)
                 yield None
             yield from self._generate_batched(ids, held, n, max_new, sampling, cancel, embeddings, session, stop_soon)
         finally:
@@ -1608,7 +1612,7 @@ class ProcessEngine:
             return [{"owner": self.slot_thread[b] if self.slot_busy[b] else None, "held": self.slot_held[b]}
                     for b in range(self.batch)]
 
-    def generate(self, ids, max_new, sampling, cancel, embeddings=None, session=None, stop_soon=None):
+    def generate(self, ids, max_new, sampling, cancel, embeddings=None, session=None, stop_soon=None, settle=None):
         """Yield token ids, and None as a 10 s heartbeat while the engine is quiet. An early-leaving consumer or
         `cancel` makes the engine STOP. `stop_soon` (an Event), once set, makes it STOP too, but the tokens of the
         windows already under way still come and the generator ends at the DONE: the engine holds exactly the prompt
@@ -1616,12 +1620,17 @@ class ProcessEngine:
         if not self.alive():
             raise EngineDied("the engine is unavailable; this request was not sent")
         text = ids if isinstance(ids, PromptText) else None
+        # `settle`: a text prompt's whole reply cap when this run is a capped pass (see generate_batched)
+        full = int(settle) if text is not None and settle is not None and settle > max_new else None
         if text is not None and (embeddings or not self.info.get("text_prompt")):
-            ids, max_new = text.resolve(int(max_new), self.max_context)    # this engine takes ids
+            ids, settled = text.resolve(full or int(max_new), self.max_context)    # this engine takes ids
+            max_new = min(int(max_new), settled)
             text = None
         if getattr(self, "batch", 0):
-            yield from self.generate_batched(ids, max_new, sampling, cancel, embeddings, session, stop_soon)
+            yield from self.generate_batched(ids, max_new, sampling, cancel, embeddings, session, stop_soon, full)
             return
+        if text is not None and full is not None:
+            max_new = full      # GENT settles the cap it is sent: the pass runs uncapped, as before
         self.progress = None
         self._reset_read()
         self.prefill_tok_s_mean = None

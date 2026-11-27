@@ -20,6 +20,18 @@ std::vector<Runtime::SlotMeet> Runtime::slot_meets(const std::vector<int32_t>& p
         out[b].held = (int64_t) h->size();
         out[b].match = meet_held(prompt.data(), (int64_t) prompt.size(), h->data(), (int64_t) h->size(),
                                  !media && text_tokenizer_note.empty(), bytes).held;
+        // a held conversation the prompt nearly continues: where they part (a respelling the server and the engine
+        // disagree on costs the whole read from the last checkpoint)
+        if (out[b].match == 0 && h->size() >= 64) {
+            const size_t m = std::min(h->size(), prompt.size());
+            const size_t k = (size_t) (std::mismatch(h->begin(), h->begin() + (std::ptrdiff_t) m, prompt.begin()).first - h->begin());
+            if (k + 1024 >= h->size() && k > h->size() / 2)
+                basalt::log::info("basalt serve", "slot %zu holds %zu tokens, the prompt (%zu) parts from them at %zu: "
+                                  "held %d %d %d, prompt %d %d %d", b, h->size(), prompt.size(), k,
+                                  k < h->size() ? (*h)[k] : -1, k + 1 < h->size() ? (*h)[k + 1] : -1,
+                                  k + 2 < h->size() ? (*h)[k + 2] : -1, k < prompt.size() ? prompt[k] : -1,
+                                  k + 1 < prompt.size() ? prompt[k + 1] : -1, k + 2 < prompt.size() ? prompt[k + 2] : -1);
+        }
     }
     return out;
 }

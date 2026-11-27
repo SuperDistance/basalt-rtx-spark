@@ -1289,6 +1289,7 @@ class Service:
                     prompt, thought = ids, 0            # reasoning tokens so far
                     # answer now stops an engine that takes `stop_soon` at its own pace (see the pass below)
                     soft_stops = live is not None and "stop_soon" in inspect.signature(self.engine.generate).parameters
+                    settles = "settle" in inspect.signature(self.engine.generate).parameters   # a capped first pass
                     closed_early = False                # the thinking was already closed once
                     run_id, run_n = None, 0             # the token the thinking is repeating, and how often in a row
                     for ev in opening:
@@ -1306,10 +1307,18 @@ class Service:
                         if thinking and not budget_ready and not isinstance(ids, PromptText):
                             budget = self.answer_budget(budget_req, max_new, budget)
                             budget_ready = True
+                        elif thinking and not budget_ready and budget is None and settles:
+                            # a text prompt's cap settles once the engine has counted it, after this pass has started:
+                            # a budget from the requested cap caps the pass already (the settled cap can only lower
+                            # it), else the engine runs on past the budget until the STOP lands and the next pass
+                            # reads the whole reply again
+                            budget = self.answer_budget(budget_req, max_new, budget)
                         cap = max_new - n
                         capped = bool(budget) and parser.state == "reasoning" and budget - thought < cap
                         if capped:
                             cap = max(1, budget - thought)
+                            if settles and isinstance(prompt, PromptText):
+                                more["settle"] = max_new - n     # the reply's whole cap: the prompt settles on it
                         gen = self.engine.generate(prompt, cap, sampling, cancel, embeddings=emb,
                                                    session=session, **more) if emb \
                             else self.engine.generate(prompt, cap, sampling, cancel, session=session, **more)
