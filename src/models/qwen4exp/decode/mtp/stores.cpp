@@ -81,11 +81,12 @@ bool MtpDrafter::init_seg(std::string& err) {
         return false;
     }
     for (int id = 0; id < n_stores_; ++id) slots[(size_t) id].page_table = store_pt_ + id * pages;
-    if (cudaMemcpy(store_pt_, pt.data(), sizeof(int32_t) * pt.size(), cudaMemcpyHostToDevice) != cudaSuccess ||
-        cudaMemcpy(seg_slots_, slots.data(), sizeof(QsaSegSlot) * slots.size(), cudaMemcpyHostToDevice) != cudaSuccess ||
-        cudaMemcpy(seg_rows_of_, rows.data(), sizeof(QsaSeg) * rows.size(), cudaMemcpyHostToDevice) != cudaSuccess ||
-        cudaMemcpy(seg_rows_, rows.data() + (size_t) n_stores_ * kSegRows, sizeof(QsaSeg) * kSegRows,
-                   cudaMemcpyHostToDevice) != cudaSuccess) {
+    using basalt::core::device_copy;   // pageable tables the draft kernels read on another stream: landed on return
+    if (device_copy(store_pt_, pt.data(), sizeof(int32_t) * pt.size(), cudaMemcpyHostToDevice) != cudaSuccess ||
+        device_copy(seg_slots_, slots.data(), sizeof(QsaSegSlot) * slots.size(), cudaMemcpyHostToDevice) != cudaSuccess ||
+        device_copy(seg_rows_of_, rows.data(), sizeof(QsaSeg) * rows.size(), cudaMemcpyHostToDevice) != cudaSuccess ||
+        device_copy(seg_rows_, rows.data() + (size_t) n_stores_ * kSegRows, sizeof(QsaSeg) * kSegRows,
+                    cudaMemcpyHostToDevice) != cudaSuccess) {
         err = "mtp: uploading the store tables failed";
         return false;
     }

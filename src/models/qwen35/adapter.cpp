@@ -215,7 +215,8 @@ public:
             } else {
                 piece.handle = core::vmm::map(address, piece.size);
                 if (piece.handle == 0) return {Status::Error, "could not restore device backing for the weights"};
-                const auto e = cudaMemcpy(address, piece.snapshot.get(), (size_t) piece.size, cudaMemcpyHostToDevice);
+                const auto e = core::device_copy(address, piece.snapshot.get(), (size_t) piece.size,
+                                                 cudaMemcpyHostToDevice);
                 if (e != cudaSuccess) return {Status::Error, cudaGetErrorString(e)};
                 piece.snapshot.reset();
             }
