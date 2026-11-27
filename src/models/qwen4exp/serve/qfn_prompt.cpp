@@ -74,7 +74,13 @@ void QfnRequest::limit_parts() {
     // side-thread costs again, and a checkpoint stalls the windows.  One that runs alone stops at its root,
     // and at its turn boundary only past --prompt-cache-root tokens since the root: a short history is
     // cheaper to read again than the extra part costs.  The rest of a read that gave way keeps its parts.
-    if (in_slot && runtime_.batch_on() && resumed_chunk <= 0 && n - 1 - read_from <= std::max<int64_t>(runtime_.sp.chunk(), 1)) {
+    // --exp slot_solo_split=1: such a read stops where the same read stops solo (its root, picture and turn
+    // boundaries).  Where a read stops changes its rounding (the GDN chunks, the K/V a later part reads back), so a
+    // request beside other slots then reads exactly as it would alone (greedy_identity --slots-dirty).  It is off by
+    // default: in BetterBench C4 the extra part raised the median first token from 387 to 488 ms.
+    const bool solo_split = basalt::core::exp_flag("slot_solo_split", 0) != 0;
+    if (!solo_split && in_slot && runtime_.batch_on() && resumed_chunk <= 0 &&
+        n - 1 - read_from <= std::max<int64_t>(runtime_.sp.chunk(), 1)) {
         if (n - 1 - read_from > runtime_.kReadAlone) {
             turn_at = -1;
             root_at = -1;
@@ -124,8 +130,10 @@ Flow QfnRequest::read_to(int64_t to) {
     };
     if (win && !ov_window()) { std::printf("ERR %s\n", runtime_.err.c_str()); return Flow::error; }
     runtime_.ov_post_done = false;
-    runtime_.ov_post = [&, to]() -> bool {
-        if (part_checkpoint(to) && !runtime_.checkpoint_at(to, nullptr, false, source_at(to))) return false;
+    runtime_.ov_post = [&]() -> bool {
+        // The part's checkpoint is taken on the main thread after the read, not here: it synchronizes the whole
+        // device, and the main thread may be capturing a window graph meanwhile, which a device-wide sync from
+        // another thread invalidates (dense_tc then fails with "a previous error during capture").
         // the lent slots get their experts back here, beside the windows; the table follows on the main thread
         for (PfPart& p : runtime_.pf_parts) {
             if (p.lent.empty()) continue;
@@ -170,7 +178,7 @@ Flow QfnRequest::read_to(int64_t to) {
     at = to;
     resumed_chunk = 0;   // the later parts are planned as the read they continue planned them
     runtime_.ov_post = nullptr;
-    if (part_checkpoint(to) && !runtime_.ov_post_done && !runtime_.checkpoint_at(to, nullptr, !in_slot && !runtime_.batch_on(), source_at(to))) {
+    if (part_checkpoint(to) && !runtime_.checkpoint_at(to, nullptr, !in_slot && !runtime_.batch_on(), source_at(to))) {
         std::printf("ERR saving a conversation checkpoint failed%s\n", runtime_.ckpt_why.c_str());
         return Flow::error;
     }

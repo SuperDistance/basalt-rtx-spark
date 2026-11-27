@@ -1,0 +1,23 @@
+[
+ {
+  "depth": 3000,
+  "identical": false,
+  "first_diff_char": 188,
+  "solo": "Station 55 has the highest reading of 935 units.\n\n*   The text provides quarterly maintenance logs for 68 stations (0 through 67), detailing inspections for pumps, cleaning of valves, and pre-calibration sensor readings.\n*   Sensor readings generally increase linearly by 17 units per station, starting from 0 units at station 0 and reaching 986 units at station 58.\n*   A significant",
+  "join": "Station 55 has the highest reading of 935 units.\n\n*   The text provides quarterly maintenance logs for 68 stations (0 through 67), detailing inspections for pumps, cleaning of valves, and sensor readings before calibration.\n*   Sensor readings generally increase linearly by 17 units per station, starting from 0 units at station 0 and reaching 986 units at station 58.\n*   A significant anomaly"
+ },
+ {
+  "depth": 6000,
+  "identical": true,
+  "first_diff_char": null,
+  "solo": "Station 58 has the highest reading of 986 units.\n\n*   The text provides quarterly maintenance logs for 136 stations (0 through 135), detailing inspections for pumps, cleaning of valves, and sensor readings before calibration.\n*   Sensor readings generally increase by 17 units per station, starting from 0 units at station 0 and reaching a peak of 986 units at station 58.\n*  ",
+  "join": "Station 58 has the highest reading of 986 units.\n\n*   The text provides quarterly maintenance logs for 136 stations (0 through 135), detailing inspections for pumps, cleaning of valves, and sensor readings before calibration.\n*   Sensor readings generally increase by 17 units per station, starting from 0 units at station 0 and reaching a peak of 986 units at station 58.\n*  "
+ },
+ {
+  "depth": 12000,
+  "identical": false,
+  "first_diff_char": 8,
+  "solo": "Station 176 has the highest reading of 992 units.\n\n*   The text provides quarterly maintenance logs for 271 stations (0 through 270), detailing inspections for pumps, valves, and sensors at each location.\n*   Sensor readings generally increase by 17 units per station, starting from 0 units at station 0 and reaching a peak of 992 units at station 176.\n*  ",
+  "join": "Station 235 has the highest reading of 995 units.\n\n*   The text provides quarterly maintenance logs for 271 stations (0 through 270), detailing inspections for pumps, valves, and sensors at each location.\n*   Sensor readings generally increase by 17 units per station, starting from 0 units at station 0 and reaching a peak of 995 units at station 235.\n*  "
+ }
+]

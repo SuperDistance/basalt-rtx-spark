@@ -337,6 +337,11 @@ private:
     double batch_row_commit_tail{};
     bool batch_row_cost_enabled{};
     bool batch_row_cost_trace{};
+    // --exp batch_rows_value=1: a window over its row budget splits the rows by expected accepted drafts
+    bool batch_rows_value{};
+    bool batch_rows_value_trace{};
+    uint64_t brv_windows{};
+    double brv_even{}, brv_value{};
     double bt_draft{};
     double bt_draft_last{};
     int64_t bt_slotwin{};
