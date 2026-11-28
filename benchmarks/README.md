@@ -28,11 +28,11 @@ The source-build rows ran on November 27 (`main` with the capped first thinking 
 
 On November 24, on FP4-Local, Basalt read prompts faster than native vLLM at four of five depths. At the 32K target, Basalt processed **1,951 input tok/s** versus **2,123** for vLLM. At that depth Basalt still loaded some expert weights from file. vLLM led in four-stream mixed throughput. Busy decode averaged 46.00 W GPU for Basalt and 35.02 W for vLLM. The engines used different KV formats. [FP4-Local measurements](results/2026-11-24-n1x-fp4-resident-ring)
 
-![Median cold input tokens per second at five target prompt depths. This project has three columns, IQ3, FP4-Local and NVFP4-DQ6_K, from the full November 27 runs. Reference columns are the Arm64 port with IQ3 and native vLLM with FP4-Local, both from November 24, and native llama.cpp with UD-IQ4_XS.](img/engines-prefill.svg)
+![Median cold input tokens per second at five target prompt depths. This project has three columns, IQ3, FP4-Local and NVFP4-DQ6_K, from November 27 (IQ3 decode from the median of five decode runs). Reference columns are the Arm64 port with IQ3 and native vLLM with FP4-Local, both from November 24, and native llama.cpp with UD-IQ4_XS.](img/engines-prefill.svg)
 
-![Median output tokens per second in eight decode scenarios. This project has three columns, IQ3, FP4-Local and NVFP4-DQ6_K, from the full November 27 runs. Reference columns are the Arm64 port with IQ3 and native vLLM with FP4-Local, both from November 24, and native llama.cpp with UD-IQ4_XS.](img/engines-decode.svg)
+![Median output tokens per second in eight decode scenarios. This project has three columns, IQ3, FP4-Local and NVFP4-DQ6_K, from November 27 (IQ3 decode from the median of five decode runs). Reference columns are the Arm64 port with IQ3 and native vLLM with FP4-Local, both from November 24, and native llama.cpp with UD-IQ4_XS.](img/engines-decode.svg)
 
-![Aggregate output tokens per second at one through four streams. This project has three columns, IQ3, FP4-Local and NVFP4-DQ6_K, from the full November 27 runs. Reference columns are the Arm64 port with IQ3 and native vLLM with FP4-Local, both from November 24, and native llama.cpp with UD-IQ4_XS.](img/engines-concurrency.svg)
+![Aggregate output tokens per second at one through four streams. This project has three columns, IQ3, FP4-Local and NVFP4-DQ6_K, from November 27 (IQ3 decode from the median of five decode runs). Reference columns are the Arm64 port with IQ3 and native vLLM with FP4-Local, both from November 24, and native llama.cpp with UD-IQ4_XS.](img/engines-concurrency.svg)
 
 **FP4 prefill under memory pressure.** With a 2,560 MiB GPU reserve, the new 64-slot staging ring saved about 844 MiB versus the 384-slot ring. The same 23,633-token prompt stayed in one chunk and staged zero expert blobs from file, down from 1,586. Across two runs per configuration, mean time to first token fell **26.7%** (14.20 and 14.16 s to 10.41 and 10.38 s). On a fresh engine with the default 700 MiB reserve, the full ring fit. At 3,072 MiB neither ring fit outside the expert cache. [Controlled measurements and output checks](results/2026-11-24-n1x-fp4-prefill-chunks)
 
@@ -67,7 +67,7 @@ $run = 'benchmarks/results/2026-11-24-n1x-cooled-release'
 $vllm = 'benchmarks/results/2026-11-24-n1x-verified-default/vllm/results.json'
 $llama = 'benchmarks/results/2026-11-25-n1x-llama-cpp/results.json'
 python benchmarks/plot.py --out benchmarks/img --prefix engines `
-  "$new/main-iq3/results.json" 'Basalt RTX Spark (UD-IQ3_XXS)' `
+  "$new/main-iq3-headline/results.json" 'Basalt RTX Spark (UD-IQ3_XXS)' `
   "$new/main-fp4-local/results.json" 'Basalt RTX Spark (NVIDIA FP4-Local)' `
   "$new/main-dq6k/results.json" 'Basalt RTX Spark (NVFP4-DQ6_K)' `
   "$run/arm-port/results.json" 'Basalt + Arm64 port, Nov 24 (UD-IQ3_XXS)' `

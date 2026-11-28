@@ -24,7 +24,7 @@ with no frozen chat: a new long prompt is read alongside the chats already decod
 
 *Left: [one chat in real time](docs/showcase/realtime-chat), 106 tok/s. Right: an [animated orbital transfer](docs/showcase/orbital-transfer) Flash-Next wrote from one prompt in 123 s.*
 
-![In the full November 27 runs, this project’s weighted single-stream decode is 100.34 output tok/s on IQ3 (104.17 is the median of five IQ3 decode runs), 94.26 on NVIDIA FP4-Local and 95.37 on NVFP4-DQ6_K. The reference Arm64 port and native vLLM, measured on November 24, reach 84.05 and 54.19, and native llama.cpp with UD-IQ4_XS reaches 45.08. The second column shows four-stream aggregate output: 125.3, 106.1 and 105.2 for this project against 85.2, 100.7 and 67.2. The third shows cold prefill at the 2K target.](benchmarks/img/engines-overview.svg)
+![On November 27 this project’s weighted single-stream decode is 104.17 output tok/s on IQ3 (the median of five decode runs), 94.26 on NVIDIA FP4-Local and 95.37 on NVFP4-DQ6_K. The reference Arm64 port and native vLLM, measured on November 24, reach 84.05 and 54.19, and native llama.cpp with UD-IQ4_XS reaches 45.08. The second column shows four-stream aggregate output: 125.3, 106.1 and 105.2 for this project against 85.2, 100.7 and 67.2. The third shows cold prefill at the 2K target.](benchmarks/img/engines-overview.svg)
 
 - **2.3× native llama.cpp, 1.9× native vLLM** for one chat on the same laptop. [Results](#results)
 - **No frozen chats.** A 35K-token prompt arriving while three chats decode starts answering in 17 s, and no
@@ -69,7 +69,7 @@ One 128 GB RTX Spark N1X with a 96 GB GPU allocation, physical cooling, the same
 | Reference | Native llama.cpp b12359 | `UD-IQ4_XS` | 45.08 | 67.2 | 437 ms | 828 / 778 |
 
 Decode is BetterBench's weighted median over eight scenarios. For the IQ3 source build it is the median of five decode
-runs (100.34 to 105.44); its other columns are from the one full run. Prompt reads are cold, at the 2K and 64K targets
+runs (100.34 to 105.44); its other columns are from the one full run. The charts use the same figures. Prompt reads are cold, at the 2K and 64K targets
 (about 1,550 and 47,100 actual tokens). The source-build rows ran on November 27, and the release ZIP and llama.cpp rows
 on November 25, all with the GPU in P0. The two November 24 rows were not rerun; that day's runs drew less GPU power
 in busy decode (49 W for the port, 35 W for vLLM, 46–48 W for Basalt). On that day the release ZIP scored 92.76, 10% ahead of the port, and Basalt on FP4-Local scored 85.28, 57%
@@ -82,11 +82,11 @@ ahead of vLLM.
 <details>
 <summary>Charts by scenario, number of chats and prompt depth; power and test settings</summary>
 
-![Median cold input tokens per second at five target prompt depths. This project has three columns, IQ3, NVIDIA FP4-Local and NVFP4-DQ6_K, from the full November 27 runs. Reference columns are the Arm64 port with IQ3 and native vLLM with FP4-Local, both from November 24, and native llama.cpp with UD-IQ4_XS.](benchmarks/img/engines-prefill.svg)
+![Median cold input tokens per second at five target prompt depths. This project has three columns, IQ3, NVIDIA FP4-Local and NVFP4-DQ6_K, from November 27 (IQ3 decode from the median of five decode runs). Reference columns are the Arm64 port with IQ3 and native vLLM with FP4-Local, both from November 24, and native llama.cpp with UD-IQ4_XS.](benchmarks/img/engines-prefill.svg)
 
-![Median output tokens per second in eight decode scenarios. This project has three columns, IQ3, NVIDIA FP4-Local and NVFP4-DQ6_K, from the full November 27 runs. Reference columns are the Arm64 port with IQ3 and native vLLM with FP4-Local, both from November 24, and native llama.cpp with UD-IQ4_XS.](benchmarks/img/engines-decode.svg)
+![Median output tokens per second in eight decode scenarios. This project has three columns, IQ3, NVIDIA FP4-Local and NVFP4-DQ6_K, from November 27 (IQ3 decode from the median of five decode runs). Reference columns are the Arm64 port with IQ3 and native vLLM with FP4-Local, both from November 24, and native llama.cpp with UD-IQ4_XS.](benchmarks/img/engines-decode.svg)
 
-![Aggregate output tokens per second at one through four streams. This project has three columns, IQ3, NVIDIA FP4-Local and NVFP4-DQ6_K, from the full November 27 runs. Reference columns are the Arm64 port with IQ3 and native vLLM with FP4-Local, both from November 24, and native llama.cpp with UD-IQ4_XS.](benchmarks/img/engines-concurrency.svg)
+![Aggregate output tokens per second at one through four streams. This project has three columns, IQ3, NVIDIA FP4-Local and NVFP4-DQ6_K, from November 27 (IQ3 decode from the median of five decode runs). Reference columns are the Arm64 port with IQ3 and native vLLM with FP4-Local, both from November 24, and native llama.cpp with UD-IQ4_XS.](benchmarks/img/engines-concurrency.svg)
 
 - **Settings.** Basalt used four 262,144-token slots, INT8 KV and MTP 8. Native vLLM ran with FP8 target KV and MTP 7.
   llama.cpp used four slots over a 262,144-token context, flash attention and MTP 3. The release ZIP row is

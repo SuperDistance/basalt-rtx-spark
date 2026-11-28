@@ -31,8 +31,9 @@ P0-checked pieces.
 | [r3](main-iq3-decode-repeats/r3) | **105.44** | 0.986 | 53.9 |
 | [r4](main-iq3-decode-repeats/r4) | 103.74 | 0.986 | 54.4 |
 
-The median of the five is **104.17 tok/s**, and they range from 100.34 to 105.44. The README headline uses the median.
-The charts use the full run, the only one with the prompt-read and concurrency sweep. On November 25 the five runs had
+The median of the five is **104.17 tok/s**, and they range from 100.34 to 105.44. The README headline uses the median. So do the
+charts: [main-iq3-headline](main-iq3-headline) takes the eight decode scenarios of r1 (the median run) and the
+prompt reads and concurrency levels of the full run, and `combine.py` there rebuilds it. On November 25 the five runs had
 a median of 97.29 and a best of 98.92.
 
 ## How the runs were assembled
