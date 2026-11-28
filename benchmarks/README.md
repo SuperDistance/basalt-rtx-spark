@@ -38,6 +38,8 @@ On November 24, on FP4-Local, Basalt read prompts faster than native vLLM at fou
 
 ### Published DGX Spark reference
 
+The DGX Spark's GB10 has the same GPU as the RTX Spark N1X (Blackwell, 48 SMs, compute capability 12.1), under Linux. Strata 0.2.7.1 reports **45.5 / 46.5 / 46.5 tok/s** decode with Qwen3.8-Flash-Next IQ3_S after fresh 4K, 16K and 32K prompts (temperature 0, 256-token answers, four samples a cell, medians), and **1,296 / 1,680 / 1,735 tok/s** prompt reads. Strata ships no Windows on Arm build, so it has not run on the N1X here. [Strata DGX Spark results](https://github.com/Niko1221/Strata/blob/40fa01b31ec0768e7ab230ac65527c6d28617515/docs/DGX_SPARK_LINUX.md#speeds)
+
 On one GB10, NInfer `a107b983` ran Flash-Next with NVFP4 main experts, MTP 3 and FP8 KV. For a 130-token prompt and 8,192 output tokens per request, it reported **70.0 / 160.1 / 226.4 tok/s** at one, four and eight streams, counting only intervals with a full decode batch. On its separate 75-request corpus it reported **96.2 / 133.2 tok/s** at four and eight streams, dividing output tokens by total elapsed time including prefill, admission and drain. NInfer measured these on its own hardware. A direct comparison with the laptop would require the same workload and measured power on both machines. [NInfer results and methodology](https://github.com/Neroued/ninfer/blob/9ebb72ed756ecbec5dbc18ee22d58fc08575e129/docs/performance/qwen3.8-flash-next.md)
 
 ### Supported quantizations and single-stream decode rates
