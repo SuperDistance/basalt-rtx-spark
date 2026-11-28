@@ -10,15 +10,15 @@ Every row ran Qwen3.8-Flash-Next on the same RTX Spark N1X laptop with 128 GB of
 
 | Group | Engine | Weight pack tested | Weighted single-stream decode (tok/s) | Short-prompt time to first token (ms) | Four-stream mixed throughput (tok/s) |
 | --- | --- | --- | ---: | ---: | ---: |
-| **This project** | Basalt RTX Spark · source build | `UD-IQ3_XXS` | **98.92** | **266** | **120.6** |
-| **This project** | Basalt RTX Spark · release ZIP | `UD-IQ3_XXS` | 97.10 | 270 | 119.9 |
-| **This project** | Basalt RTX Spark · source build | `FP4-Local` | 91.85 | 346 | 101.0 |
-| **This project** | Basalt RTX Spark · source build | `NVFP4-DQ6_K` | 87.94 | 352 | 100.3 |
+| **This project** | Basalt RTX Spark · source build | `UD-IQ3_XXS` | **104.17** | **267** | **125.3** |
+| **This project** | Basalt RTX Spark · release ZIP, Nov 25 | `UD-IQ3_XXS` | 97.10 | 270 | 119.9 |
+| **This project** | Basalt RTX Spark · source build | `FP4-Local` | 94.26 | 353 | 106.1 |
+| **This project** | Basalt RTX Spark · source build | `NVFP4-DQ6_K` | 95.37 | 358 | 105.2 |
 | **Reference** · Nov 24 | Basalt + Arm64 port | `UD-IQ3_XXS` | 84.05 | 619 | 85.2 |
 | **Reference** · Nov 24 | Native vLLM for RTX Spark 0.2.0 | `FP4-Local` (NVFP4 / MXFP8) | 54.19 | 271 | 100.8 |
 | **Reference** | Native llama.cpp b12359 | `UD-IQ4_XS` | 45.08 | 437 | 67.2 |
 
-The Basalt and llama.cpp rows ran on November 25 in cooled pieces that were kept only when the GPU stayed in P0, at about 54 W GPU in busy decode for Basalt and 45 W for llama.cpp. These runs logged the GPU only; in the November 24 IQ3 decode, which logged both rails, the CPU cores added 3.8 W to the GPU's 47.5 W. The Arm64 port and vLLM rows are from November 24 and were not rerun; that day's busy decode drew 49.2 W for the port and 35.0 W for vLLM, and Basalt scored 92.76 (release ZIP, IQ3) and 85.28 (FP4-Local) under the same conditions. Basalt used four 262,144-token slots, INT8 KV and MTP 8. Native vLLM ran with FP8 target KV and MTP 7. [November 25 runs](results/2026-11-25-n1x-rerun) · [llama.cpp](results/2026-11-25-n1x-llama-cpp) · [November 24 runs](results/2026-11-24-n1x-cooled-release) · [vLLM](results/2026-11-24-n1x-verified-default/vllm)
+The source-build rows ran on November 27 (`main` with the capped first thinking pass), and the release ZIP and llama.cpp rows on November 25. All ran in cooled pieces that were kept only when the GPU stayed in P0, at 52–54 W GPU in busy decode for Basalt and 45 W for llama.cpp. The IQ3 source-build decode is the median of five decode runs (100.34 to 105.44); its other columns are from the one full run. These runs logged the GPU only; in the November 24 IQ3 decode, which logged both rails, the CPU cores added 3.8 W to the GPU's 47.5 W. The Arm64 port and vLLM rows are from November 24 and were not rerun; that day's busy decode drew 49.2 W for the port and 35.0 W for vLLM, and Basalt scored 92.76 (release ZIP, IQ3) and 85.28 (FP4-Local) under the same conditions. Basalt used four 262,144-token slots, INT8 KV and MTP 8. Native vLLM ran with FP8 target KV and MTP 7. [November 27 runs](results/2026-11-27-n1x-main-rerun) · [November 25 runs](results/2026-11-25-n1x-rerun) · [llama.cpp](results/2026-11-25-n1x-llama-cpp) · [November 24 runs](results/2026-11-24-n1x-cooled-release) · [vLLM](results/2026-11-24-n1x-verified-default/vllm)
 
 **November 24 memory and power, FP4 packs.** Both FP4 packs used the same native source build with all 24,576 GPU expert slots and Windows file caching for the n-gram table. Whole-GPU memory sampled each second during BetterBench had nearly identical medians (72.62 GiB DQ6_K, 72.77 GiB FP4-Local). The sampled peaks were **75.03 GiB** and **78.23 GiB**, respectively. DQ6_K started with 4.38 GiB of host expert backing versus 3.26 GiB for FP4-Local. During busy decode, their GPU means were 48.39 W at 73.77°C and 46.00 W at 73.11°C. A smaller GPU allocation needs a separate placement test. [Measured source](https://github.com/SuperDistance/basalt-rtx-spark/commit/1bc565f277a3fb02c6182ea5ba0e9086b3f637e0) · [DQ6_K telemetry](results/2026-11-24-n1x-nvfp4-dq6-k) · [FP4-Local telemetry](results/2026-11-24-n1x-fp4-resident-ring)
 
@@ -28,11 +28,11 @@ The Basalt and llama.cpp rows ran on November 25 in cooled pieces that were kept
 
 On November 24, on FP4-Local, Basalt read prompts faster than native vLLM at four of five depths. At the 32K target, Basalt processed **1,951 input tok/s** versus **2,123** for vLLM. At that depth Basalt still loaded some expert weights from file. vLLM led in four-stream mixed throughput. Busy decode averaged 46.00 W GPU for Basalt and 35.02 W for vLLM. The engines used different KV formats. [FP4-Local measurements](results/2026-11-24-n1x-fp4-resident-ring)
 
-![Median cold input tokens per second at five target prompt depths. This project has three columns, IQ3, FP4-Local and NVFP4-DQ6_K, from November 25. Reference columns are the Arm64 port with IQ3 and native vLLM with FP4-Local, both from November 24, and native llama.cpp with UD-IQ4_XS.](img/engines-prefill.svg)
+![Median cold input tokens per second at five target prompt depths. This project has three columns, IQ3, FP4-Local and NVFP4-DQ6_K, from the full November 27 runs. Reference columns are the Arm64 port with IQ3 and native vLLM with FP4-Local, both from November 24, and native llama.cpp with UD-IQ4_XS.](img/engines-prefill.svg)
 
-![Median output tokens per second in eight decode scenarios. This project has three columns, IQ3, FP4-Local and NVFP4-DQ6_K, from November 25. Reference columns are the Arm64 port with IQ3 and native vLLM with FP4-Local, both from November 24, and native llama.cpp with UD-IQ4_XS.](img/engines-decode.svg)
+![Median output tokens per second in eight decode scenarios. This project has three columns, IQ3, FP4-Local and NVFP4-DQ6_K, from the full November 27 runs. Reference columns are the Arm64 port with IQ3 and native vLLM with FP4-Local, both from November 24, and native llama.cpp with UD-IQ4_XS.](img/engines-decode.svg)
 
-![Aggregate output tokens per second at one through four streams. This project has three columns, IQ3, FP4-Local and NVFP4-DQ6_K, from November 25. Reference columns are the Arm64 port with IQ3 and native vLLM with FP4-Local, both from November 24, and native llama.cpp with UD-IQ4_XS.](img/engines-concurrency.svg)
+![Aggregate output tokens per second at one through four streams. This project has three columns, IQ3, FP4-Local and NVFP4-DQ6_K, from the full November 27 runs. Reference columns are the Arm64 port with IQ3 and native vLLM with FP4-Local, both from November 24, and native llama.cpp with UD-IQ4_XS.](img/engines-concurrency.svg)
 
 **FP4 prefill under memory pressure.** With a 2,560 MiB GPU reserve, the new 64-slot staging ring saved about 844 MiB versus the 384-slot ring. The same 23,633-token prompt stayed in one chunk and staged zero expert blobs from file, down from 1,586. Across two runs per configuration, mean time to first token fell **26.7%** (14.20 and 14.16 s to 10.41 and 10.38 s). On a fresh engine with the default 700 MiB reserve, the full ring fit. At 3,072 MiB neither ring fit outside the expert cache. [Controlled measurements and output checks](results/2026-11-24-n1x-fp4-prefill-chunks)
 
@@ -44,7 +44,7 @@ On one GB10, NInfer `a107b983` ran Flash-Next with NVFP4 main experts, MTP 3 and
 
 The documented Flash-Next weight packs for both Basalt engines include `NVFP4-DQ6_K`, `NVFP4-DQ8`, `UD-IQ1_S`, `UD-IQ1_M`, `UD-IQ2_XS`, `UD-IQ3_XXS`, `UD-IQ4_XS`, `UD-Q4_K_XL`, `UD-Q5_K_XL`, `UD-Q6_K_XL`, `Q8_0`. Basalt RTX Spark also completed BetterBench with NVIDIA `FP4-Local` converted to `.basalt`. The vLLM for RTX Spark 0.2.0 recipe for Flash-Next uses `FP4-Local`. The table above gives BetterBench throughput for the packs tested. [Basalt pack catalog](../docs/models/qwen38-flash-next.md#pack) · [vLLM release recipes](https://github.com/devjeonghwan/vllm-for-rtx-spark/blob/e9412963ff4619da5f97f8b5e3c2dd274967df87/README.md)
 
-At full power on November 25, FP4-Local led NVFP4-DQ6_K by **3.9 tok/s** for weighted decode (91.85 vs 87.94); on November 24 they had finished within 0.1 tok/s of each other. Of these three packs, **UD-IQ3_XXS** had the highest weighted decode rate on this laptop. For closer agreement with BF16, the pack publisher measured **91.65%** top-token agreement for DQ6_K versus **88.67%** for IQ3 on the same 100 WikiText-2 chunks. [Publisher’s quality test](https://huggingface.co/jesdga/Qwen3.8-Flash-Next-Basalt/blob/fc721830e519ab52012d372e89b90d9a7df30ff2/README.md#quality)
+On November 27, NVFP4-DQ6_K led FP4-Local by **1.1 tok/s** for weighted decode (95.37 vs 94.26). On November 25 FP4-Local had led by 3.9 tok/s, and on November 24 they finished within 0.1 tok/s of each other, so the two packs are about even. Of these three packs, **UD-IQ3_XXS** had the highest weighted decode rate on this laptop. For closer agreement with BF16, the pack publisher measured **91.65%** top-token agreement for DQ6_K versus **88.67%** for IQ3 on the same 100 WikiText-2 chunks. [Publisher’s quality test](https://huggingface.co/jesdga/Qwen3.8-Flash-Next-Basalt/blob/fc721830e519ab52012d372e89b90d9a7df30ff2/README.md#quality)
 
 Earlier N1X single-request tests measured output tokens per second for three prompt types. The ranges span two runs per pack.
 
@@ -62,14 +62,14 @@ The [benchmark archive](results) contains the individual runs and scheduler expe
 From the repository root, regenerate the charts with PowerShell.
 
 ```powershell
-$new = 'benchmarks/results/2026-11-25-n1x-rerun'
+$new = 'benchmarks/results/2026-11-27-n1x-main-rerun'
 $run = 'benchmarks/results/2026-11-24-n1x-cooled-release'
 $vllm = 'benchmarks/results/2026-11-24-n1x-verified-default/vllm/results.json'
 $llama = 'benchmarks/results/2026-11-25-n1x-llama-cpp/results.json'
 python benchmarks/plot.py --out benchmarks/img --prefix engines `
-  "$new/merged-iq3/results.json" 'Basalt RTX Spark (UD-IQ3_XXS)' `
-  "$new/merged-fp4-local/results.json" 'Basalt RTX Spark (NVIDIA FP4-Local)' `
-  "$new/merged-dq6k/results.json" 'Basalt RTX Spark (NVFP4-DQ6_K)' `
+  "$new/main-iq3/results.json" 'Basalt RTX Spark (UD-IQ3_XXS)' `
+  "$new/main-fp4-local/results.json" 'Basalt RTX Spark (NVIDIA FP4-Local)' `
+  "$new/main-dq6k/results.json" 'Basalt RTX Spark (NVFP4-DQ6_K)' `
   "$run/arm-port/results.json" 'Basalt + Arm64 port, Nov 24 (UD-IQ3_XXS)' `
   $vllm 'Native vLLM for RTX Spark, Nov 24 (NVIDIA FP4-Local)' `
   $llama 'Native llama.cpp (UD-IQ4_XS)'

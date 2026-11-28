@@ -1,0 +1,138 @@
+{
+  "schema": 2,
+  "betterbench_version": "0.6.1",
+  "corpus_version": "1.0",
+  "config": {
+    "temperature": 0.7,
+    "top_p": 0.95,
+    "top_k": 20,
+    "seed": null,
+    "greedy": false,
+    "warmup": 3,
+    "runs_per_category": 20,
+    "unique_nonce": true,
+    "run_single_stream": false,
+    "concurrency_levels": [
+      1,
+      2,
+      3,
+      4
+    ],
+    "concurrency_requests": 48,
+    "run_concurrency": false,
+    "run_prefill": true,
+    "prefill_depths": [
+      16000
+    ],
+    "prefill_runs": 8,
+    "prefill_warmup": 2,
+    "prefill_max_tokens": 16,
+    "prefill_ctx_margin": 256,
+    "max_model_len": 262144,
+    "weights": {
+      "code": 0.3,
+      "reasoning": 0.2,
+      "prose": 0.15,
+      "json": 0.15,
+      "file_edit": 0.1,
+      "summarization": 0.1
+    },
+    "conf": 0.95,
+    "target_mde_pct": 1.0,
+    "ab_max_pairs": 200,
+    "ab_min_pairs": 12,
+    "timeout_s": 600.0
+  },
+  "env": {
+    "timestamp": "2026-11-27T08:44:22-0800",
+    "host": "RTX Spark N1X",
+    "os": "Windows-11-10.0.28000-SP0",
+    "python": "3.13.18",
+    "endpoint": "http://127.0.0.1:8090/v1",
+    "model": "flash-next",
+    "gpu": {
+      "vendor": "nvidia",
+      "nvidia_smi": [
+        "NVIDIA RTX Spark N1X (6144-core Blackwell RTX GPU), 621.24, 487 MHz, 39.74, 0.43 W",
+        "NVIDIA NPU, 621.24, [N/A], 41.50, 0.00 W"
+      ]
+    },
+    "categories": [],
+    "notes": {
+      "engine": "29a1b77c (main 413c6a7c plus the capped first thinking pass, PR 27)",
+      "quant": "UD-IQ3_XXS",
+      "hardware": "RTX Spark N1X, 96 GB GPU split",
+      "piece": "prefill-16000 try=3"
+    },
+    "corpus_hash": "44136fa355b3678a",
+    "max_model_len": 262144
+  },
+  "prefill": [
+    {
+      "target_depth": 16000,
+      "prompt_tokens": [
+        11837,
+        11852,
+        11877,
+        11841,
+        11792,
+        11856,
+        11787,
+        11711
+      ],
+      "ttft_ms": [
+        4746.94150002324,
+        4778.022700018482,
+        4815.451000002213,
+        4833.085499994922,
+        4984.6550000074785,
+        4928.3265999984,
+        4906.5951999800745,
+        4858.38380001951
+      ],
+      "pp_tps": [
+        2493.60561952197,
+        2480.5240041982543,
+        2466.435646421185,
+        2449.9876941991693,
+        2365.6602111845873,
+        2405.684720652209,
+        2402.276837520215,
+        2410.4723879478133
+      ],
+      "tokens_per_update": [
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "cached_tokens": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "batched_runs": 0
+    }
+  ],
+  "sample_gate": {
+    "rule": "n * min(pct, 100-pct) / 100 >= 5",
+    "under_sampled": [
+      {
+        "section": "prefill",
+        "key": 16000,
+        "metric": "pp_p99",
+        "n": 8,
+        "need": 500
+      }
+    ]
+  }
+}

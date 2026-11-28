@@ -1,0 +1,73 @@
+{
+ "pieces": [
+  {
+   "piece": "decode-chat",
+   "try": 1,
+   "exit": 0,
+   "p0_share": 1.0,
+   "busy_w": 54.1,
+   "busy_samples": 68
+  },
+  {
+   "piece": "decode-code",
+   "try": 1,
+   "exit": 0,
+   "p0_share": 0.991,
+   "busy_w": 52.7,
+   "busy_samples": 110
+  },
+  {
+   "piece": "decode-file_edit",
+   "try": 1,
+   "exit": 0,
+   "p0_share": 0.986,
+   "busy_w": 55.2,
+   "busy_samples": 72
+  },
+  {
+   "piece": "decode-json",
+   "try": 1,
+   "exit": 0,
+   "p0_share": 1.0,
+   "busy_w": 57.1,
+   "busy_samples": 54
+  },
+  {
+   "piece": "decode-math",
+   "try": 1,
+   "exit": 0,
+   "p0_share": 1.0,
+   "busy_w": 55.7,
+   "busy_samples": 93
+  },
+  {
+   "piece": "decode-prose",
+   "try": 1,
+   "exit": 0,
+   "p0_share": 1.0,
+   "busy_w": 53.3,
+   "busy_samples": 132
+  },
+  {
+   "piece": "decode-reasoning",
+   "try": 1,
+   "exit": 0,
+   "p0_share": 0.993,
+   "busy_w": 51.4,
+   "busy_samples": 153
+  },
+  {
+   "piece": "decode-summarization",
+   "try": 1,
+   "exit": 0,
+   "p0_share": 1.0,
+   "busy_w": 58.9,
+   "busy_samples": 36
+  }
+ ],
+ "kept_min_p0_share": 0.986,
+ "kept_busy_w_range": [
+  51.4,
+  58.9
+ ]
+}
