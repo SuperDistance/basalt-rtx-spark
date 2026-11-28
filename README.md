@@ -83,24 +83,20 @@ Decode and prompt reads are in tokens per second, and first token is for a short
 [llama.cpp run](benchmarks/results/2026-11-25-n1x-llama-cpp) ·
 [November 24 runs](benchmarks/results/2026-11-24-n1x-cooled-release)
 
-### Against TensorFold on an RTX Spark desktop
+### Against TensorFold on the same laptop
 
-TensorFold's Windows on Arm port publishes [sparkDash](https://github.com/MiaAI-Lab/sparkDash) results from an ASUS
-ProArt GR1X, an RTX Spark desktop with the same GB10 chip. The same sparkDash workloads ran on this laptop.
+[TensorFold](https://github.com/ashhart/TensorFold) publishes a native Windows run on an HP OmniBook X 14 with the RTX
+Spark N1X and 128 GB, the laptop model these results come from. Its clients and settings differ from BetterBench:
+greedy, 400-token answers, timed end to end, with a ModelOpt FP4-Local Flash-Next.
 
-| sparkDash, tok/s | This project · N1X laptop · `UD-IQ3_XXS` | TensorFold 1.2.7 · GR1X desktop · `NVIDIA FP4-Local` |
-| --- | ---: | ---: |
-| Prose, 1 chat | **93.3** | 68.2 |
-| Prose with thinking, 1 chat | **87.3** | 58.2 |
-| Code, 1 chat | **148.0** | 98.6 |
-| Prose, 4 chats | 112.5 | **137.0** |
-| Code, 4 chats | 148.5 | **194.1** |
-| Prompt read, 2K / 16K / 64K / 128K | 2,154 / 2,406 / 2,343 / 2,178 | **3,198 / 2,778 / 2,627 / 2,504** |
+| Same N1X laptop | Decode, 1 chat (tok/s) | Decode, 4 chats (tok/s) | First token, short prompt |
+| --- | ---: | ---: | ---: |
+| **This project** · BetterBench · `UD-IQ3_XXS` | **105.44** | **125.3** | 0.27 s |
+| TensorFold 1.2.2 · its clients · `FP4-Local` | 37.3–50.4 (prose to code) | 70.0 | 0.22–0.28 s |
 
-For one chat this project is 37–50% faster. TensorFold leads at four chats and in prompt reads, by 49% at 2K and by
-12–16% from 16K up. The quants differ, and our run (November 26, before the wrap-up fix) averaged 47.9 W GPU.
-[Our sparkDash run](benchmarks/results/2026-11-26-n1x-join-and-sparkdash#sparkdash-on-basalt-rtx-spark) ·
-[TensorFold port results](https://github.com/edisonchan/Qwen3.8-Flash-Next-Single-DGX-Spark-TensorFold-RTX-Spark/blob/3c7572abf5edc933ab95556703f4dfde48be4336/README.en.md#b-performance-sparkdash-this-machine-windows-11-arm64)
+TensorFold reports 42–49 W GPU at about 2.1 GHz in HP's Performance mode. It needs 73–95 GiB of FP4 weights that
+this laptop does not hold, so it has not been rerun here.
+[TensorFold on the RTX Spark N1X](https://github.com/ashhart/TensorFold/blob/4e24e119104a6af3df568ea85af29de7421c5511/docs/WINDOWS.md#rtx-spark-n1x-a-receipt-2026-11-04)
 
 <details>
 <summary>Charts by scenario, number of chats and prompt depth; power, settings and other comparisons</summary>
@@ -123,10 +119,6 @@ For one chat this project is 37–50% faster. TensorFold leads at four chats and
   medians (72.62 GiB DQ6_K, 72.77 GiB FP4-Local) and peaks of 75.03 and 78.23 GiB.
   [Measured source](https://github.com/SuperDistance/basalt-rtx-spark/commit/1bc565f277a3fb02c6182ea5ba0e9086b3f637e0) ·
   [DQ6_K telemetry](benchmarks/results/2026-11-24-n1x-nvfp4-dq6-k) · [vLLM run](benchmarks/results/2026-11-24-n1x-verified-default/vllm)
-- **Strata on the same GPU.** The DGX Spark's GB10 has the N1X's GPU (Blackwell, 48 SMs, compute capability 12.1).
-  Strata reports 45.5–46.5 tok/s decode with IQ3_S on it, under Linux, and 1,296–1,735 tok/s prompt reads at 4K–32K.
-  Its test is not BetterBench (fresh 4K–32K prompts, temperature 0, 256-token answers), and Strata has no Windows on
-  Arm build, so it has not run on this laptop. [Strata DGX Spark results](https://github.com/Niko1221/Strata/blob/40fa01b31ec0768e7ab230ac65527c6d28617515/docs/DGX_SPARK_LINUX.md#speeds)
 - **Desktop GPU.** The Strata figure (90.2 tok/s, IQ3_S) is from a desktop RTX 4080 SUPER.
   [Desktop benchmark](benchmarks/desktop-decode.md)
 - **Apple M5 Max.** Strata lists 108.9 and 97.0 tok/s for IQ3_XXS on a 128 GB M5 Max (greedy, 200 tokens, a short
