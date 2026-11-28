@@ -1,5 +1,5 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="896" height="454" viewBox="0 0 896 454" role="img" aria-labelledby="title desc" font-family="Segoe UI, Helvetica, Arial, sans-serif">
-<title id="title">Single-stream decode by scenario (median)</title><desc id="desc">tok/s. chat: Basalt RTX Spark (UD-IQ3_XXS) 99, Basalt RTX Spark (NVIDIA FP4-Local) 83, Basalt RTX Spark (NVFP4-DQ6_K) 85, Basalt + Arm64 port, Nov 24 (UD-IQ3_XXS) 72, Native vLLM for RTX Spark, Nov 24 (NVIDIA FP4-Local) 50, Native llama.cpp (UD-IQ4_XS) 39. code: Basalt RTX Spark (UD-IQ3_XXS) 99, Basalt RTX Spark (NVIDIA FP4-Local) 96, Basalt RTX Spark (NVFP4-DQ6_K) 95, Basalt + Arm64 port, Nov 24 (UD-IQ3_XXS) 88, Native vLLM for RTX Spark, Nov 24 (NVIDIA FP4-Local) 52, Native llama.cpp (UD-IQ4_XS) 43. file_edit: Basalt RTX Spark (UD-IQ3_XXS) 111, Basalt RTX Spark (NVIDIA FP4-Local) 105, Basalt RTX Spark (NVFP4-DQ6_K) 109, Basalt + Arm64 port, Nov 24 (UD-IQ3_XXS) 84, Native vLLM for RTX Spark, Nov 24 (NVIDIA FP4-Local) 63, Native llama.cpp (UD-IQ4_XS) 49. json: Basalt RTX Spark (UD-IQ3_XXS) 127, Basalt RTX Spark (NVIDIA FP4-Local) 115, Basalt RTX Spark (NVFP4-DQ6_K) 120, Basalt + Arm64 port, Nov 24 (UD-IQ3_XXS) 111, Native vLLM for RTX Spark, Nov 24 (NVIDIA FP4-Local) 64, Native llama.cpp (UD-IQ4_XS) 56. math: Basalt RTX Spark (UD-IQ3_XXS) 116, Basalt RTX Spark (NVIDIA FP4-Local) 107, Basalt RTX Spark (NVFP4-DQ6_K) 111, Basalt + Arm64 port, Nov 24 (UD-IQ3_XXS) 103, Native vLLM for RTX Spark, Nov 24 (NVIDIA FP4-Local) 66, Native llama.cpp (UD-IQ4_XS) 56. prose: Basalt RTX Spark (UD-IQ3_XXS) 80, Basalt RTX Spark (NVIDIA FP4-Local) 73, Basalt RTX Spark (NVFP4-DQ6_K) 79, Basalt + Arm64 port, Nov 24 (UD-IQ3_XXS) 68, Native vLLM for RTX Spark, Nov 24 (NVIDIA FP4-Local) 48, Native llama.cpp (UD-IQ4_XS) 40. reasoning: Basalt RTX Spark (UD-IQ3_XXS) 88, Basalt RTX Spark (NVIDIA FP4-Local) 81, Basalt RTX Spark (NVFP4-DQ6_K) 81, Basalt + Arm64 port, Nov 24 (UD-IQ3_XXS) 69, Native vLLM for RTX Spark, Nov 24 (NVIDIA FP4-Local) 46, Native llama.cpp (UD-IQ4_XS) 39. summarization: Basalt RTX Spark (UD-IQ3_XXS) 107, Basalt RTX Spark (NVIDIA FP4-Local) 107, Basalt RTX Spark (NVFP4-DQ6_K) 98, Basalt + Arm64 port, Nov 24 (UD-IQ3_XXS) 85, Native vLLM for RTX Spark, Nov 24 (NVIDIA FP4-Local) 63, Native llama.cpp (UD-IQ4_XS) 51</desc>
+<title id="title">Single-stream decode by scenario (median)</title><desc id="desc">tok/s. chat: Basalt RTX Spark (UD-IQ3_XXS) 94, Basalt RTX Spark (NVIDIA FP4-Local) 83, Basalt RTX Spark (NVFP4-DQ6_K) 85, Basalt + Arm64 port, Nov 24 (UD-IQ3_XXS) 72, Native vLLM for RTX Spark, Nov 24 (NVIDIA FP4-Local) 50, Native llama.cpp (UD-IQ4_XS) 39. code: Basalt RTX Spark (UD-IQ3_XXS) 109, Basalt RTX Spark (NVIDIA FP4-Local) 96, Basalt RTX Spark (NVFP4-DQ6_K) 95, Basalt + Arm64 port, Nov 24 (UD-IQ3_XXS) 88, Native vLLM for RTX Spark, Nov 24 (NVIDIA FP4-Local) 52, Native llama.cpp (UD-IQ4_XS) 43. file_edit: Basalt RTX Spark (UD-IQ3_XXS) 119, Basalt RTX Spark (NVIDIA FP4-Local) 105, Basalt RTX Spark (NVFP4-DQ6_K) 109, Basalt + Arm64 port, Nov 24 (UD-IQ3_XXS) 84, Native vLLM for RTX Spark, Nov 24 (NVIDIA FP4-Local) 63, Native llama.cpp (UD-IQ4_XS) 49. json: Basalt RTX Spark (UD-IQ3_XXS) 126, Basalt RTX Spark (NVIDIA FP4-Local) 115, Basalt RTX Spark (NVFP4-DQ6_K) 120, Basalt + Arm64 port, Nov 24 (UD-IQ3_XXS) 111, Native vLLM for RTX Spark, Nov 24 (NVIDIA FP4-Local) 64, Native llama.cpp (UD-IQ4_XS) 56. math: Basalt RTX Spark (UD-IQ3_XXS) 119, Basalt RTX Spark (NVIDIA FP4-Local) 107, Basalt RTX Spark (NVFP4-DQ6_K) 111, Basalt + Arm64 port, Nov 24 (UD-IQ3_XXS) 103, Native vLLM for RTX Spark, Nov 24 (NVIDIA FP4-Local) 66, Native llama.cpp (UD-IQ4_XS) 56. prose: Basalt RTX Spark (UD-IQ3_XXS) 87, Basalt RTX Spark (NVIDIA FP4-Local) 73, Basalt RTX Spark (NVFP4-DQ6_K) 79, Basalt + Arm64 port, Nov 24 (UD-IQ3_XXS) 68, Native vLLM for RTX Spark, Nov 24 (NVIDIA FP4-Local) 48, Native llama.cpp (UD-IQ4_XS) 40. reasoning: Basalt RTX Spark (UD-IQ3_XXS) 90, Basalt RTX Spark (NVIDIA FP4-Local) 81, Basalt RTX Spark (NVFP4-DQ6_K) 81, Basalt + Arm64 port, Nov 24 (UD-IQ3_XXS) 69, Native vLLM for RTX Spark, Nov 24 (NVIDIA FP4-Local) 46, Native llama.cpp (UD-IQ4_XS) 39. summarization: Basalt RTX Spark (UD-IQ3_XXS) 110, Basalt RTX Spark (NVIDIA FP4-Local) 107, Basalt RTX Spark (NVFP4-DQ6_K) 98, Basalt + Arm64 port, Nov 24 (UD-IQ3_XXS) 85, Native vLLM for RTX Spark, Nov 24 (NVIDIA FP4-Local) 63, Native llama.cpp (UD-IQ4_XS) 51</desc>
 <rect width="896" height="454" rx="10" fill="#fbfcfc"/>
 <text x="16" y="28" font-size="20" font-weight="700" fill="#182c33">Single-stream decode by scenario (median)</text>
 <text x="880" y="28" font-size="14" text-anchor="end" fill="#435760">tok/s</text>
@@ -8,160 +8,160 @@
 <rect x="496" y="42" width="381" height="405" rx="7" fill="#edf1f4"/>
 <text x="503" y="63" font-size="13" font-weight="700" fill="#3d5363">REFERENCE ENGINES</text>
 <text x="120" y="84" font-size="14" font-weight="600" fill="#22353b">UD-IQ3_XXS</text>
-<text x="120" y="146" font-size="17" font-weight="600" fill="#152b33">99</text>
+<text x="120" y="146" font-size="17" font-weight="600" fill="#152b33">94</text>
 <rect x="120" y="151" width="108" height="5" rx="2.5" fill="#cdd8db"/>
-<rect x="120" y="151" width="84.06" height="5" rx="2.5" fill="#76B900"/>
-<text x="120" y="185" font-size="17" font-weight="600" fill="#152b33">99</text>
+<rect x="120" y="151" width="81.06" height="5" rx="2.5" fill="#76B900"/>
+<text x="120" y="185" font-size="17" font-weight="600" fill="#152b33">109</text>
 <rect x="120" y="190" width="108" height="5" rx="2.5" fill="#cdd8db"/>
-<rect x="120" y="190" width="84.25" height="5" rx="2.5" fill="#76B900"/>
-<text x="120" y="224" font-size="17" font-weight="600" fill="#152b33">111</text>
+<rect x="120" y="190" width="93.65" height="5" rx="2.5" fill="#76B900"/>
+<text x="120" y="224" font-size="17" font-weight="600" fill="#152b33">119</text>
 <rect x="120" y="229" width="108" height="5" rx="2.5" fill="#cdd8db"/>
-<rect x="120" y="229" width="93.90" height="5" rx="2.5" fill="#76B900"/>
-<text x="120" y="263" font-size="17" font-weight="600" fill="#152b33">127</text>
+<rect x="120" y="229" width="102.80" height="5" rx="2.5" fill="#76B900"/>
+<text x="120" y="263" font-size="17" font-weight="600" fill="#152b33">126</text>
 <rect x="120" y="268" width="108" height="5" rx="2.5" fill="#cdd8db"/>
 <rect x="120" y="268" width="108.00" height="5" rx="2.5" fill="#76B900"/>
-<text x="120" y="302" font-size="17" font-weight="600" fill="#152b33">116</text>
+<text x="120" y="302" font-size="17" font-weight="600" fill="#152b33">119</text>
 <rect x="120" y="307" width="108" height="5" rx="2.5" fill="#cdd8db"/>
-<rect x="120" y="307" width="97.96" height="5" rx="2.5" fill="#76B900"/>
-<text x="120" y="341" font-size="17" font-weight="600" fill="#152b33">80</text>
+<rect x="120" y="307" width="102.58" height="5" rx="2.5" fill="#76B900"/>
+<text x="120" y="341" font-size="17" font-weight="600" fill="#152b33">87</text>
 <rect x="120" y="346" width="108" height="5" rx="2.5" fill="#cdd8db"/>
-<rect x="120" y="346" width="67.70" height="5" rx="2.5" fill="#76B900"/>
-<text x="120" y="380" font-size="17" font-weight="600" fill="#152b33">88</text>
+<rect x="120" y="346" width="74.63" height="5" rx="2.5" fill="#76B900"/>
+<text x="120" y="380" font-size="17" font-weight="600" fill="#152b33">90</text>
 <rect x="120" y="385" width="108" height="5" rx="2.5" fill="#cdd8db"/>
-<rect x="120" y="385" width="74.71" height="5" rx="2.5" fill="#76B900"/>
-<text x="120" y="419" font-size="17" font-weight="600" fill="#152b33">107</text>
+<rect x="120" y="385" width="77.58" height="5" rx="2.5" fill="#76B900"/>
+<text x="120" y="419" font-size="17" font-weight="600" fill="#152b33">110</text>
 <rect x="120" y="424" width="108" height="5" rx="2.5" fill="#cdd8db"/>
-<rect x="120" y="424" width="90.78" height="5" rx="2.5" fill="#76B900"/>
+<rect x="120" y="424" width="94.33" height="5" rx="2.5" fill="#76B900"/>
 <text x="248" y="84" font-size="14" font-weight="600" fill="#22353b">NVIDIA FP4-Local</text>
 <text x="248" y="146" font-size="17" font-weight="600" fill="#152b33">83</text>
 <rect x="248" y="151" width="108" height="5" rx="2.5" fill="#cdd8db"/>
-<rect x="248" y="151" width="70.22" height="5" rx="2.5" fill="#008675"/>
+<rect x="248" y="151" width="71.29" height="5" rx="2.5" fill="#008675"/>
 <text x="248" y="185" font-size="17" font-weight="600" fill="#152b33">96</text>
 <rect x="248" y="190" width="108" height="5" rx="2.5" fill="#cdd8db"/>
-<rect x="248" y="190" width="81.31" height="5" rx="2.5" fill="#008675"/>
+<rect x="248" y="190" width="82.54" height="5" rx="2.5" fill="#008675"/>
 <text x="248" y="224" font-size="17" font-weight="600" fill="#152b33">105</text>
 <rect x="248" y="229" width="108" height="5" rx="2.5" fill="#cdd8db"/>
-<rect x="248" y="229" width="88.71" height="5" rx="2.5" fill="#008675"/>
+<rect x="248" y="229" width="90.06" height="5" rx="2.5" fill="#008675"/>
 <text x="248" y="263" font-size="17" font-weight="600" fill="#152b33">115</text>
 <rect x="248" y="268" width="108" height="5" rx="2.5" fill="#cdd8db"/>
-<rect x="248" y="268" width="97.23" height="5" rx="2.5" fill="#008675"/>
+<rect x="248" y="268" width="98.71" height="5" rx="2.5" fill="#008675"/>
 <text x="248" y="302" font-size="17" font-weight="600" fill="#152b33">107</text>
 <rect x="248" y="307" width="108" height="5" rx="2.5" fill="#cdd8db"/>
-<rect x="248" y="307" width="90.63" height="5" rx="2.5" fill="#008675"/>
+<rect x="248" y="307" width="92.01" height="5" rx="2.5" fill="#008675"/>
 <text x="248" y="341" font-size="17" font-weight="600" fill="#152b33">73</text>
 <rect x="248" y="346" width="108" height="5" rx="2.5" fill="#cdd8db"/>
-<rect x="248" y="346" width="62.15" height="5" rx="2.5" fill="#008675"/>
+<rect x="248" y="346" width="63.09" height="5" rx="2.5" fill="#008675"/>
 <text x="248" y="380" font-size="17" font-weight="600" fill="#152b33">81</text>
 <rect x="248" y="385" width="108" height="5" rx="2.5" fill="#cdd8db"/>
-<rect x="248" y="385" width="68.23" height="5" rx="2.5" fill="#008675"/>
+<rect x="248" y="385" width="69.27" height="5" rx="2.5" fill="#008675"/>
 <text x="248" y="419" font-size="17" font-weight="600" fill="#152b33">107</text>
 <rect x="248" y="424" width="108" height="5" rx="2.5" fill="#cdd8db"/>
-<rect x="248" y="424" width="90.71" height="5" rx="2.5" fill="#008675"/>
+<rect x="248" y="424" width="92.08" height="5" rx="2.5" fill="#008675"/>
 <text x="376" y="84" font-size="14" font-weight="600" fill="#22353b">NVFP4-DQ6_K</text>
 <text x="376" y="146" font-size="17" font-weight="600" fill="#152b33">85</text>
 <rect x="376" y="151" width="108" height="5" rx="2.5" fill="#cdd8db"/>
-<rect x="376" y="151" width="72.36" height="5" rx="2.5" fill="#518255"/>
+<rect x="376" y="151" width="73.46" height="5" rx="2.5" fill="#518255"/>
 <text x="376" y="185" font-size="17" font-weight="600" fill="#152b33">95</text>
 <rect x="376" y="190" width="108" height="5" rx="2.5" fill="#cdd8db"/>
-<rect x="376" y="190" width="80.76" height="5" rx="2.5" fill="#518255"/>
+<rect x="376" y="190" width="81.98" height="5" rx="2.5" fill="#518255"/>
 <text x="376" y="224" font-size="17" font-weight="600" fill="#152b33">109</text>
 <rect x="376" y="229" width="108" height="5" rx="2.5" fill="#cdd8db"/>
-<rect x="376" y="229" width="92.09" height="5" rx="2.5" fill="#518255"/>
+<rect x="376" y="229" width="93.49" height="5" rx="2.5" fill="#518255"/>
 <text x="376" y="263" font-size="17" font-weight="600" fill="#152b33">120</text>
 <rect x="376" y="268" width="108" height="5" rx="2.5" fill="#cdd8db"/>
-<rect x="376" y="268" width="101.90" height="5" rx="2.5" fill="#518255"/>
+<rect x="376" y="268" width="103.45" height="5" rx="2.5" fill="#518255"/>
 <text x="376" y="302" font-size="17" font-weight="600" fill="#152b33">111</text>
 <rect x="376" y="307" width="108" height="5" rx="2.5" fill="#cdd8db"/>
-<rect x="376" y="307" width="94.43" height="5" rx="2.5" fill="#518255"/>
+<rect x="376" y="307" width="95.87" height="5" rx="2.5" fill="#518255"/>
 <text x="376" y="341" font-size="17" font-weight="600" fill="#152b33">79</text>
 <rect x="376" y="346" width="108" height="5" rx="2.5" fill="#cdd8db"/>
-<rect x="376" y="346" width="66.66" height="5" rx="2.5" fill="#518255"/>
+<rect x="376" y="346" width="67.67" height="5" rx="2.5" fill="#518255"/>
 <text x="376" y="380" font-size="17" font-weight="600" fill="#152b33">81</text>
 <rect x="376" y="385" width="108" height="5" rx="2.5" fill="#cdd8db"/>
-<rect x="376" y="385" width="69.03" height="5" rx="2.5" fill="#518255"/>
+<rect x="376" y="385" width="70.08" height="5" rx="2.5" fill="#518255"/>
 <text x="376" y="419" font-size="17" font-weight="600" fill="#152b33">98</text>
 <rect x="376" y="424" width="108" height="5" rx="2.5" fill="#cdd8db"/>
-<rect x="376" y="424" width="83.00" height="5" rx="2.5" fill="#518255"/>
+<rect x="376" y="424" width="84.26" height="5" rx="2.5" fill="#518255"/>
 <text x="504" y="84" font-size="14" font-weight="600" fill="#22353b">Basalt +</text>
 <text x="504" y="100" font-size="12" font-weight="400" fill="#22353b">Arm64 port, Nov 24</text>
 <text x="504" y="116" font-size="12" font-weight="400" fill="#22353b">UD-IQ3_XXS</text>
 <text x="504" y="146" font-size="17" font-weight="600" fill="#152b33">72</text>
 <rect x="504" y="151" width="108" height="5" rx="2.5" fill="#cdd8db"/>
-<rect x="504" y="151" width="60.89" height="5" rx="2.5" fill="#7A8794"/>
+<rect x="504" y="151" width="61.81" height="5" rx="2.5" fill="#7A8794"/>
 <text x="504" y="185" font-size="17" font-weight="600" fill="#152b33">88</text>
 <rect x="504" y="190" width="108" height="5" rx="2.5" fill="#cdd8db"/>
-<rect x="504" y="190" width="74.62" height="5" rx="2.5" fill="#7A8794"/>
+<rect x="504" y="190" width="75.76" height="5" rx="2.5" fill="#7A8794"/>
 <text x="504" y="224" font-size="17" font-weight="600" fill="#152b33">84</text>
 <rect x="504" y="229" width="108" height="5" rx="2.5" fill="#cdd8db"/>
-<rect x="504" y="229" width="71.09" height="5" rx="2.5" fill="#7A8794"/>
+<rect x="504" y="229" width="72.17" height="5" rx="2.5" fill="#7A8794"/>
 <text x="504" y="263" font-size="17" font-weight="600" fill="#152b33">111</text>
 <rect x="504" y="268" width="108" height="5" rx="2.5" fill="#cdd8db"/>
-<rect x="504" y="268" width="94.44" height="5" rx="2.5" fill="#7A8794"/>
+<rect x="504" y="268" width="95.87" height="5" rx="2.5" fill="#7A8794"/>
 <text x="504" y="302" font-size="17" font-weight="600" fill="#152b33">103</text>
 <rect x="504" y="307" width="108" height="5" rx="2.5" fill="#cdd8db"/>
-<rect x="504" y="307" width="87.37" height="5" rx="2.5" fill="#7A8794"/>
+<rect x="504" y="307" width="88.69" height="5" rx="2.5" fill="#7A8794"/>
 <text x="504" y="341" font-size="17" font-weight="600" fill="#152b33">68</text>
 <rect x="504" y="346" width="108" height="5" rx="2.5" fill="#cdd8db"/>
-<rect x="504" y="346" width="57.47" height="5" rx="2.5" fill="#7A8794"/>
+<rect x="504" y="346" width="58.34" height="5" rx="2.5" fill="#7A8794"/>
 <text x="504" y="380" font-size="17" font-weight="600" fill="#152b33">69</text>
 <rect x="504" y="385" width="108" height="5" rx="2.5" fill="#cdd8db"/>
-<rect x="504" y="385" width="58.58" height="5" rx="2.5" fill="#7A8794"/>
+<rect x="504" y="385" width="59.47" height="5" rx="2.5" fill="#7A8794"/>
 <text x="504" y="419" font-size="17" font-weight="600" fill="#152b33">85</text>
 <rect x="504" y="424" width="108" height="5" rx="2.5" fill="#cdd8db"/>
-<rect x="504" y="424" width="72.33" height="5" rx="2.5" fill="#7A8794"/>
+<rect x="504" y="424" width="73.43" height="5" rx="2.5" fill="#7A8794"/>
 <text x="632" y="84" font-size="14" font-weight="600" fill="#22353b">Native vLLM</text>
 <text x="632" y="100" font-size="12" font-weight="400" fill="#22353b">for RTX Spark, Nov 24</text>
 <text x="632" y="116" font-size="12" font-weight="400" fill="#22353b">NVIDIA FP4-Local</text>
 <text x="632" y="146" font-size="17" font-weight="600" fill="#152b33">50</text>
 <rect x="632" y="151" width="108" height="5" rx="2.5" fill="#cdd8db"/>
-<rect x="632" y="151" width="41.96" height="5" rx="2.5" fill="#3B82C4"/>
+<rect x="632" y="151" width="42.60" height="5" rx="2.5" fill="#3B82C4"/>
 <text x="632" y="185" font-size="17" font-weight="600" fill="#152b33">52</text>
 <rect x="632" y="190" width="108" height="5" rx="2.5" fill="#cdd8db"/>
-<rect x="632" y="190" width="44.04" height="5" rx="2.5" fill="#3B82C4"/>
+<rect x="632" y="190" width="44.71" height="5" rx="2.5" fill="#3B82C4"/>
 <text x="632" y="224" font-size="17" font-weight="600" fill="#152b33">63</text>
 <rect x="632" y="229" width="108" height="5" rx="2.5" fill="#cdd8db"/>
-<rect x="632" y="229" width="53.46" height="5" rx="2.5" fill="#3B82C4"/>
+<rect x="632" y="229" width="54.27" height="5" rx="2.5" fill="#3B82C4"/>
 <text x="632" y="263" font-size="17" font-weight="600" fill="#152b33">64</text>
 <rect x="632" y="268" width="108" height="5" rx="2.5" fill="#cdd8db"/>
-<rect x="632" y="268" width="54.62" height="5" rx="2.5" fill="#3B82C4"/>
+<rect x="632" y="268" width="55.45" height="5" rx="2.5" fill="#3B82C4"/>
 <text x="632" y="302" font-size="17" font-weight="600" fill="#152b33">66</text>
 <rect x="632" y="307" width="108" height="5" rx="2.5" fill="#cdd8db"/>
-<rect x="632" y="307" width="55.61" height="5" rx="2.5" fill="#3B82C4"/>
+<rect x="632" y="307" width="56.46" height="5" rx="2.5" fill="#3B82C4"/>
 <text x="632" y="341" font-size="17" font-weight="600" fill="#152b33">48</text>
 <rect x="632" y="346" width="108" height="5" rx="2.5" fill="#cdd8db"/>
-<rect x="632" y="346" width="40.30" height="5" rx="2.5" fill="#3B82C4"/>
+<rect x="632" y="346" width="40.91" height="5" rx="2.5" fill="#3B82C4"/>
 <text x="632" y="380" font-size="17" font-weight="600" fill="#152b33">46</text>
 <rect x="632" y="385" width="108" height="5" rx="2.5" fill="#cdd8db"/>
-<rect x="632" y="385" width="38.99" height="5" rx="2.5" fill="#3B82C4"/>
+<rect x="632" y="385" width="39.58" height="5" rx="2.5" fill="#3B82C4"/>
 <text x="632" y="419" font-size="17" font-weight="600" fill="#152b33">63</text>
 <rect x="632" y="424" width="108" height="5" rx="2.5" fill="#cdd8db"/>
-<rect x="632" y="424" width="53.31" height="5" rx="2.5" fill="#3B82C4"/>
+<rect x="632" y="424" width="54.12" height="5" rx="2.5" fill="#3B82C4"/>
 <text x="760" y="84" font-size="14" font-weight="600" fill="#22353b">Native llama.cpp</text>
 <text x="760" y="100" font-size="12" font-weight="400" fill="#22353b">UD-IQ4_XS</text>
 <text x="760" y="146" font-size="17" font-weight="600" fill="#152b33">39</text>
 <rect x="760" y="151" width="108" height="5" rx="2.5" fill="#cdd8db"/>
-<rect x="760" y="151" width="33.42" height="5" rx="2.5" fill="#9B59B6"/>
+<rect x="760" y="151" width="33.92" height="5" rx="2.5" fill="#9B59B6"/>
 <text x="760" y="185" font-size="17" font-weight="600" fill="#152b33">43</text>
 <rect x="760" y="190" width="108" height="5" rx="2.5" fill="#cdd8db"/>
-<rect x="760" y="190" width="36.42" height="5" rx="2.5" fill="#9B59B6"/>
+<rect x="760" y="190" width="36.98" height="5" rx="2.5" fill="#9B59B6"/>
 <text x="760" y="224" font-size="17" font-weight="600" fill="#152b33">49</text>
 <rect x="760" y="229" width="108" height="5" rx="2.5" fill="#cdd8db"/>
-<rect x="760" y="229" width="41.73" height="5" rx="2.5" fill="#9B59B6"/>
+<rect x="760" y="229" width="42.36" height="5" rx="2.5" fill="#9B59B6"/>
 <text x="760" y="263" font-size="17" font-weight="600" fill="#152b33">56</text>
 <rect x="760" y="268" width="108" height="5" rx="2.5" fill="#cdd8db"/>
-<rect x="760" y="268" width="47.15" height="5" rx="2.5" fill="#9B59B6"/>
+<rect x="760" y="268" width="47.87" height="5" rx="2.5" fill="#9B59B6"/>
 <text x="760" y="302" font-size="17" font-weight="600" fill="#152b33">56</text>
 <rect x="760" y="307" width="108" height="5" rx="2.5" fill="#cdd8db"/>
-<rect x="760" y="307" width="47.34" height="5" rx="2.5" fill="#9B59B6"/>
+<rect x="760" y="307" width="48.06" height="5" rx="2.5" fill="#9B59B6"/>
 <text x="760" y="341" font-size="17" font-weight="600" fill="#152b33">40</text>
 <rect x="760" y="346" width="108" height="5" rx="2.5" fill="#cdd8db"/>
-<rect x="760" y="346" width="34.20" height="5" rx="2.5" fill="#9B59B6"/>
+<rect x="760" y="346" width="34.72" height="5" rx="2.5" fill="#9B59B6"/>
 <text x="760" y="380" font-size="17" font-weight="600" fill="#152b33">39</text>
 <rect x="760" y="385" width="108" height="5" rx="2.5" fill="#cdd8db"/>
-<rect x="760" y="385" width="32.77" height="5" rx="2.5" fill="#9B59B6"/>
+<rect x="760" y="385" width="33.27" height="5" rx="2.5" fill="#9B59B6"/>
 <text x="760" y="419" font-size="17" font-weight="600" fill="#152b33">51</text>
 <rect x="760" y="424" width="108" height="5" rx="2.5" fill="#cdd8db"/>
-<rect x="760" y="424" width="43.45" height="5" rx="2.5" fill="#9B59B6"/>
+<rect x="760" y="424" width="44.11" height="5" rx="2.5" fill="#9B59B6"/>
 <text x="16" y="146" font-size="14" font-weight="600" fill="#243840">chat</text>
 <text x="16" y="185" font-size="14" font-weight="600" fill="#243840">code</text>
 <text x="16" y="224" font-size="14" font-weight="600" fill="#243840">file_edit</text>

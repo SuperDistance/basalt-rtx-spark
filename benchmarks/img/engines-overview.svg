@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="810" height="419" viewBox="0 0 810 419" role="img" aria-labelledby="title desc" font-family="Segoe UI, Helvetica, Arial, sans-serif">
 <title id="title">BetterBench · decode, four streams and cold prefill</title>
-<desc id="desc">Decode · 1 stream: Basalt RTX Spark (UD-IQ3_XXS) 100.34 tok/s, Basalt RTX Spark (NVIDIA FP4-Local) 94.26 tok/s, Basalt RTX Spark (NVFP4-DQ6_K) 95.37 tok/s, Basalt + Arm64 port, Nov 24 (UD-IQ3_XXS) 84.05 tok/s, Native vLLM for RTX Spark, Nov 24 (NVIDIA FP4-Local) 54.19 tok/s, Native llama.cpp (UD-IQ4_XS) 45.08 tok/s. Decode · 4 streams: Basalt RTX Spark (UD-IQ3_XXS) 125.3 tok/s, Basalt RTX Spark (NVIDIA FP4-Local) 106.1 tok/s, Basalt RTX Spark (NVFP4-DQ6_K) 105.2 tok/s, Basalt + Arm64 port, Nov 24 (UD-IQ3_XXS) 85.2 tok/s, Native vLLM for RTX Spark, Nov 24 (NVIDIA FP4-Local) 100.7 tok/s, Native llama.cpp (UD-IQ4_XS) 67.2 tok/s. Cold prefill: Basalt RTX Spark (UD-IQ3_XXS) 1,928 tok/s, Basalt RTX Spark (NVIDIA FP4-Local) 1,715 tok/s, Basalt RTX Spark (NVFP4-DQ6_K) 1,706 tok/s, Basalt + Arm64 port, Nov 24 (UD-IQ3_XXS) 967 tok/s, Native vLLM for RTX Spark, Nov 24 (NVIDIA FP4-Local) 1,511 tok/s, Native llama.cpp (UD-IQ4_XS) 828 tok/s</desc>
+<desc id="desc">Decode · 1 stream: Basalt RTX Spark (UD-IQ3_XXS) 105.44 tok/s, Basalt RTX Spark (NVIDIA FP4-Local) 94.26 tok/s, Basalt RTX Spark (NVFP4-DQ6_K) 95.37 tok/s, Basalt + Arm64 port, Nov 24 (UD-IQ3_XXS) 84.05 tok/s, Native vLLM for RTX Spark, Nov 24 (NVIDIA FP4-Local) 54.19 tok/s, Native llama.cpp (UD-IQ4_XS) 45.08 tok/s. Decode · 4 streams: Basalt RTX Spark (UD-IQ3_XXS) 125.3 tok/s, Basalt RTX Spark (NVIDIA FP4-Local) 106.1 tok/s, Basalt RTX Spark (NVFP4-DQ6_K) 105.2 tok/s, Basalt + Arm64 port, Nov 24 (UD-IQ3_XXS) 85.2 tok/s, Native vLLM for RTX Spark, Nov 24 (NVIDIA FP4-Local) 100.7 tok/s, Native llama.cpp (UD-IQ4_XS) 67.2 tok/s. Cold prefill: Basalt RTX Spark (UD-IQ3_XXS) 1,928 tok/s, Basalt RTX Spark (NVIDIA FP4-Local) 1,715 tok/s, Basalt RTX Spark (NVFP4-DQ6_K) 1,706 tok/s, Basalt + Arm64 port, Nov 24 (UD-IQ3_XXS) 967 tok/s, Native vLLM for RTX Spark, Nov 24 (NVIDIA FP4-Local) 1,511 tok/s, Native llama.cpp (UD-IQ4_XS) 828 tok/s</desc>
 <rect width="810" height="419" rx="12" fill="#101e26"/>
 <text x="22" y="32" font-size="23" font-weight="700" fill="#f0f6f5">BetterBench · decode, four streams and cold prefill</text>
 <rect x="10" y="84" width="790" height="157" rx="7" fill="#1b382f"/>
@@ -9,24 +9,24 @@
 <text x="23" y="271" font-size="14" font-weight="700" fill="#bfccd1">REFERENCE ENGINES</text>
 <text x="300" y="59" font-size="16" font-weight="600" fill="#f0f6f5">Decode · 1 stream</text>
 <text x="300" y="76" font-size="12" fill="#b7c9d0">weighted output tok/s</text>
-<text x="300" y="130" font-size="21" font-weight="700" fill="#a6ed60">100.34</text>
+<text x="300" y="130" font-size="21" font-weight="700" fill="#a6ed60">105.44</text>
 <rect x="300" y="136" width="147" height="6" rx="3" fill="#293b46"/>
 <rect x="300" y="136" width="147.00" height="6" rx="3" fill="#a6ed60"/>
 <text x="300" y="177" font-size="21" font-weight="700" fill="#7fdbca">94.26</text>
 <rect x="300" y="183" width="147" height="6" rx="3" fill="#293b46"/>
-<rect x="300" y="183" width="138.10" height="6" rx="3" fill="#7fdbca"/>
+<rect x="300" y="183" width="131.42" height="6" rx="3" fill="#7fdbca"/>
 <text x="300" y="224" font-size="21" font-weight="700" fill="#acd9aa">95.37</text>
 <rect x="300" y="230" width="147" height="6" rx="3" fill="#293b46"/>
-<rect x="300" y="230" width="139.72" height="6" rx="3" fill="#acd9aa"/>
+<rect x="300" y="230" width="132.96" height="6" rx="3" fill="#acd9aa"/>
 <text x="300" y="297" font-size="21" font-weight="700" fill="#a8c1d0">84.05</text>
 <rect x="300" y="303" width="147" height="6" rx="3" fill="#293b46"/>
-<rect x="300" y="303" width="123.13" height="6" rx="3" fill="#a8c1d0"/>
+<rect x="300" y="303" width="117.18" height="6" rx="3" fill="#a8c1d0"/>
 <text x="300" y="344" font-size="21" font-weight="700" fill="#a8c1d0">54.19</text>
 <rect x="300" y="350" width="147" height="6" rx="3" fill="#293b46"/>
-<rect x="300" y="350" width="79.39" height="6" rx="3" fill="#a8c1d0"/>
+<rect x="300" y="350" width="75.55" height="6" rx="3" fill="#a8c1d0"/>
 <text x="300" y="391" font-size="21" font-weight="700" fill="#a8c1d0">45.08</text>
 <rect x="300" y="397" width="147" height="6" rx="3" fill="#293b46"/>
-<rect x="300" y="397" width="66.04" height="6" rx="3" fill="#a8c1d0"/>
+<rect x="300" y="397" width="62.84" height="6" rx="3" fill="#a8c1d0"/>
 <text x="466" y="59" font-size="16" font-weight="600" fill="#f0f6f5">Decode · 4 streams</text>
 <text x="466" y="76" font-size="12" fill="#b7c9d0">aggregate output tok/s</text>
 <text x="466" y="130" font-size="21" font-weight="700" fill="#a6ed60">125.3</text>
