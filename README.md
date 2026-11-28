@@ -7,8 +7,8 @@ Run **Qwen3.8-Flash-Next**, a ~120B-parameter mixture-of-experts model, entirely
 together. That is faster than a desktop RTX 4080 SUPER on this model (90.2 tok/s with Strata), and nothing leaves the
 machine.
 
-**The goal:** the fastest Qwen3.8-Flash-Next on RTX Spark devices running Windows on Arm, for one chat and for up to
-four at once without freezing any of them.
+**The goal:** the fastest Qwen3.8-Flash-Next on RTX Spark devices running Windows on Arm, while keeping decent decode
+speed with four concurrent requests, and no request freezing while a cold prompt joins.
 
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 ![Windows on Arm64](https://img.shields.io/badge/Windows-Arm64-0078D4)
