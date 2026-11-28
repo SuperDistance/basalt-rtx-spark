@@ -1,9 +1,9 @@
 # Basalt RTX Spark
 
-### A 120B-class model at 99 tokens/s on your RTX Spark laptop. Native Windows on Arm, no WSL.
+### A 120B-class model at 104 tokens/s on your RTX Spark laptop. Native Windows on Arm, no WSL.
 
 Run **Qwen3.8-Flash-Next**, a ~120B-parameter mixture-of-experts model, entirely on an NVIDIA RTX Spark N1X laptop:
-**98.9 tok/s** for one chat, **121 tok/s** across four, a **0.27 s** first token, at about **58 W** for CPU and GPU together.
+**104 tok/s** for one chat, **125 tok/s** across four, a **0.27 s** first token, at about **58 W** for CPU and GPU together.
 That beats a desktop RTX 4080 SUPER on this model (90.2 tok/s with Strata), and nothing leaves the machine.
 
 **The goal:** the fastest single-chat decode for Qwen3.8-Flash-Next and Qwen 4 Flash, plus up to four chats at once
@@ -15,7 +15,7 @@ with no frozen chat: a new long prompt is read alongside the chats already decod
 ![CUDA sm_121](https://img.shields.io/badge/CUDA-sm__121-426417)
 
 **[⬇ Download for Windows Arm64](https://github.com/SuperDistance/basalt-rtx-spark/releases/latest)** ·
-[Quick start](#quick-start) · [Results](#results) · [Which model pack?](#which-model-pack)
+[Quick start](#quick-start) · [Results](#results) · [Which model pack?](#which-model-pack) · [How it gets its speed](#how-it-gets-its-speed)
 
 <p>
   <a href="docs/showcase/realtime-chat"><img src="docs/showcase/realtime-chat/chat.webp" width="49%" alt="One chat streaming in real time on the laptop: 970 tokens in 9.29 s, 106 tok/s decode, first token 0.12 s."></a>
@@ -24,9 +24,9 @@ with no frozen chat: a new long prompt is read alongside the chats already decod
 
 *Left: [one chat in real time](docs/showcase/realtime-chat), 106 tok/s. Right: an [animated orbital transfer](docs/showcase/orbital-transfer) Flash-Next wrote from one prompt in 123 s.*
 
-![This project’s weighted single-stream decode is 98.92 output tok/s on IQ3, 91.85 on NVIDIA FP4-Local and 87.94 on NVFP4-DQ6_K. The reference Arm64 port and native vLLM, measured on November 24, reach 84.05 and 54.19, and native llama.cpp with UD-IQ4_XS reaches 45.08. The second column shows four-stream aggregate output: 120.6, 101.0 and 100.3 for this project against 85.2, 100.7 and 67.2. The third shows cold prefill at the 2K target.](benchmarks/img/engines-overview.svg)
+![In the full November 27 runs, this project’s weighted single-stream decode is 100.34 output tok/s on IQ3 (104.17 is the median of five IQ3 decode runs), 94.26 on NVIDIA FP4-Local and 95.37 on NVFP4-DQ6_K. The reference Arm64 port and native vLLM, measured on November 24, reach 84.05 and 54.19, and native llama.cpp with UD-IQ4_XS reaches 45.08. The second column shows four-stream aggregate output: 125.3, 106.1 and 105.2 for this project against 85.2, 100.7 and 67.2. The third shows cold prefill at the 2K target.](benchmarks/img/engines-overview.svg)
 
-- **2.2× native llama.cpp, 1.6× native vLLM** on the same laptop. [Results](#results)
+- **2.3× native llama.cpp, 1.9× native vLLM** for one chat on the same laptop. [Results](#results)
 - **No frozen chats.** A 35K-token prompt arriving while three chats decode starts answering in 17 s, and no
   chat pauses for more than 0.8 s. On the same laptop llama.cpp paused the chats 2.9 s and took 46 s, and the Arm64
   port either froze them (3.5 s on a 4K prompt) or made the new prompt wait 132 s.
@@ -60,19 +60,21 @@ One 128 GB RTX Spark N1X with a 96 GB GPU allocation, physical cooling, the same
 
 | | Engine | Model pack | Decode, 1 chat (tok/s) | Decode, 4 chats (tok/s) | First token, short prompt | Prompt read, 2K / 64K (tok/s) |
 | --- | --- | --- | ---: | ---: | ---: | ---: |
-| **This project** | **Basalt RTX Spark** · source build | `UD-IQ3_XXS` | **98.92** | **120.6** | **266 ms** | **1,929** / 2,431 |
-| **This project** | **Basalt RTX Spark** · release ZIP | `UD-IQ3_XXS` | 97.10 | 119.9 | 270 ms | 1,883 / 2,429 |
-| **This project** | **Basalt RTX Spark** · source build | `NVIDIA FP4-Local` | 91.85 | 101.0 | 346 ms | 1,741 / 2,655 |
-| **This project** | **Basalt RTX Spark** · source build | `NVFP4-DQ6_K` | 87.94 | 100.3 | 352 ms | 1,716 / **2,657** |
+| **This project** | **Basalt RTX Spark** · source build | `UD-IQ3_XXS` | **104.17** | **125.3** | **267 ms** | **1,928** / 2,404 |
+| **This project** | **Basalt RTX Spark** · release ZIP, Nov 25 | `UD-IQ3_XXS` | 97.10 | 119.9 | 270 ms | 1,883 / 2,429 |
+| **This project** | **Basalt RTX Spark** · source build | `NVIDIA FP4-Local` | 94.26 | 106.1 | 353 ms | 1,715 / 2,561 |
+| **This project** | **Basalt RTX Spark** · source build | `NVFP4-DQ6_K` | 95.37 | 105.2 | 358 ms | 1,706 / **2,660** |
 | Reference · Nov 24 | Basalt + Arm64 port | `UD-IQ3_XXS` | 84.05 | 85.2 | 619 ms | 967 / 1,999 |
 | Reference · Nov 24 | Native vLLM for RTX Spark 0.2.0 | `NVIDIA FP4-Local` | 54.19 | 100.8 | 271 ms | 1,511 / 2,035 |
 | Reference | Native llama.cpp b12359 | `UD-IQ4_XS` | 45.08 | 67.2 | 437 ms | 828 / 778 |
 
-Decode is BetterBench's weighted median over eight scenarios. Prompt reads are cold, at the 2K and 64K targets (about
-1,550 and 47,100 actual tokens). The Basalt and llama.cpp rows ran on November 25 with the GPU in P0. The two November 24
-rows were not rerun; that day's runs drew less GPU power in busy decode (49 W for the port, 35 W for vLLM, 46–48 W for
-Basalt). On that day the release ZIP scored 92.76, 10% ahead of the port, and Basalt on FP4-Local scored 85.28, 57%
+Decode is BetterBench's weighted median over eight scenarios. For the IQ3 source build it is the median of five decode
+runs (100.34 to 105.44); its other columns are from the one full run. Prompt reads are cold, at the 2K and 64K targets
+(about 1,550 and 47,100 actual tokens). The source-build rows ran on November 27, and the release ZIP and llama.cpp rows
+on November 25, all with the GPU in P0. The two November 24 rows were not rerun; that day's runs drew less GPU power
+in busy decode (49 W for the port, 35 W for vLLM, 46–48 W for Basalt). On that day the release ZIP scored 92.76, 10% ahead of the port, and Basalt on FP4-Local scored 85.28, 57%
 ahead of vLLM.
+[November 27 runs](benchmarks/results/2026-11-27-n1x-main-rerun) ·
 [November 25 runs](benchmarks/results/2026-11-25-n1x-rerun) ·
 [llama.cpp run](benchmarks/results/2026-11-25-n1x-llama-cpp) ·
 [November 24 runs](benchmarks/results/2026-11-24-n1x-cooled-release)
@@ -80,25 +82,31 @@ ahead of vLLM.
 <details>
 <summary>Charts by scenario, number of chats and prompt depth; power and test settings</summary>
 
-![Median cold input tokens per second at five target prompt depths. This project has three columns, IQ3, NVIDIA FP4-Local and NVFP4-DQ6_K. Reference columns are the Arm64 port with IQ3 and native vLLM with FP4-Local, both from November 24, and native llama.cpp with UD-IQ4_XS.](benchmarks/img/engines-prefill.svg)
+![Median cold input tokens per second at five target prompt depths. This project has three columns, IQ3, NVIDIA FP4-Local and NVFP4-DQ6_K, from the full November 27 runs. Reference columns are the Arm64 port with IQ3 and native vLLM with FP4-Local, both from November 24, and native llama.cpp with UD-IQ4_XS.](benchmarks/img/engines-prefill.svg)
 
-![Median output tokens per second in eight decode scenarios. This project has three columns, IQ3, NVIDIA FP4-Local and NVFP4-DQ6_K. Reference columns are the Arm64 port with IQ3 and native vLLM with FP4-Local, both from November 24, and native llama.cpp with UD-IQ4_XS.](benchmarks/img/engines-decode.svg)
+![Median output tokens per second in eight decode scenarios. This project has three columns, IQ3, NVIDIA FP4-Local and NVFP4-DQ6_K, from the full November 27 runs. Reference columns are the Arm64 port with IQ3 and native vLLM with FP4-Local, both from November 24, and native llama.cpp with UD-IQ4_XS.](benchmarks/img/engines-decode.svg)
 
-![Aggregate output tokens per second at one through four streams. This project has three columns, IQ3, NVIDIA FP4-Local and NVFP4-DQ6_K. Reference columns are the Arm64 port with IQ3 and native vLLM with FP4-Local, both from November 24, and native llama.cpp with UD-IQ4_XS.](benchmarks/img/engines-concurrency.svg)
+![Aggregate output tokens per second at one through four streams. This project has three columns, IQ3, NVIDIA FP4-Local and NVFP4-DQ6_K, from the full November 27 runs. Reference columns are the Arm64 port with IQ3 and native vLLM with FP4-Local, both from November 24, and native llama.cpp with UD-IQ4_XS.](benchmarks/img/engines-concurrency.svg)
 
 - **Settings.** Basalt used four 262,144-token slots, INT8 KV and MTP 8. Native vLLM ran with FP8 target KV and MTP 7.
   llama.cpp used four slots over a 262,144-token context, flash attention and MTP 3. The release ZIP row is
   v0.4.1-rtx-spark.2. The source build is `main`.
-- **Power.** Busy decode averaged 54.6 W GPU for the source build on IQ3, 54.3 W for the ZIP, 53.2 W on FP4-Local,
-  53.7 W on NVFP4-DQ6_K and 45.4 W for llama.cpp. These runs logged the GPU only. The headline's 58 W CPU+GPU adds the
-  CPU cores' 3.8 W from the November 24 IQ3 decode, which logged both rails (47.5 W GPU, 51.3 W together). Each piece of each run started on a cool GPU and was kept only if the
-  GPU stayed in P0. [How the runs were assembled](benchmarks/results/2026-11-25-n1x-rerun#how-the-runs-were-assembled)
+- **Power.** Busy decode averaged 53.9–54.4 W GPU in the four IQ3 decode repeats and 51.8 W in the full IQ3 run,
+  52.1 W on FP4-Local, 53.3 W on NVFP4-DQ6_K, 54.3 W for the ZIP and 45.4 W for llama.cpp. These runs logged the GPU
+  only. The headline's 58 W CPU+GPU adds the CPU cores' 3.8 W from the November 24 IQ3 decode, which logged both rails
+  (47.5 W GPU, 51.3 W together). Each piece of each run started on a cool GPU and was kept only if the GPU stayed in P0.
+  [How the runs were assembled](benchmarks/results/2026-11-27-n1x-main-rerun#how-the-runs-were-assembled)
 - **Memory (November 24).** Both FP4 packs kept all 24,576 GPU expert slots. Whole-GPU memory had nearly identical
   medians (72.62 GiB DQ6_K, 72.77 GiB FP4-Local) and peaks of 75.03 and 78.23 GiB.
   [Measured source](https://github.com/SuperDistance/basalt-rtx-spark/commit/1bc565f277a3fb02c6182ea5ba0e9086b3f637e0) ·
   [DQ6_K telemetry](benchmarks/results/2026-11-24-n1x-nvfp4-dq6-k) · [vLLM run](benchmarks/results/2026-11-24-n1x-verified-default/vllm)
 - **Desktop comparison.** The Strata figure (90.2 tok/s, IQ3_S) is from a desktop RTX 4080 SUPER.
   [Desktop benchmark](benchmarks/desktop-decode.md)
+- **Apple M5 Max.** Strata lists 108.9 and 97.0 tok/s for IQ3_XXS on a 128 GB M5 Max (greedy, 200 tokens, a short
+  question and a story). The same test on this laptop gave 104.0 and 71.5, so the M5 Max is faster there, most of all on
+  the story, where the drafts keep only 1.8 tokens per window.
+  [Same test here](benchmarks/results/2026-11-27-n1x-main-rerun#the-m5-max-test-on-this-laptop) ·
+  [Strata Mac results](https://github.com/Niko1221/Strata/blob/25e2319149dd2865afb6489e9bc8fb2c092a0aaa/docs/MAC.md#measured-m5-max-128-gb)
 - **Other published coding numbers.** On SPEED-Bench coding (80 Flash-Next conversations, each team's own client),
   NVIDIA reports 36.58 tok/s for llama.cpp with UD-IQ4_XS and the vLLM for RTX Spark project 70.44 tok/s with
   FP4-Local. This project has not run SPEED-Bench.
@@ -114,7 +122,7 @@ ahead of vLLM.
 | Pack | Made by | Pick it for | Top-token agreement with BF16 |
 | --- | --- | --- | ---: |
 | `UD-IQ3_XXS` | Unsloth | **speed**: the default, fastest decode in the [results](#results) | 88.67% |
-| `NVFP4-DQ6_K` | Basalt | closest to BF16, ~11% slower decode | **91.65%** |
+| `NVFP4-DQ6_K` | Basalt | closest to BF16, ~8% slower decode | **91.65%** |
 | `NVIDIA FP4-Local` | NVIDIA (NVFP4, quantization-aware distilled) | NVIDIA's own weights, as native vLLM serves them | not measured on the same test |
 
 Agreement is the pack publisher's measurement on the same 100 WikiText-2 chunks.
@@ -145,17 +153,68 @@ was 36.8–42.4 W and 38.4–41.4 W. The Arm64 port used FP16 KV for its NVFP4-D
 
 </details>
 
-## What this fork changes
+## How it gets its speed
 
-- **Faster prompt reads.** Short NVFP4 matrix multiplies take a BF16 activation path: a 716-token prompt reached its
-  first token in 0.66 s instead of 1.37 s in the kernel comparison.
-- **FP4 experts stay on the GPU.** A smaller staging buffer kept a 23,633-token prompt in one chunk without loading
-  1,586 expert blobs from file: first token in 10.4 s instead of 14.2 s (**27% less wait**).
+Every change below is lossless. Greedy text matches the code before the change token for token, batched requests
+match solo ones, and sampling keeps the model's own distribution. Each item names the published idea it builds on.
+
+- **The model drafts its own next tokens.** Flash-Next's multi-token-prediction head proposes up to seven tokens, and
+  one verification pass keeps exactly the ones plain decoding would have produced
+  ([Leviathan et al.](https://arxiv.org/abs/2211.17192), [Chen et al.](https://arxiv.org/abs/2302.01318); MTP drafting as
+  in [Gloeckle et al.](https://arxiv.org/abs/2404.19737) and [DeepSeek-V3](https://arxiv.org/abs/2412.19437)). Upstream
+  Basalt supplies the drafter. This fork drafts every active chat in one GPU pass: **5.42 ms** per window for four
+  structured replies, against **21.53 ms** on the Arm64 port. Drafts are drawn from the head's distribution at the request's own sampling settings, so a
+  sampled reply keeps more of them than with the head's top token alone (**+4.5%** at temperature 0.7). A scheduler
+  sizes the next window from the time spent verifying and the tokens kept, worth **+8.1%** at four chats on its own.
+  [Release and port measurements](benchmarks/results/2026-11-24-n1x-cooled-release#serving-behavior-under-load) ·
+  [Scheduler experiment](benchmarks/results/2026-11-24-n1x-four-stream-scheduler#scheduler-alone) ·
+  [Drawn drafts](benchmarks/results/2026-11-27-n1x-main-rerun#drawn-drafts-versus-the-heads-top-draft)
+- **New prompts are read beside running chats.** Like the chunked prefills of
+  [Sarathi-Serve](https://arxiv.org/abs/2403.02310), a cold prompt is read in chunks on a thread of its own while the
+  running chats keep decoding. This started as Strata's opt-in `STRATA_PIPED_CONCURRENT=1`, contributed by this
+  project's author ([Strata #2326](https://github.com/Niko1221/Strata/pull/2326): the slots' longest stall went from
+  11.9 s to 0.8 s). Here it is on by default for prompts over 2,048 tokens. A 35K-token prompt joining three chats
+  answers in 17 s, and no chat pauses for more than 0.8 s.
+  [Strata design notes](https://github.com/Niko1221/Strata/blob/c234774038d1c9249cb33637d27b895d47b39786/docs/BATCHING.md#reading-a-prompt-beside-pipelined-groups-experimental-opt-in) ·
+  [Join test](benchmarks/results/2026-11-26-n1x-join-and-sparkdash)
+- **Experts are placed across unified memory.** MoE offloading usually copies experts to the GPU on demand
+  ([Eliseev and Mazur](https://arxiv.org/abs/2312.17238)). On the N1X the GPU reads pinned RAM directly, so the planner
+  budgets GPU memory, pinned RAM and Windows commit together and serves RAM-resident experts in place. At the 96 GB
+  split every one of the IQ3 pack's 24,576 experts gets a GPU home. [Placement design](docs/n1x-gpu-first.md)
+- **FP4 prompts run on BF16 activations.** The kernel widens 4-bit weights in registers and runs BF16 tensor-core
+  products, the W4A16 approach of [Marlin](https://arxiv.org/abs/2408.11743). A 716-token prompt reached its first token
+  in **0.66 s** instead of **1.37 s**. [Kernel and quality](docs/n1x-gpu-first.md#nvfp4-prompts-on-bf16-activations-w4a16)
+- **FP4 experts stay on the GPU during long prompts.** A smaller staging ring kept a 23,633-token prompt in one chunk
+  and loaded no expert blobs from file (previously 1,586): first token **27% sooner**.
   [Controlled experiment](benchmarks/results/2026-11-24-n1x-fp4-prefill-chunks)
-- **Four chats share one GPU pass.** Drafting for several requests at once took 5.42 ms per verification window
-  instead of 21.53 ms on the Arm64 port (four-stream structured output).
-- **Joining a busy server.** A new 16,672-token prompt got its first token in 26.2 s while three chats kept decoding;
-  their longest pause was 389 ms. [Implementation and measurements](docs/rtx-spark-optimizations.md)
+- **Faster prompt kernels.** The fork keeps FP16 copies of 300 dense projections resident. It adds faster kernels for
+  the [Gated DeltaNet](https://arxiv.org/abs/2412.06464) recurrence, the long-context indexer scores and int8 sparse
+  attention. A ~110-token prompt reads in 158–176 ms instead of 194–215 ms.
+  [Prompt path](docs/n1x-prompt-path.md)
+- **Conversations resume from what the engine holds.** Like the prefix reuse of
+  [SGLang's RadixAttention](https://arxiv.org/abs/2312.07104), a follow-up request continues the engine's live state
+  instead of reading the conversation again. Checkpoints copy in 4 ms instead of 30, so a resumed thinking turn
+  restores in 8–13 ms. When a reply reaches its thinking budget, the closing pass now reads 4 tokens instead of
+  183–358. **+2.9%** single-chat decode and **+4.8%** at four chats on BetterBench.
+  [Pull request](https://github.com/SuperDistance/basalt-rtx-spark/pull/27)
+
+**Where decode stands.** A single-chat verification window moves about 85% of the bytes per second the N1X's memory
+system can read, so faster kernels can buy little more. The remaining lossless gains come from keeping more drafted
+tokens per window and from removing serving stalls like the one above.
+
+<details>
+<summary>Tested and not shipped</summary>
+
+- **Block verification** ([Sun et al.](https://arxiv.org/abs/2403.10444)) accepts a whole run of drafts jointly instead
+  of one token at a time. It is exact, but on BetterBench at temperature 0.7 it kept 3.20 tokens per window, the same
+  as token-by-token verification. The MTP head's drafts already agree with the model wherever they are kept, so a
+  rejection is a real disagreement and there is little left to win back.
+- **The N1X NPU.** Running experts on it cut serving throughput by 24.5%: it shares the GPU's memory bandwidth, runs an
+  expert 6–8× slower than the GPU and computes only in FP16, so its output would not match.
+- **CPU expert workers.** The GPU already reads RAM-resident experts in place, so CPU workers would have nothing left
+  to compute in decode or prompt reads (0.00 ms per window).
+
+</details>
 
 Basalt places model weights across GPU memory and system RAM automatically. Flash-Next defaults to four slots of up to
 262,144 tokens each and an INT8 KV cache that grows on demand. [Setup and client guide](docs/rtx-spark-setup.md) ·

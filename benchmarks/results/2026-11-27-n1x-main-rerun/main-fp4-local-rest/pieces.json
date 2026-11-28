@@ -1,0 +1,50 @@
+[
+ {
+  "piece": "concurrency-1",
+  "try": 1,
+  "exit": 0,
+  "start": 1795836281.6667838,
+  "end": 1795836498.373744,
+  "busy_samples": 214,
+  "p0_share": 0.995,
+  "busy_w": 50.2,
+  "file": "concurrency-1.try1.json",
+  "kept": true
+ },
+ {
+  "piece": "concurrency-2",
+  "try": 1,
+  "exit": 0,
+  "start": 1795836635.196827,
+  "end": 1795836828.1452188,
+  "busy_samples": 191,
+  "p0_share": 0.948,
+  "busy_w": 38.1,
+  "file": "concurrency-2.try1.json",
+  "kept": true
+ },
+ {
+  "piece": "concurrency-3",
+  "try": 1,
+  "exit": 0,
+  "start": 1795836965.0257099,
+  "end": 1795837137.0644877,
+  "busy_samples": 170,
+  "p0_share": 1.0,
+  "busy_w": 51.2,
+  "file": "concurrency-3.try1.json",
+  "kept": true
+ },
+ {
+  "piece": "concurrency-4",
+  "try": 1,
+  "exit": 0,
+  "start": 1795837273.9233868,
+  "end": 1795837449.2778435,
+  "busy_samples": 173,
+  "p0_share": 0.994,
+  "busy_w": 51.7,
+  "file": "concurrency-4.try1.json",
+  "kept": true
+ }
+]

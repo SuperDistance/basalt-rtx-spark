@@ -1,0 +1,450 @@
+[
+ {
+  "rep": 0,
+  "T": 0.7,
+  "i": 0,
+  "mode": "drawn",
+  "line": "[server] s2 done  pp=69/0c 0.0s  tg=600 107.5t/s acc=68% dl=2.5  ttft=0.4s  end=length  hit=100.0%  pcie=0.0%"
+ },
+ {
+  "rep": 0,
+  "T": 0.7,
+  "i": 0,
+  "mode": "top",
+  "line": "[server] s3 done  pp=69/64c 0.0s  tg=600 111.2t/s acc=75% dl=2.5  ttft=0.1s  end=length  hit=100.0%  pcie=0.0%"
+ },
+ {
+  "rep": 0,
+  "T": 0.7,
+  "i": 1,
+  "mode": "top",
+  "line": "[server] s4 done  pp=69/0c 0.0s  tg=600 73.8t/s acc=61% dl=2.0  ttft=0.4s  end=length  hit=100.0%  pcie=0.0%"
+ },
+ {
+  "rep": 0,
+  "T": 0.7,
+  "i": 1,
+  "mode": "drawn",
+  "line": "[server] s1 done  pp=69/64c 0.0s  tg=600 71.5t/s acc=61% dl=1.9  ttft=0.0s  end=length  hit=100.0%  pcie=0.0%"
+ },
+ {
+  "rep": 0,
+  "T": 0.7,
+  "i": 2,
+  "mode": "drawn",
+  "line": "[server] s2 done  pp=67/0c 0.0s  tg=600 107.8t/s acc=79% dl=2.8  ttft=0.3s  end=length  hit=100.0%  pcie=0.0%"
+ },
+ {
+  "rep": 0,
+  "T": 0.7,
+  "i": 2,
+  "mode": "top",
+  "line": "[server] s3 done  pp=67/62c 0.0s  tg=600 101.4t/s acc=71% dl=2.6  ttft=0.0s  end=length  hit=100.0%  pcie=0.0%"
+ },
+ {
+  "rep": 0,
+  "T": 0.7,
+  "i": 3,
+  "mode": "top",
+  "line": "[server] s4 done  pp=67/0c 0.0s  tg=600 148.3t/s acc=81% dl=3.8  ttft=0.3s  end=length  hit=100.0%  pcie=0.0%"
+ },
+ {
+  "rep": 0,
+  "T": 0.7,
+  "i": 3,
+  "mode": "drawn",
+  "line": "[server] s1 done  pp=67/62c 0.0s  tg=600 152.5t/s acc=86% dl=3.5  ttft=0.0s  end=length  hit=100.0%  pcie=0.0%"
+ },
+ {
+  "rep": 0,
+  "T": 0.7,
+  "i": 4,
+  "mode": "drawn",
+  "line": "[server] s2 done  pp=66/0c 0.0s  tg=600 84.0t/s acc=66% dl=2.3  ttft=0.3s  end=length  hit=100.0%  pcie=0.0%"
+ },
+ {
+  "rep": 0,
+  "T": 0.7,
+  "i": 4,
+  "mode": "top",
+  "line": "[server] s3 done  pp=66/61c 0.0s  tg=600 78.8t/s acc=65% dl=2.1  ttft=0.1s  end=length  hit=100.0%  pcie=0.0%"
+ },
+ {
+  "rep": 0,
+  "T": 0.7,
+  "i": 5,
+  "mode": "top",
+  "line": "[server] s4 done  pp=69/0c 0.0s  tg=600 103.6t/s acc=73% dl=2.8  ttft=0.3s  end=length  hit=100.0%  pcie=0.0%"
+ },
+ {
+  "rep": 0,
+  "T": 0.7,
+  "i": 5,
+  "mode": "drawn",
+  "line": "[server] s1 done  pp=69/64c 0.0s  tg=600 109.8t/s acc=71% dl=2.7  ttft=0.0s  end=length  hit=100.0%  pcie=0.0%"
+ },
+ {
+  "rep": 0,
+  "T": 0.7,
+  "i": 6,
+  "mode": "drawn",
+  "line": "[server] s2 done  pp=75/0c 0.0s  tg=462 127.0t/s acc=78% dl=3.2  ttft=0.4s  end=stop  hit=100.0%  pcie=0.0%"
+ },
+ {
+  "rep": 0,
+  "T": 0.7,
+  "i": 6,
+  "mode": "top",
+  "line": "[server] s3 done  pp=75/70c 0.0s  tg=568 116.7t/s acc=76% dl=3.0  ttft=0.0s  end=stop  hit=100.0%  pcie=0.0%"
+ },
+ {
+  "rep": 0,
+  "T": 0.7,
+  "i": 7,
+  "mode": "top",
+  "line": "[server] s4 done  pp=73/0c 0.0s  tg=581 74.2t/s acc=62% dl=2.1  ttft=0.3s  end=stop  hit=100.0%  pcie=0.0%"
+ },
+ {
+  "rep": 0,
+  "T": 0.7,
+  "i": 7,
+  "mode": "drawn",
+  "line": "[server] s1 done  pp=73/68c 0.0s  tg=523 76.6t/s acc=66% dl=2.3  ttft=0.1s  end=stop  hit=100.0%  pcie=0.0%"
+ },
+ {
+  "rep": 0,
+  "T": 1.0,
+  "i": 0,
+  "mode": "drawn",
+  "line": "[server] s2 done  pp=69/0c 0.0s  tg=600 100.6t/s acc=67% dl=2.4  ttft=0.3s  end=length  hit=100.0%  pcie=0.0%"
+ },
+ {
+  "rep": 0,
+  "T": 1.0,
+  "i": 0,
+  "mode": "top",
+  "line": "[server] s3 done  pp=69/64c 0.0s  tg=600 117.1t/s acc=75% dl=2.4  ttft=0.0s  end=length  hit=100.0%  pcie=0.0%"
+ },
+ {
+  "rep": 0,
+  "T": 1.0,
+  "i": 1,
+  "mode": "top",
+  "line": "[server] s4 done  pp=69/0c 0.0s  tg=388 65.2t/s acc=54% dl=1.9  ttft=0.3s  end=stop  hit=100.0%  pcie=0.0%"
+ },
+ {
+  "rep": 0,
+  "T": 1.0,
+  "i": 1,
+  "mode": "drawn",
+  "line": "[server] s1 done  pp=69/64c 0.0s  tg=600 69.3t/s acc=63% dl=1.8  ttft=0.0s  end=length  hit=100.0%  pcie=0.0%"
+ },
+ {
+  "rep": 0,
+  "T": 1.0,
+  "i": 2,
+  "mode": "drawn",
+  "line": "[server] s2 done  pp=67/0c 0.0s  tg=600 97.9t/s acc=73% dl=2.4  ttft=0.3s  end=length  hit=100.0%  pcie=0.0%"
+ },
+ {
+  "rep": 0,
+  "T": 1.0,
+  "i": 2,
+  "mode": "top",
+  "line": "[server] s3 done  pp=67/62c 0.0s  tg=600 101.8t/s acc=73% dl=2.3  ttft=0.1s  end=length  hit=100.0%  pcie=0.0%"
+ },
+ {
+  "rep": 0,
+  "T": 1.0,
+  "i": 3,
+  "mode": "top",
+  "line": "[server] s4 done  pp=67/0c 0.0s  tg=600 147.7t/s acc=85% dl=3.0  ttft=0.3s  end=length  hit=100.0%  pcie=0.0%"
+ },
+ {
+  "rep": 0,
+  "T": 1.0,
+  "i": 3,
+  "mode": "drawn",
+  "line": "[server] s1 done  pp=67/62c 0.0s  tg=600 153.9t/s acc=88% dl=4.0  ttft=0.0s  end=length  hit=100.0%  pcie=0.0%"
+ },
+ {
+  "rep": 0,
+  "T": 1.0,
+  "i": 4,
+  "mode": "drawn",
+  "line": "[server] s2 done  pp=66/0c 0.0s  tg=600 78.4t/s acc=63% dl=2.1  ttft=0.3s  end=length  hit=100.0%  pcie=0.0%"
+ },
+ {
+  "rep": 0,
+  "T": 1.0,
+  "i": 4,
+  "mode": "top",
+  "line": "[server] s3 done  pp=66/61c 0.0s  tg=600 80.3t/s acc=67% dl=2.0  ttft=0.0s  end=length  hit=100.0%  pcie=0.0%"
+ },
+ {
+  "rep": 0,
+  "T": 1.0,
+  "i": 5,
+  "mode": "top",
+  "line": "[server] s4 done  pp=69/0c 0.0s  tg=600 97.1t/s acc=68% dl=2.6  ttft=0.3s  end=length  hit=100.0%  pcie=0.0%"
+ },
+ {
+  "rep": 0,
+  "T": 1.0,
+  "i": 5,
+  "mode": "drawn",
+  "line": "[server] s1 done  pp=69/64c 0.0s  tg=600 110.6t/s acc=73% dl=2.8  ttft=0.0s  end=length  hit=100.0%  pcie=0.0%"
+ },
+ {
+  "rep": 0,
+  "T": 1.0,
+  "i": 6,
+  "mode": "drawn",
+  "line": "[server] s2 done  pp=75/0c 0.0s  tg=434 140.6t/s acc=85% dl=3.1  ttft=0.3s  end=stop  hit=100.0%  pcie=0.0%"
+ },
+ {
+  "rep": 0,
+  "T": 1.0,
+  "i": 6,
+  "mode": "top",
+  "line": "[server] s3 done  pp=75/70c 0.0s  tg=600 111.0t/s acc=69% dl=3.0  ttft=0.0s  end=length  hit=100.0%  pcie=0.0%"
+ },
+ {
+  "rep": 0,
+  "T": 1.0,
+  "i": 7,
+  "mode": "top",
+  "line": "[server] s4 done  pp=73/0c 0.0s  tg=414 73.0t/s acc=66% dl=2.0  ttft=0.3s  end=stop  hit=100.0%  pcie=0.0%"
+ },
+ {
+  "rep": 0,
+  "T": 1.0,
+  "i": 7,
+  "mode": "drawn",
+  "line": "[server] s1 done  pp=73/68c 0.0s  tg=465 82.7t/s acc=72% dl=2.3  ttft=0.0s  end=stop  hit=100.0%  pcie=0.0%"
+ },
+ {
+  "rep": 1,
+  "T": 0.7,
+  "i": 0,
+  "mode": "top",
+  "line": "[server] s2 done  pp=69/0c 0.0s  tg=600 103.6t/s acc=72% dl=2.4  ttft=0.3s  end=length  hit=100.0%  pcie=0.0%"
+ },
+ {
+  "rep": 1,
+  "T": 0.7,
+  "i": 0,
+  "mode": "drawn",
+  "line": "[server] s3 done  pp=69/64c 0.0s  tg=600 110.6t/s acc=75% dl=2.6  ttft=0.1s  end=length  hit=100.0%  pcie=0.0%"
+ },
+ {
+  "rep": 1,
+  "T": 0.7,
+  "i": 1,
+  "mode": "drawn",
+  "line": "[server] s4 done  pp=69/0c 0.0s  tg=600 71.9t/s acc=60% dl=1.9  ttft=0.3s  end=length  hit=100.0%  pcie=0.0%"
+ },
+ {
+  "rep": 1,
+  "T": 0.7,
+  "i": 1,
+  "mode": "top",
+  "line": "[server] s1 done  pp=69/64c 0.0s  tg=600 68.4t/s acc=56% dl=1.9  ttft=0.0s  end=length  hit=100.0%  pcie=0.0%"
+ },
+ {
+  "rep": 1,
+  "T": 0.7,
+  "i": 2,
+  "mode": "top",
+  "line": "[server] s2 done  pp=67/0c 0.0s  tg=600 93.3t/s acc=67% dl=2.3  ttft=0.3s  end=length  hit=100.0%  pcie=0.0%"
+ },
+ {
+  "rep": 1,
+  "T": 0.7,
+  "i": 2,
+  "mode": "drawn",
+  "line": "[server] s3 done  pp=67/62c 0.0s  tg=600 101.4t/s acc=77% dl=2.6  ttft=0.1s  end=length  hit=100.0%  pcie=0.0%"
+ },
+ {
+  "rep": 1,
+  "T": 0.7,
+  "i": 3,
+  "mode": "drawn",
+  "line": "[server] s4 done  pp=67/0c 0.0s  tg=600 149.1t/s acc=86% dl=4.4  ttft=0.3s  end=length  hit=100.0%  pcie=0.0%"
+ },
+ {
+  "rep": 1,
+  "T": 0.7,
+  "i": 3,
+  "mode": "top",
+  "line": "[server] s1 done  pp=67/62c 0.0s  tg=600 161.2t/s acc=93% dl=3.2  ttft=0.0s  end=length  hit=100.0%  pcie=0.0%"
+ },
+ {
+  "rep": 1,
+  "T": 0.7,
+  "i": 4,
+  "mode": "top",
+  "line": "[server] s2 done  pp=66/0c 0.0s  tg=600 76.0t/s acc=64% dl=1.9  ttft=0.3s  end=length  hit=100.0%  pcie=0.0%"
+ },
+ {
+  "rep": 1,
+  "T": 0.7,
+  "i": 4,
+  "mode": "drawn",
+  "line": "[server] s3 done  pp=66/61c 0.0s  tg=600 73.5t/s acc=62% dl=2.0  ttft=0.0s  end=length  hit=100.0%  pcie=0.0%"
+ },
+ {
+  "rep": 1,
+  "T": 0.7,
+  "i": 5,
+  "mode": "drawn",
+  "line": "[server] s4 done  pp=69/0c 0.0s  tg=600 106.7t/s acc=77% dl=3.2  ttft=0.3s  end=length  hit=100.0%  pcie=0.0%"
+ },
+ {
+  "rep": 1,
+  "T": 0.7,
+  "i": 5,
+  "mode": "top",
+  "line": "[server] s1 done  pp=69/64c 0.0s  tg=600 108.0t/s acc=72% dl=2.9  ttft=0.1s  end=length  hit=100.0%  pcie=0.0%"
+ },
+ {
+  "rep": 1,
+  "T": 0.7,
+  "i": 6,
+  "mode": "top",
+  "line": "[server] s2 done  pp=75/0c 0.0s  tg=462 132.2t/s acc=87% dl=3.1  ttft=0.3s  end=stop  hit=100.0%  pcie=0.0%"
+ },
+ {
+  "rep": 1,
+  "T": 0.7,
+  "i": 6,
+  "mode": "drawn",
+  "line": "[server] s3 done  pp=75/70c 0.0s  tg=423 139.6t/s acc=89% dl=3.1  ttft=0.0s  end=stop  hit=100.0%  pcie=0.0%"
+ },
+ {
+  "rep": 1,
+  "T": 0.7,
+  "i": 7,
+  "mode": "drawn",
+  "line": "[server] s4 done  pp=73/0c 0.0s  tg=508 81.1t/s acc=68% dl=2.4  ttft=0.3s  end=stop  hit=100.0%  pcie=0.0%"
+ },
+ {
+  "rep": 1,
+  "T": 0.7,
+  "i": 7,
+  "mode": "top",
+  "line": "[server] s1 done  pp=73/68c 0.0s  tg=535 77.4t/s acc=66% dl=2.2  ttft=0.0s  end=stop  hit=100.0%  pcie=0.0%"
+ },
+ {
+  "rep": 1,
+  "T": 1.0,
+  "i": 0,
+  "mode": "top",
+  "line": "[server] s2 done  pp=69/0c 0.0s  tg=600 102.5t/s acc=73% dl=2.5  ttft=0.3s  end=length  hit=100.0%  pcie=0.0%"
+ },
+ {
+  "rep": 1,
+  "T": 1.0,
+  "i": 0,
+  "mode": "drawn",
+  "line": "[server] s3 done  pp=69/64c 0.0s  tg=600 102.4t/s acc=74% dl=2.3  ttft=0.1s  end=length  hit=100.0%  pcie=0.0%"
+ },
+ {
+  "rep": 1,
+  "T": 1.0,
+  "i": 1,
+  "mode": "drawn",
+  "line": "[server] s4 done  pp=69/0c 0.3s  tg=230 77.7t/s acc=68% dl=2.1  ttft=0.3s  end=stop  hit=100.0%  pcie=0.0%"
+ },
+ {
+  "rep": 1,
+  "T": 1.0,
+  "i": 1,
+  "mode": "top",
+  "line": "[server] s1 done  pp=69/64c 0.0s  tg=590 68.0t/s acc=57% dl=1.8  ttft=0.0s  end=stop  hit=100.0%  pcie=0.0%"
+ },
+ {
+  "rep": 1,
+  "T": 1.0,
+  "i": 2,
+  "mode": "top",
+  "line": "[server] s2 done  pp=67/0c 0.0s  tg=600 90.7t/s acc=66% dl=2.5  ttft=0.3s  end=length  hit=100.0%  pcie=0.0%"
+ },
+ {
+  "rep": 1,
+  "T": 1.0,
+  "i": 2,
+  "mode": "drawn",
+  "line": "[server] s3 done  pp=67/62c 0.0s  tg=600 110.3t/s acc=83% dl=2.8  ttft=0.0s  end=length  hit=100.0%  pcie=0.0%"
+ },
+ {
+  "rep": 1,
+  "T": 1.0,
+  "i": 3,
+  "mode": "drawn",
+  "line": "[server] s4 done  pp=67/0c 0.0s  tg=600 147.3t/s acc=83% dl=2.9  ttft=0.3s  end=length  hit=100.0%  pcie=0.0%"
+ },
+ {
+  "rep": 1,
+  "T": 1.0,
+  "i": 3,
+  "mode": "top",
+  "line": "[server] s1 done  pp=67/62c 0.0s  tg=600 150.1t/s acc=82% dl=3.8  ttft=0.0s  end=length  hit=100.0%  pcie=0.0%"
+ },
+ {
+  "rep": 1,
+  "T": 1.0,
+  "i": 4,
+  "mode": "top",
+  "line": "[server] s2 done  pp=66/0c 0.0s  tg=600 72.0t/s acc=57% dl=1.9  ttft=0.3s  end=length  hit=100.0%  pcie=0.0%"
+ },
+ {
+  "rep": 1,
+  "T": 1.0,
+  "i": 4,
+  "mode": "drawn",
+  "line": "[server] s3 done  pp=66/61c 0.0s  tg=600 78.8t/s acc=65% dl=2.1  ttft=0.0s  end=length  hit=100.0%  pcie=0.0%"
+ },
+ {
+  "rep": 1,
+  "T": 1.0,
+  "i": 5,
+  "mode": "drawn",
+  "line": "[server] s4 done  pp=69/0c 0.0s  tg=600 121.0t/s acc=77% dl=2.9  ttft=0.3s  end=length  hit=100.0%  pcie=0.0%"
+ },
+ {
+  "rep": 1,
+  "T": 1.0,
+  "i": 5,
+  "mode": "top",
+  "line": "[server] s1 done  pp=69/64c 0.0s  tg=600 106.7t/s acc=72% dl=2.4  ttft=0.0s  end=length  hit=100.0%  pcie=0.0%"
+ },
+ {
+  "rep": 1,
+  "T": 1.0,
+  "i": 6,
+  "mode": "top",
+  "line": "[server] s2 done  pp=75/0c 0.0s  tg=600 123.1t/s acc=78% dl=3.2  ttft=0.3s  end=length  hit=100.0%  pcie=0.0%"
+ },
+ {
+  "rep": 1,
+  "T": 1.0,
+  "i": 6,
+  "mode": "drawn",
+  "line": "[server] s3 done  pp=75/70c 0.0s  tg=427 138.1t/s acc=88% dl=3.0  ttft=0.1s  end=stop  hit=100.0%  pcie=0.0%"
+ },
+ {
+  "rep": 1,
+  "T": 1.0,
+  "i": 7,
+  "mode": "drawn",
+  "line": "[server] s4 done  pp=73/0c 0.0s  tg=497 82.8t/s acc=74% dl=2.3  ttft=0.3s  end=stop  hit=100.0%  pcie=0.0%"
+ },
+ {
+  "rep": 1,
+  "T": 1.0,
+  "i": 7,
+  "mode": "top",
+  "line": "[server] s1 done  pp=73/68c 0.0s  tg=498 78.2t/s acc=66% dl=2.1  ttft=0.0s  end=stop  hit=100.0%  pcie=0.0%"
+ }
+]

@@ -1,0 +1,76 @@
+{
+ "question": [
+  {
+   "tg": 200,
+   "tps": 103.3,
+   "acc": 70,
+   "dl": 3.3,
+   "text": "# Hash Tables: Definition and Collision Handling\n\n## What Is a Hash Table?\n\nA **hash table** (or hash map) is a data str"
+  },
+  {
+   "tg": 200,
+   "tps": 103.2,
+   "acc": 70,
+   "dl": 3.3,
+   "text": "# Hash Tables: Definition and Collision Handling\n\n## What Is a Hash Table?\n\nA **hash table** (or hash map) is a data str"
+  },
+  {
+   "tg": 200,
+   "tps": 104.0,
+   "acc": 70,
+   "dl": 3.3,
+   "text": "# Hash Tables: Definition and Collision Handling\n\n## What Is a Hash Table?\n\nA **hash table** (or hash map) is a data str"
+  },
+  {
+   "tg": 200,
+   "tps": 104.3,
+   "acc": 70,
+   "dl": 3.3,
+   "text": "# Hash Tables: Definition and Collision Handling\n\n## What Is a Hash Table?\n\nA **hash table** (or hash map) is a data str"
+  },
+  {
+   "tg": 200,
+   "tps": 104.4,
+   "acc": 70,
+   "dl": 3.3,
+   "text": "# Hash Tables: Definition and Collision Handling\n\n## What Is a Hash Table?\n\nA **hash table** (or hash map) is a data str"
+  }
+ ],
+ "story": [
+  {
+   "tg": 200,
+   "tps": 71.0,
+   "acc": 62,
+   "dl": 1.8,
+   "text": "The salt had long since claimed Elias\u2019s skin, turning it into a map of weathered leather and deep creases, but his eyes "
+  },
+  {
+   "tg": 200,
+   "tps": 70.6,
+   "acc": 62,
+   "dl": 1.8,
+   "text": "The salt had long since claimed Elias\u2019s skin, turning it into a map of weathered leather and deep creases, but his eyes "
+  },
+  {
+   "tg": 200,
+   "tps": 71.6,
+   "acc": 62,
+   "dl": 1.8,
+   "text": "The salt had long since claimed Elias\u2019s skin, turning it into a map of weathered leather and deep creases, but his eyes "
+  },
+  {
+   "tg": 200,
+   "tps": 71.5,
+   "acc": 62,
+   "dl": 1.8,
+   "text": "The salt had long since claimed Elias\u2019s skin, turning it into a map of weathered leather and deep creases, but his eyes "
+  },
+  {
+   "tg": 200,
+   "tps": 71.6,
+   "acc": 62,
+   "dl": 1.8,
+   "text": "The salt had long since claimed Elias\u2019s skin, turning it into a map of weathered leather and deep creases, but his eyes "
+  }
+ ]
+}

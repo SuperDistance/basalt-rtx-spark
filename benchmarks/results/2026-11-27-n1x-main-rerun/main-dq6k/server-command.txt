@@ -1,0 +1,1 @@
+%LOCALAPPDATA%\RTX-Spark-Benchmark\basalt-n1x-live-main-29a1b77\bin\basalt.exe serve %LOCALAPPDATA%\RTX-Spark-Benchmark\models\Qwen3.8-FN-NVFP4-DQ6_K.basalt --python %LOCALAPPDATA%\RTX-Spark-Benchmark\basalt-python\Scripts\python.exe --host 127.0.0.1 --port 8090 --alias flash-next

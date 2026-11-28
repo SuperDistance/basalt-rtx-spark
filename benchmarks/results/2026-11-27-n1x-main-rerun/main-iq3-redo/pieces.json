@@ -1,0 +1,14 @@
+[
+ {
+  "piece": "decode-chat",
+  "try": 1,
+  "exit": 0,
+  "start": 1795842291.5850666,
+  "end": 1795842358.9973135,
+  "busy_samples": 66,
+  "p0_share": 1.0,
+  "busy_w": 49.3,
+  "file": "decode-chat.try1.json",
+  "kept": true
+ }
+]
