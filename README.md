@@ -83,21 +83,6 @@ Decode and prompt reads are in tokens per second, and first token is for a short
 [llama.cpp run](benchmarks/results/2026-11-25-n1x-llama-cpp) ·
 [November 24 runs](benchmarks/results/2026-11-24-n1x-cooled-release)
 
-### Against TensorFold on the same laptop
-
-[TensorFold](https://github.com/ashhart/TensorFold) publishes a native Windows run on an HP OmniBook X 14 with the RTX
-Spark N1X and 128 GB, the laptop model these results come from. Its clients and settings differ from BetterBench:
-greedy, 400-token answers, timed end to end, with a ModelOpt FP4-Local Flash-Next.
-
-| Same N1X laptop | Decode, 1 chat (tok/s) | Decode, 4 chats (tok/s) | First token, short prompt |
-| --- | ---: | ---: | ---: |
-| **This project** · BetterBench · `UD-IQ3_XXS` | **105.44** | **125.3** | 0.27 s |
-| TensorFold 1.2.2 · its clients · `FP4-Local` | 37.3–50.4 (prose to code) | 70.0 | 0.22–0.28 s |
-
-TensorFold reports 42–49 W GPU at about 2.1 GHz in HP's Performance mode. It needs 73–95 GiB of FP4 weights that
-this laptop does not hold, so it has not been rerun here.
-[TensorFold on the RTX Spark N1X](https://github.com/ashhart/TensorFold/blob/4e24e119104a6af3df568ea85af29de7421c5511/docs/WINDOWS.md#rtx-spark-n1x-a-receipt-2026-11-04)
-
 <details>
 <summary>Charts by scenario, number of chats and prompt depth; power, settings and other comparisons</summary>
 
