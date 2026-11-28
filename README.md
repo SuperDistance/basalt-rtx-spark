@@ -4,8 +4,7 @@
 
 Run **Qwen3.8-Flash-Next**, a ~120B-parameter mixture-of-experts model, entirely on an NVIDIA RTX Spark N1X laptop:
 **105 tok/s** for one chat, **125 tok/s** across four, a **0.27 s** first token, at about **58 W** for CPU and GPU
-together. That is faster than a desktop RTX 4080 SUPER on this model (90.2 tok/s with Strata), and nothing leaves the
-machine.
+together, and nothing leaves the machine.
 
 **The goal:** the fastest Qwen3.8-Flash-Next on RTX Spark devices running Windows on Arm, while keeping decent decode
 speed with four concurrent requests, and no request freezing while a cold prompt joins.
@@ -84,7 +83,7 @@ Decode and prompt reads are in tokens per second, and first token is for a short
 [November 24 runs](benchmarks/results/2026-11-24-n1x-cooled-release)
 
 <details>
-<summary>Charts by scenario, number of chats and prompt depth; power, settings and other comparisons</summary>
+<summary>Charts by scenario, number of chats and prompt depth; power and settings</summary>
 
 ![Median cold input tokens per second at five target prompt depths. This project has three columns, IQ3, NVIDIA FP4-Local and NVFP4-DQ6_K, from November 27. Reference columns are the Arm64 port with IQ3 and native vLLM with FP4-Local, both from November 24, and native llama.cpp with UD-IQ4_XS.](benchmarks/img/engines-prefill.svg)
 
@@ -104,18 +103,6 @@ Decode and prompt reads are in tokens per second, and first token is for a short
   medians (72.62 GiB DQ6_K, 72.77 GiB FP4-Local) and peaks of 75.03 and 78.23 GiB.
   [Measured source](https://github.com/SuperDistance/basalt-rtx-spark/commit/1bc565f277a3fb02c6182ea5ba0e9086b3f637e0) ·
   [DQ6_K telemetry](benchmarks/results/2026-11-24-n1x-nvfp4-dq6-k) · [vLLM run](benchmarks/results/2026-11-24-n1x-verified-default/vllm)
-- **Desktop GPU.** The Strata figure (90.2 tok/s, IQ3_S) is from a desktop RTX 4080 SUPER.
-  [Desktop benchmark](benchmarks/desktop-decode.md)
-- **Apple M5 Max.** Strata lists 108.9 and 97.0 tok/s for IQ3_XXS on a 128 GB M5 Max (greedy, 200 tokens, a short
-  question and a story). The same test on this laptop gave 104.0 and 71.5, so the M5 Max is faster there, most of all on
-  the story, where the drafts keep only 1.8 tokens per window.
-  [Same test here](benchmarks/results/2026-11-27-n1x-main-rerun#the-m5-max-test-on-this-laptop) ·
-  [Strata Mac results](https://github.com/Niko1221/Strata/blob/25e2319149dd2865afb6489e9bc8fb2c092a0aaa/docs/MAC.md#measured-m5-max-128-gb)
-- **SPEED-Bench coding** (80 Flash-Next conversations, each team's own client): NVIDIA reports 36.58 tok/s for
-  llama.cpp with UD-IQ4_XS, and the vLLM for RTX Spark project 70.44 tok/s with FP4-Local. This project has not run
-  SPEED-Bench.
-  [NVIDIA result](https://github.com/NVIDIA/local-ai-inference-recipes/blob/bb515086841e7a81e7d51925561338e7dee35023/models/qwen/qwen3.8-flash-next/rtx-spark/windows/llama-cpp/78gb/iq4-xs/vision-mtp/performance.yaml) ·
-  [vLLM result](https://github.com/devjeonghwan/vllm-for-rtx-spark/blob/e9412963ff4619da5f97f8b5e3c2dd274967df87/README.md#nvidia-reference)
 
 </details>
 
