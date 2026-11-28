@@ -83,6 +83,25 @@ Decode and prompt reads are in tokens per second, and first token is for a short
 [llama.cpp run](benchmarks/results/2026-11-25-n1x-llama-cpp) ·
 [November 24 runs](benchmarks/results/2026-11-24-n1x-cooled-release)
 
+### Against TensorFold on an RTX Spark desktop
+
+TensorFold's Windows on Arm port publishes [sparkDash](https://github.com/MiaAI-Lab/sparkDash) results from an ASUS
+ProArt GR1X, an RTX Spark desktop with the same GB10 chip. The same sparkDash workloads ran on this laptop.
+
+| sparkDash, tok/s | This project · N1X laptop · `UD-IQ3_XXS` | TensorFold 1.2.7 · GR1X desktop · `NVIDIA FP4-Local` |
+| --- | ---: | ---: |
+| Prose, 1 chat | **93.3** | 68.2 |
+| Prose with thinking, 1 chat | **87.3** | 58.2 |
+| Code, 1 chat | **148.0** | 98.6 |
+| Prose, 4 chats | 112.5 | **137.0** |
+| Code, 4 chats | 148.5 | **194.1** |
+| Prompt read, 2K / 16K / 64K / 128K | 2,154 / 2,406 / 2,343 / 2,178 | **3,198 / 2,778 / 2,627 / 2,504** |
+
+For one chat this project is 37–50% faster. TensorFold leads at four chats and in prompt reads, by 49% at 2K and by
+12–16% from 16K up. The quants differ, and our run (November 26, before the wrap-up fix) averaged 47.9 W GPU.
+[Our sparkDash run](benchmarks/results/2026-11-26-n1x-join-and-sparkdash#sparkdash-on-basalt-rtx-spark) ·
+[TensorFold port results](https://github.com/edisonchan/Qwen3.8-Flash-Next-Single-DGX-Spark-TensorFold-RTX-Spark/blob/3c7572abf5edc933ab95556703f4dfde48be4336/README.en.md#b-performance-sparkdash-this-machine-windows-11-arm64)
+
 <details>
 <summary>Charts by scenario, number of chats and prompt depth; power, settings and other comparisons</summary>
 
