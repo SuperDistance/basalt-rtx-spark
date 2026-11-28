@@ -84,7 +84,7 @@ Decode and prompt reads are in tokens per second, and first token is for a short
 [November 24 runs](benchmarks/results/2026-11-24-n1x-cooled-release)
 
 <details>
-<summary>Charts by scenario, number of chats and prompt depth; power and settings</summary>
+<summary>Charts by scenario, number of chats and prompt depth; power, settings and the Apple M5 Max</summary>
 
 ![Median cold input tokens per second at five target prompt depths. This project has three columns, IQ3, NVIDIA FP4-Local and NVFP4-DQ6_K, from November 27. Reference columns are the Arm64 port with IQ3 and native vLLM with FP4-Local, both from November 24, and native llama.cpp with UD-IQ4_XS.](benchmarks/img/engines-prefill.svg)
 
@@ -104,6 +104,11 @@ Decode and prompt reads are in tokens per second, and first token is for a short
   medians (72.62 GiB DQ6_K, 72.77 GiB FP4-Local) and peaks of 75.03 and 78.23 GiB.
   [Measured source](https://github.com/SuperDistance/basalt-rtx-spark/commit/1bc565f277a3fb02c6182ea5ba0e9086b3f637e0) ·
   [DQ6_K telemetry](benchmarks/results/2026-11-24-n1x-nvfp4-dq6-k) · [vLLM run](benchmarks/results/2026-11-24-n1x-verified-default/vllm)
+- **Apple M5 Max.** Strata lists 108.9 and 97.0 tok/s for IQ3_XXS on a 128 GB M5 Max (greedy, 200 tokens, a short
+  question and a story). The same test on this laptop gave 104.0 and 71.5, so the M5 Max is faster there, most of all on
+  the story, where the drafts keep only 1.8 tokens per window.
+  [Same test here](benchmarks/results/2026-11-27-n1x-main-rerun#the-m5-max-test-on-this-laptop) ·
+  [Strata Mac results](https://github.com/Niko1221/Strata/blob/25e2319149dd2865afb6489e9bc8fb2c092a0aaa/docs/MAC.md#measured-m5-max-128-gb)
 
 </details>
 
