@@ -104,6 +104,10 @@ Decode and prompt reads are in tokens per second, and first token is for a short
   medians (72.62 GiB DQ6_K, 72.77 GiB FP4-Local) and peaks of 75.03 and 78.23 GiB.
   [Measured source](https://github.com/SuperDistance/basalt-rtx-spark/commit/1bc565f277a3fb02c6182ea5ba0e9086b3f637e0) ·
   [DQ6_K telemetry](benchmarks/results/2026-11-24-n1x-nvfp4-dq6-k) · [vLLM run](benchmarks/results/2026-11-24-n1x-verified-default/vllm)
+- **Strata on the same GPU.** The DGX Spark's GB10 has the N1X's GPU (Blackwell, 48 SMs, compute capability 12.1).
+  Strata reports 45.5–46.5 tok/s decode with IQ3_S on it, under Linux, and 1,296–1,735 tok/s prompt reads at 4K–32K.
+  Its test is not BetterBench (fresh 4K–32K prompts, temperature 0, 256-token answers), and Strata has no Windows on
+  Arm build, so it has not run on this laptop. [Strata DGX Spark results](https://github.com/Niko1221/Strata/blob/40fa01b31ec0768e7ab230ac65527c6d28617515/docs/DGX_SPARK_LINUX.md#speeds)
 - **Desktop GPU.** The Strata figure (90.2 tok/s, IQ3_S) is from a desktop RTX 4080 SUPER.
   [Desktop benchmark](benchmarks/desktop-decode.md)
 - **Apple M5 Max.** Strata lists 108.9 and 97.0 tok/s for IQ3_XXS on a 128 GB M5 Max (greedy, 200 tokens, a short
