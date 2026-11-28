@@ -26,7 +26,8 @@ speed with four concurrent requests, and no request freezing while a cold prompt
 
 ![Single-chat decode on November 27: 105.44 output tok/s on IQ3 (the best of five decode runs; their median is 104.17), 94.26 on NVIDIA FP4-Local and 95.37 on NVFP4-DQ6_K. The Arm64 port and native vLLM, measured on November 24, reach 84.05 and 54.19, and native llama.cpp with UD-IQ4_XS reaches 45.08. The second column shows four-chat output: 125.3, 106.1 and 105.2 for this project against 85.2, 100.7 and 67.2. The third shows cold prompt reads at the 2K target.](benchmarks/img/engines-overview.svg)
 
-- **2.3× native llama.cpp and 1.9× native vLLM** for one chat on the same laptop. [Results](#results)
+- **1.7× native vLLM** for one chat on the same laptop and the same NVIDIA FP4-Local quant (94.26 against 54.19 tok/s).
+  [Results](#results)
 - **No frozen chats.** A 35K-token prompt joining three running chats starts answering in 17 s, and no chat pauses for
   more than 0.8 s. llama.cpp paused the chats for 2.9 s and took 46 s. [Join test](benchmarks/results/2026-11-26-n1x-join-and-sparkdash)
 - **A native Windows app.** No Linux, WSL or Docker: unzip, run `setup.cmd`, run `start.cmd`.
